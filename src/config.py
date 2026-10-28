@@ -18,10 +18,12 @@ class Settings(BaseSettings):
     UPLOAD_MAX_MB: int = 50
     UPLOAD_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.dotx,.txt,.md"
 
-    # "openai" = any OpenAI-compatible /chat/completions endpoint; "deepseek_web" = local
-    # DeepSeek web proxy (dev only); "fake" = deterministic local stub for development and
-    # tests (never silently used as a fallback).
+    # "openai" = any OpenAI-compatible /chat/completions endpoint; "deepseek_web" = DeepSeek
+    # web proxy (deepseek-stateful-wrapper); "fake" = fixed sample case for tests only.
     LLM_PROVIDER: Literal["openai", "deepseek_web", "fake"] = "openai"
+    # The fake provider is refused unless this flag is set (tests, local UI work), so a
+    # misconfigured server reports an error instead of showing a sample verdict.
+    LLM_ALLOW_FAKE: bool = False
     LLM_API_BASE: str = "https://api.openai.com/v1"
     LLM_API_KEY: str | None = None
     LLM_MODEL: str = "gpt-4o-mini"

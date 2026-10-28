@@ -13,7 +13,7 @@ Local assistant for reviewing draft criminal verdicts. The legal rules produce c
 Python 3.11+; Node 20.19+ or 22.12+; Docker Compose.
 
 1. Copy `.env.example` to `.env` and configure your local database and LLM settings.
-2. For a synthetic demonstration, explicitly set `LLM_PROVIDER=fake`. This returns a fixed example, independent of the input, and the result is labelled as development data.
+2. For tests only, set `LLM_PROVIDER=fake` together with `LLM_ALLOW_FAKE=true` (without the flag the service refuses the fake model and reports an error). This returns a fixed example, independent of the input, and the result is labelled as development data.
 3. Start the backend with `docker compose up --build`. For development/test tools, build with `docker compose build --build-arg INSTALL_DEV=true api` first.
 4. In `verdikt-web`, run `npm ci` and `npm run dev`. Open the displayed local URL and `/app`.
 

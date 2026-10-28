@@ -10,6 +10,7 @@ import tempfile
 # Must be set before anything imports src.config.
 os.environ["POSTGRES_DB"] = os.environ.get("TEST_POSTGRES_DB", "judgeai_test")
 os.environ["LLM_PROVIDER"] = "fake"
+os.environ["LLM_ALLOW_FAKE"] = "true"
 os.environ["DB_NULL_POOL"] = "true"
 os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="judgeai-test-uploads-")
 
