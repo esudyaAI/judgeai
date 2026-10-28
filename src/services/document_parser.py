@@ -20,7 +20,7 @@ def _read_pdf_file(path: Path) -> ExtractedDocument:
                 text = page.extract_text() or ""
                 size += len(text)
                 if size > MAX_TEXT_CHARACTERS:
-                    raise UploadRejected("reading_limit", "Document text is too large")
+                    raise UploadRejected("reading_limit", "Текст документа слишком большой")
                 pages.append(text)
             except UploadRejected:
                 raise

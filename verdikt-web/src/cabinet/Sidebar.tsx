@@ -42,7 +42,7 @@ export function Sidebar({ username, cases, activeId, thinking, settingsActive, o
       <aside ref={asideRef} className={`cab-side ${open ? 'open' : ''}`} aria-label="Дела">
         <Link href="/" className="cab-brand">
           <LogoMark size={30} color="#141414" />
-          <span>Вердикт</span>
+          <span>Цифровой судья</span>
         </Link>
         <button type="button" className="btn btn-ink btn-md" onClick={onNew}>
           <Icon name="plus" size={18} strokeWidth={2} />
@@ -82,7 +82,7 @@ export function Sidebar({ username, cases, activeId, thinking, settingsActive, o
           </span>
           <span className="cab-row-text">
             <span className="cab-row-title">{username}</span>
-            <span className="cab-row-meta">Workspace account</span>
+            <span className="cab-row-meta">Личный кабинет</span>
           </span>
           <Icon name="gear" size={18} color="#707070" />
         </button>

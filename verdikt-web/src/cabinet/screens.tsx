@@ -47,7 +47,7 @@ export function NewCaseScreen({ onFiles }: { onFiles: (list: FileList | null) =>
           <Icon name="upload" size={26} strokeWidth={1.6} />
         </span>
         <span style={{ fontWeight: 600 }}>Перетащите материалы дела или выберите файлы</span>
-        <span className="muted-14">PDF, DOCX, DOTX, TXT, MD · 50 MB per file</span>
+        <span className="muted-14">PDF, DOCX, DOTX, TXT, MD · до 50 МБ на файл</span>
       </button>
       <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => onFiles(e.target.files)} />
       <div className="sug-grid">
@@ -206,7 +206,7 @@ function Result({ a }: { a: CaseAnalysis }) {
               </div>
             </div>
             {/* TODO(api): download link */}
-            <button type="button" className="btn btn-ink small-btn" disabled title="Export is not implemented">
+            <button type="button" className="btn btn-ink small-btn" disabled title="Экспорт пока не реализован">
               <Icon name="download" size={14} strokeWidth={2.2} />
               Скачать
             </button>
@@ -293,13 +293,13 @@ function Result({ a }: { a: CaseAnalysis }) {
         })}
         {/* TODO(api): follow-up prompts */}
         <div className="followups">
-          <button type="button" className="btn btn-soft btn-xs" disabled title="Not implemented">
+          <button type="button" className="btn btn-soft btn-xs" disabled title="Пока не реализовано">
             Сравнить с практикой региона
           </button>
-          <button type="button" className="btn btn-soft btn-xs" disabled title="Not implemented">
+          <button type="button" className="btn btn-soft btn-xs" disabled title="Пока не реализовано">
             Позиция защиты
           </button>
-          <button type="button" className="btn btn-soft btn-xs" disabled title="Not implemented">
+          <button type="button" className="btn btn-soft btn-xs" disabled title="Пока не реализовано">
             Подробнее об обстоятельствах
           </button>
         </div>

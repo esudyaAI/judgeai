@@ -15,11 +15,11 @@ async def require_user(request: Request, db: DbSession) -> UserContext:
     token = request.cookies.get("judgeai_session", "")
     user = await resolve_session(db, token)
     if user is None:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Требуется вход")
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         supplied = request.headers.get("X-CSRF-Token", "")
         if not secrets.compare_digest(supplied, csrf_for(token)):
-            raise HTTPException(403, "Invalid CSRF token")
+            raise HTTPException(403, "Недействительный CSRF-токен; обновите страницу")
     return user
 
 
@@ -28,7 +28,7 @@ CurrentUser = Annotated[UserContext, Depends(require_user)]
 
 async def require_admin(user: CurrentUser) -> UserContext:
     if not user.is_admin:
-        raise HTTPException(403, "Administrator access required")
+        raise HTTPException(403, "Требуются права администратора")
     return user
 
 

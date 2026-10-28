@@ -1,22 +1,19 @@
-"""Provision local users without command-line passwords or public registration."""
+"""Provision local users (administrators included) without command-line passwords."""
 
 import argparse
 import asyncio
 import getpass
-import re
 
 from sqlalchemy import delete, select, update
 
 from src.db.auth import User, UserSession
 from src.db.models import Chat
 from src.db.session import async_session_factory
-from src.services.auth import hash_password
+from src.services.auth import hash_password, normalize_username
 
 
 async def run(args):
-    username = args.username.strip().lower()
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{2,79}", username):
-        raise ValueError("Username must contain 3–80 lowercase letters, numbers, dots or dashes")
+    username = normalize_username(args.username)
     encoded = None
     if args.command == "create":
         password = getpass.getpass("Password: ")

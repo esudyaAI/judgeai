@@ -9,7 +9,7 @@ export function App() {
   const isCabinet = path === '/app' || path.startsWith('/app/');
 
   useEffect(() => {
-    document.title = isCabinet ? 'Вердикт — личный кабинет' : 'Вердикт — ИИ-помощник судьи';
+    document.title = isCabinet ? 'Цифровой судья — личный кабинет' : 'Цифровой судья — ИИ-помощник судьи';
   }, [isCabinet]);
 
   if (isCabinet) return <AuthGate>{(user, signOut) => <Cabinet key={user.id} route={parseCabinetPath(path)} onNavigate={go} user={user} onSignOut={signOut} />}</AuthGate>;

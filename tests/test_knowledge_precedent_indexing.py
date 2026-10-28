@@ -3,6 +3,7 @@ fabula vectors are computed afterwards and their failure never fails the upload.
 
 from sqlalchemy import func, select
 
+from src.db.models import KnowledgeVerdict
 from src.db.precedents import PrecedentCardRow, PrecedentEmbedding
 from src.db.session import async_session_factory
 from tests.fixtures.fake_embedder import HashingEmbedder
@@ -59,10 +60,13 @@ async def test_reupload_reuses_the_existing_card(client):
     assert await _count(PrecedentCardRow) == 1
 
 
-async def test_private_case_documents_get_no_card(client):
-    item = (await _upload(client, PRACTICE_THEFT, source_type="chat"))[0]
-    assert item["precedent"] is None
-    assert await _count(PrecedentCardRow) == 0
+async def test_private_source_type_cannot_be_uploaded(client):
+    """Private documents come only from a user's own case, never through the shared upload."""
+    r = await client.post(
+        "/api/knowledge/verdicts/upload", files=_files(PRACTICE_THEFT), data={"source_type": "chat"}
+    )
+    assert r.status_code == 422 and "источник" in r.json()["detail"].lower()
+    assert await _count(KnowledgeVerdict) == 0 and await _count(PrecedentCardRow) == 0
 
 
 async def test_unrecognised_text_is_kept_with_an_empty_card(client):

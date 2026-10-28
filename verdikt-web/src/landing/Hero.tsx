@@ -58,7 +58,7 @@ export function Hero() {
         <Words words={HEADLINE_2} />
       </h1>
       <p className="hero-in hero-lead" style={{ animationDelay: '.7s' }}>
-        Загрузите материалы — Вердикт квалифицирует деяние, найдёт схожие приговоры, сверит рекомендацию с санкцией статьи и объяснит каждый вывод.
+        Загрузите материалы — «Цифровой судья» квалифицирует деяние, найдёт схожие приговоры, сверит рекомендацию с санкцией статьи и объяснит каждый вывод.
       </p>
       <div className="hero-in hero-cta" style={{ animationDelay: '.85s' }}>
         <Link href="/app/new" className="btn btn-ink btn-lg">

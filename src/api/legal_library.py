@@ -79,7 +79,7 @@ async def list_editions(
 ):
     act = await db.scalar(select(LegalAct).where(LegalAct.key == key))
     if act is None:
-        raise HTTPException(404, "Act not found")
+        raise HTTPException(404, "Акт не найден")
     condition = LegalEdition.act_id == act.id
     items = (
         await db.scalars(
@@ -109,7 +109,7 @@ async def list_provisions(
 ):
     edition = await db.get(LegalEdition, edition_id, options=EDITION_METADATA)
     if edition is None:
-        raise HTTPException(404, "Edition not found")
+        raise HTTPException(404, "Редакция не найдена")
     conditions = [LegalProvision.edition_id == edition_id]
     if q:
         conditions.append(
@@ -162,9 +162,11 @@ async def lookup_provision(
         )
     ).all()
     if not rows:
-        raise HTTPException(404, "No verified provision with a known effective period on this date")
+        raise HTTPException(404, "Нет проверенной нормы, действующей на эту дату")
     if len(rows) > 1:
-        raise HTTPException(409, "Conflicting verified provisions; legal review required")
+        raise HTTPException(
+            409, "Проверенные нормы противоречат друг другу; нужна юридическая проверка"
+        )
     provision, edition = rows[0]
     return {
         **provision_read(provision),

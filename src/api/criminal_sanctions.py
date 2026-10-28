@@ -18,7 +18,7 @@ async def list_article_sanctions(
     """Sanctions of an article (optionally one part) from the newest parsed edition."""
     reading = await find_article_sanctions(db, article, part)
     if reading is None:
-        raise HTTPException(404, "no parsed sanctions for this article")
+        raise HTTPException(404, "Для этой статьи санкции не разобраны")
     return [
         CriminalSanctionRead(
             article=s.article,

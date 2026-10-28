@@ -1,5 +1,6 @@
 """Authentication primitives; no secrets, passwords or document text in errors/logs."""
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -11,12 +12,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from src.db.auth import LoginBucket, User, UserSession
-from src.services.auth_tokens import csrf_for, login_bucket_keys, new_session_token, token_digest
+from src.services.auth_tokens import (
+    csrf_for,
+    login_bucket_keys,
+    new_session_token,
+    registration_bucket_key,
+    token_digest,
+)
 
 hasher = PasswordHasher()
 # Match the missing-account password verification cost without a usable default account.
 DUMMY_HASH = hasher.hash(new_session_token())
 SESSION_SECONDS = 8 * 60 * 60
+USERNAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9_.-]{2,79}")
+# Open registration on a public site: a host may create this many accounts per window.
+REGISTRATIONS_PER_HOST = 10
+_BUCKET_WINDOW = timedelta(minutes=15)
 
 
 @dataclass(frozen=True)
@@ -28,7 +39,7 @@ class UserContext:
 
 async def hash_password(password: str) -> str:
     if not 12 <= len(password) <= 1024:
-        raise ValueError("Password must contain 12–1024 characters")
+        raise ValueError("Пароль должен содержать от 12 до 1024 символов")
     return await run_in_threadpool(hasher.hash, password)
 
 
@@ -42,30 +53,52 @@ async def check_password(encoded: str | None, password: str) -> bool:
         return False
 
 
+async def _consume_bucket(db: AsyncSession, key: str, limit: int, now: datetime) -> bool:
+    """Count one attempt against a key; False once the window's limit is exceeded."""
+    reset = now + _BUCKET_WINDOW
+    statement = insert(LoginBucket).values(key=key, attempts=1, resets_at=reset)
+    statement = statement.on_conflict_do_update(
+        index_elements=[LoginBucket.key],
+        set_={
+            "attempts": case((LoginBucket.resets_at <= now, 1), else_=LoginBucket.attempts + 1),
+            "resets_at": case((LoginBucket.resets_at <= now, reset), else_=LoginBucket.resets_at),
+        },
+    ).returning(LoginBucket.attempts)
+    return await db.scalar(statement) <= limit
+
+
 async def consume_login_attempt(db: AsyncSession, client_host: str, username: str) -> bool:
     now = datetime.now(UTC)
-    reset = now + timedelta(minutes=15)
     await db.execute(delete(LoginBucket).where(LoginBucket.resets_at <= now))
     account_key, host_key = login_bucket_keys(client_host, username)
     # The host budget protects bulk requests; per-account failures are independent
     # even when multiple users reach the API through the same development proxy.
     for key, limit in ((host_key, 100), (account_key, 10)):
-        statement = insert(LoginBucket).values(key=key, attempts=1, resets_at=reset)
-        statement = statement.on_conflict_do_update(
-            index_elements=[LoginBucket.key],
-            set_={
-                "attempts": case((LoginBucket.resets_at <= now, 1), else_=LoginBucket.attempts + 1),
-                "resets_at": case(
-                    (LoginBucket.resets_at <= now, reset), else_=LoginBucket.resets_at
-                ),
-            },
-        ).returning(LoginBucket.attempts)
-        count = await db.scalar(statement)
-        if count > limit:
+        if not await _consume_bucket(db, key, limit, now):
             await db.commit()
             return False
     await db.commit()
     return True
+
+
+async def consume_registration_attempt(db: AsyncSession, client_host: str) -> bool:
+    now = datetime.now(UTC)
+    allowed = await _consume_bucket(
+        db, registration_bucket_key(client_host), REGISTRATIONS_PER_HOST, now
+    )
+    await db.commit()
+    return allowed
+
+
+def normalize_username(username: str) -> str:
+    """Lowercased login; ValueError when it breaks the account naming rule."""
+    name = username.strip().lower()
+    if not USERNAME_PATTERN.fullmatch(name):
+        raise ValueError(
+            "Имя пользователя: от 3 до 80 символов — латинские буквы, цифры, точка, "
+            "дефис или подчёркивание; начинается с буквы или цифры"
+        )
+    return name
 
 
 async def clear_successful_attempt(db: AsyncSession, client_host: str, username: str) -> None:

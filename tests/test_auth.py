@@ -72,7 +72,7 @@ async def test_login_csrf_invalid_password_disabled_and_throttle():
                 headers={"X-Requested-With": "JudgeAI"},
             )
             assert response.status_code == 401
-            assert response.json()["detail"] == "Invalid username or password"
+            assert response.json()["detail"] == "Неверное имя пользователя или пароль"
         assert (
             await client.post(
                 "/api/auth/login", json=payload, headers={"X-Requested-With": "JudgeAI"}
@@ -123,13 +123,15 @@ async def test_two_users_cannot_read_post_or_poll_foreign_case_or_result(monkeyp
         assert (
             await bob.post(f"/api/chats/{case}/messages", data={"content": "forbidden"})
         ).status_code == 404
-        assert (await bob.get("/api/knowledge/verdicts")).status_code == 403
+        # The shared practice base is open to every signed-in user (owner decision 28.10.2026);
+        # private case documents stay out of it (tests/test_practice_base_access.py).
+        assert (await bob.get("/api/knowledge/verdicts")).status_code == 200
         assert (
             await alice.post(
                 f"/api/chats/{case}/messages",
-                data={"content": "forbidden", "use_knowledge_base": "true"},
+                data={"content": "with practice", "use_knowledge_base": "true"},
             )
-        ).status_code == 403
+        ).status_code == 202
         assert (await alice.get(f"/api/chats/{case}/messages/{message}")).status_code == 200
 
 

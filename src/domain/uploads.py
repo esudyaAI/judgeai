@@ -52,7 +52,7 @@ class DocxInspection:
 
 def require_budget(value: int, maximum: int) -> None:
     if value > maximum:
-        raise UploadRejected("docx_limit", "DOCX exceeds the supported processing limits")
+        raise UploadRejected("docx_limit", "DOCX превышает допустимые пределы обработки")
 
 
 def check_directory(entries: int, directory_bytes: int, source_bytes: int, limits: DocxLimits):
@@ -73,13 +73,15 @@ def check_entry(entry: ArchiveEntry, limits: DocxLimits):
         or any(part in {"", ".", ".."} for part in parts)
         or entry.symlink
     ):
-        raise UploadRejected("docx_unsafe", "DOCX contains unsafe package entries")
+        raise UploadRejected("docx_unsafe", "DOCX содержит небезопасные элементы")
     if entry.encrypted or entry.method not in {0, 8} or entry.zip_version > 20:
-        raise UploadRejected("docx_unsupported", "DOCX encryption or compression is unsupported")
+        raise UploadRejected(
+            "docx_unsupported", "Шифрование или такой способ сжатия DOCX не поддерживается"
+        )
     if name.lower().endswith("vbaproject.bin"):
-        raise UploadRejected("docx_unsafe", "Macro-enabled documents are unsupported")
+        raise UploadRejected("docx_unsafe", "Документы с макросами не поддерживаются")
     if entry.size < 0 or entry.compressed_size < 0:
-        raise UploadRejected("docx_invalid", "DOCX package is invalid")
+        raise UploadRejected("docx_invalid", "Файл DOCX повреждён")
     require_budget(entry.size, limits.max_member_bytes)
     require_budget(entry.size, entry.compressed_size * limits.max_ratio)
     if name.lower().endswith((".xml", ".rels")):
@@ -116,11 +118,11 @@ class PdfInspection:
 
 def reject_pdf(code: str) -> UploadRejected:
     messages = {
-        "pdf_invalid": "PDF is not a supported, intact document",
-        "pdf_encrypted": "Encrypted PDF documents are unsupported",
-        "pdf_limit": "PDF exceeds the supported processing limits",
-        "pdf_busy": "PDF validation is busy; try again later",
-        "pdf_unavailable": "PDF validation is unavailable; try again later",
+        "pdf_invalid": "PDF повреждён или не поддерживается",
+        "pdf_encrypted": "Зашифрованные PDF не поддерживаются",
+        "pdf_limit": "PDF превышает допустимые пределы обработки",
+        "pdf_busy": "Проверка PDF сейчас занята; попробуйте позже",
+        "pdf_unavailable": "Проверка PDF недоступна; попробуйте позже",
     }
     if not isinstance(code, str) or code not in messages:
         code = "pdf_unavailable"

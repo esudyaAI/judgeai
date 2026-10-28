@@ -31,11 +31,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (response.status === 401) {
     csrfToken = '';
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('judgeai:unauthorized'));
-    throw new AuthenticationError('Authentication required');
+    const body = await response.json().catch(() => null);
+    throw new AuthenticationError(typeof body?.detail === 'string' ? body.detail : 'Требуется вход');
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(typeof body?.detail === 'string' ? body.detail : `Request failed (${response.status})`);
+    throw new Error(typeof body?.detail === 'string' ? body.detail : `Ошибка запроса (${response.status})`);
   }
   return response.json() as Promise<T>;
 }
@@ -60,8 +61,8 @@ export function fileExt(name: string): CaseFile['ext'] {
 export const api = {
   async listCases(): Promise<CaseSummary[]> {
     const chats = await request<Chat[]>('/chats');
-    const labels = {draft: 'Draft', busy: 'Analysing', ready: 'Analysis ready', failed: 'Analysis failed'};
-    return chats.map(c => ({id: String(c.id), title: c.title || 'Untitled case',
+    const labels = {draft: 'Черновик', busy: 'Идёт анализ', ready: 'Анализ готов', failed: 'Ошибка анализа'};
+    return chats.map(c => ({id: String(c.id), title: c.title || 'Дело без названия',
       group: 'Ранее', status: c.status, meta: labels[c.status]}));
   },
   createCase(): Promise<Chat> {
@@ -95,9 +96,18 @@ export const auth = {
       csrfToken = user.csrf_token;
       return user;
     } catch (error) {
-      if (error instanceof AuthenticationError) throw new Error('Invalid username or password');
+      if (error instanceof AuthenticationError) throw new Error('Неверное имя пользователя или пароль');
       throw error;
     }
+  },
+  /** Open self-registration of an ordinary account; signs the new user in. */
+  async register(username: string, password: string): Promise<AuthUser> {
+    csrfToken = '';
+    const user = await request<AuthUser>('/auth/register', {method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Requested-With': 'JudgeAI'},
+      body: JSON.stringify({username, password})});
+    csrfToken = user.csrf_token;
+    return user;
   },
   async logout(): Promise<void> {
     await request('/auth/logout', {method: 'POST'});

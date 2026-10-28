@@ -186,7 +186,7 @@ async def test_fake_analysis_is_labelled_as_development(client):
     chat_id = await _new_chat(client)
     await client.post(f"/api/chats/{chat_id}/messages", data={"content": "Synthetic verdict"})
     messages = (await client.get(f"/api/chats/{chat_id}/messages")).json()
-    assert any("development" in w.lower() for w in messages[-1]["result"]["warnings"])
+    assert any("режим разработки" in w.lower() for w in messages[-1]["result"]["warnings"])
 
 
 async def test_operative_part_of_uploaded_draft_is_read_per_count(client):

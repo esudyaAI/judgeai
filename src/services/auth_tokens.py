@@ -21,3 +21,7 @@ def login_bucket_keys(client_host: str, username: str) -> tuple[str, str]:
         token_digest("account:" + username.strip().lower()),
         token_digest("host:" + client_host),
     )
+
+
+def registration_bucket_key(client_host: str) -> str:
+    return token_digest("register:" + client_host)

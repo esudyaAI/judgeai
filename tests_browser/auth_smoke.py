@@ -136,10 +136,10 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 process.wait()
 
     def sign_in(self, page, username="browser-a"):
-        page.get_by_label("Username", exact=True).fill(username)
-        page.get_by_label("Password", exact=True).fill(self.password)
-        page.get_by_role("button", name="Sign in", exact=True).click()
-        expect(page.get_by_role("button", name="Sign out", exact=True)).to_be_visible()
+        page.get_by_label("Имя пользователя", exact=True).fill(username)
+        page.get_by_label("Пароль", exact=True).fill(self.password)
+        page.get_by_role("button", name="Войти", exact=True).click()
+        expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
 
     def test_real_login_errors_reload_logout_expiry_and_private_access(self):
         for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
@@ -148,14 +148,16 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 self.addCleanup(context.close)
                 page = context.new_page()
                 page.goto(URL + "/app")
-                expect(page.get_by_label("Username", exact=True)).to_be_visible()
+                expect(page.get_by_label("Имя пользователя", exact=True)).to_be_visible()
                 page.screenshot(
                     path=str(ROOT / "acceptance-screenshots" / f"{label}-login.png"), full_page=True
                 )
-                page.get_by_label("Username", exact=True).fill("browser-a")
-                page.get_by_label("Password", exact=True).fill("deliberately-invalid")
-                page.get_by_role("button", name="Sign in", exact=True).click()
-                expect(page.get_by_role("alert")).to_contain_text("Invalid username or password")
+                page.get_by_label("Имя пользователя", exact=True).fill("browser-a")
+                page.get_by_label("Пароль", exact=True).fill("deliberately-invalid")
+                page.get_by_role("button", name="Войти", exact=True).click()
+                expect(page.get_by_role("alert")).to_contain_text(
+                    "Неверное имя пользователя или пароль"
+                )
                 self.sign_in(page)
                 cookie = next(c for c in context.cookies() if c["name"] == "judgeai_session")
                 self.assertTrue(cookie["httpOnly"])
@@ -175,21 +177,17 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.locator('input[type="file"]').last.set_input_files(
                     {"name": "synthetic-empty.txt", "mimeType": "text/plain", "buffer": b" "}
                 )
-                expect(
-                    page.get_by_text("Uploaded · waiting to be read", exact=True)
-                ).to_be_visible()
+                expect(page.get_by_text("Загружен · ожидает чтения", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Отправить", exact=True).click()
-                expect(page.get_by_text("No readable text", exact=True)).to_be_visible(
-                    timeout=15000
-                )
-                expect(page.get_by_role("alert")).to_contain_text("No readable text")
+                expect(page.get_by_text("Текст не найден", exact=True)).to_be_visible(timeout=15000)
+                expect(page.get_by_role("alert")).to_contain_text("Читаемый текст не найден")
                 self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
                 page.screenshot(
                     path=str(ROOT / "acceptance-screenshots" / f"{label}-reading-failure.png"),
                     full_page=True,
                 )
                 page.reload()
-                expect(page.get_by_role("button", name="Sign out", exact=True)).to_be_visible()
+                expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
                 session = context.request.get(URL + "/api/auth/me").json()
                 self.assertEqual(
                     context.request.post(
@@ -212,8 +210,8 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 self.assertEqual(
                     other.request.get(URL + f"/api/chats/{chat_id}/messages").status, 404
                 )
-                page.get_by_role("button", name="Sign out", exact=True).click()
-                expect(page.get_by_label("Username", exact=True)).to_be_visible()
+                page.get_by_role("button", name="Выйти", exact=True).click()
+                expect(page.get_by_label("Имя пользователя", exact=True)).to_be_visible()
                 self.assertEqual(context.request.get(URL + "/api/chats").status, 401)
                 self.sign_in(page)
 
@@ -235,8 +233,38 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 with ThreadPoolExecutor(max_workers=1) as executor:
                     executor.submit(lambda: asyncio.run(expire())).result(timeout=20)
                 page.reload()
-                expect(page.get_by_label("Username", exact=True)).to_be_visible()
+                expect(page.get_by_label("Имя пользователя", exact=True)).to_be_visible()
                 self.assertEqual(context.request.get(URL + "/api/chats").status, 401)
+                context.close()
+
+    def test_open_registration_signs_in_and_survives_relogin(self):
+        for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+            with self.subTest(viewport=label):
+                context = self.browser.new_context(viewport={"width": width, "height": height})
+                self.addCleanup(context.close)
+                page = context.new_page()
+                page.goto(URL + "/app")
+                page.get_by_role("button", name="Зарегистрироваться", exact=True).click()
+                expect(page.get_by_role("heading", name="Регистрация")).to_be_visible()
+                username = f"new-judge-{label}"
+                page.get_by_label("Имя пользователя", exact=True).fill(username)
+                page.get_by_label("Пароль", exact=True).fill("short")
+                page.get_by_role("button", name="Зарегистрироваться", exact=True).first.click()
+                # The browser blocks a password under 12 characters before any request.
+                self.assertEqual(
+                    page.locator("#password").evaluate("el => el.validity.tooShort"), True
+                )
+                page.get_by_label("Пароль", exact=True).fill(self.password)
+                page.screenshot(
+                    path=str(ROOT / "acceptance-screenshots" / f"{label}-register.png"),
+                    full_page=True,
+                )
+                page.locator("form").get_by_role("button", name="Зарегистрироваться").click()
+                expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
+                self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+                page.get_by_role("button", name="Выйти", exact=True).click()
+                expect(page.get_by_label("Имя пользователя", exact=True)).to_be_visible()
+                self.sign_in(page, username)
                 context.close()
 
 

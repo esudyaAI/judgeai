@@ -4,6 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import KnowledgeChunk, KnowledgeVerdict
+from src.domain.practice import PRIVATE_SOURCE_TYPES
 from src.services.embeddings import embed_query
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,10 @@ async def _vector_search(
             KnowledgeVerdict,
             KnowledgeChunk.verdict_id == KnowledgeVerdict.id,
         )
-        .where(KnowledgeChunk.embedding.is_not(None))
+        .where(
+            KnowledgeChunk.embedding.is_not(None),
+            KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
+        )
         .order_by(distance.asc())
         .limit(limit * 3)
     )
@@ -72,7 +76,7 @@ async def _keyword_fallback(
     stmt = (
         select(KnowledgeVerdict)
         .join(KnowledgeChunk, KnowledgeChunk.verdict_id == KnowledgeVerdict.id)
-        .where(or_(*conditions))
+        .where(or_(*conditions), KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES))
         .distinct()
         .limit(limit)
     )

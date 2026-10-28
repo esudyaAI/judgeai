@@ -38,7 +38,7 @@ def build_legal_checks(
             norm=norm,
             source=source,
             status="insufficient_data",
-            explanation="Insufficient cited facts. No legal conclusion was made.",
+            explanation="Недостаточно подтверждённых фактов; правовой вывод не сделан.",
         )
         try:
             if facts is None:
@@ -59,8 +59,8 @@ def build_legal_checks(
                 category = categorize(guilt, ceiling)
                 check.value = next(key for key, val in _CATEGORIES.items() if val == category)
                 check.explanation = (
-                    "Candidate category from cited inputs. Verify the statutory sanction, "
-                    "the offence date and the applicable law edition."
+                    "Предварительная категория по процитированным данным. Проверьте санкцию "
+                    "статьи, дату преступления и применимую редакцию закона."
                 )
             else:
                 category = _CATEGORIES[_value(facts.category, source_text, str)]
@@ -89,8 +89,8 @@ def build_legal_checks(
                     history_complete=complete,
                 ).value
                 check.explanation = (
-                    "Candidate recidivism classification. Verify completeness, separate "
-                    "judgments, conviction validity and all dates at the time of the offence."
+                    "Предварительный вид рецидива. Проверьте полноту сведений о судимостях, "
+                    "отдельность приговоров, их действительность и все даты на момент преступления."
                 )
             check.status = "ok"
             check.evidence = list(dict.fromkeys(evidence))

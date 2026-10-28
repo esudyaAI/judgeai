@@ -53,7 +53,7 @@ export function Nav() {
       <nav aria-label="Основная навигация" className="nav">
         <a href="#top" className="nav-brand">
           <LogoMark size={32} color="#141414" />
-          <span>Вердикт</span>
+          <span>Цифровой судья</span>
         </a>
         <div className="nav-links" onMouseLeave={() => setPill(null)}>
           <span aria-hidden="true" className="nav-pill" style={pillStyle} />

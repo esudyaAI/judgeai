@@ -21,7 +21,7 @@ export function parseCabinetPath(path: string): CabinetRoute {
 
 interface Props { route: CabinetRoute; onNavigate: (to: string, replace?: boolean) => void; user: AuthUser; onSignOut: () => Promise<void> }
 const STAGES = ['reading', 'searching', 'qualifying', 'checking'];
-const LABELS = ['Reading documents', 'Searching precedents', 'Extracting facts', 'Checking legal rules'];
+const LABELS = ['Читаем документы', 'Ищем похожие приговоры', 'Извлекаем факты', 'Проверяем нормы закона'];
 
 export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const {view, caseId} = route;
@@ -34,7 +34,8 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [listError, setListError] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [useKnowledge, setUseKnowledge] = useState(false);
+  // Practice comparison is on by default: the shared base is open to every user.
+  const [useKnowledge, setUseKnowledge] = useState(true);
   const [retry, setRetry] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const draftId = useRef<string | null>(null);
@@ -131,30 +132,30 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
       <main className="cab-main">
         <header className="cab-header">
           <div className="cab-header-title">
-            <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Open cases"
+            <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть список дел"
               aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Icon name="menu" size={18} /></button>
-            <span className="cab-title">{view === 'settings' ? 'Account' : active?.title || (caseId ? `Case ${caseId}` : 'New case')}</span>
-            {busy && <span className="badge"><span className="spin" />Analysing</span>}
-            {analysis && !busy && <span className="badge">Analysis ready</span>}
+            <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
+            {busy && <span className="badge"><span className="spin" />Идёт анализ</span>}
+            {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>
-          <button type="button" className="btn btn-line btn-sm" onClick={() => { void onSignOut().catch(() => setError("Cannot sign out. Try again.")); }}>Sign out</button>
-          {analysis && <button type="button" className="btn btn-line btn-sm hide-sm" disabled title="DOCX export is not implemented">DOCX export · coming soon</button>}
+          <button type="button" className="btn btn-line btn-sm" onClick={() => { void onSignOut().catch(() => setError("Не удалось выйти. Попробуйте ещё раз.")); }}>Выйти</button>
+          {analysis && <button type="button" className="btn btn-line btn-sm hide-sm" disabled title="Экспорт в DOCX пока не реализован">Экспорт в DOCX · скоро</button>}
         </header>
         <div className="cab-scroll">
-          {listError && <div className="warn-box" role="alert">{listError}<button type="button" onClick={() => void refreshCases()}>Retry cases</button></div>}
-          {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Reload</button></div>}
-          {loading && <p role="status">Loading case…</p>}
+          {listError && <div className="warn-box" role="alert">{listError}<button type="button" onClick={() => void refreshCases()}>Повторить</button></div>}
+          {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
+          {loading && <p role="status">Загружаем дело…</p>}
           {view === 'settings' ? <SettingsScreen onCancel={() => go('/app')} /> : caseId ? (
             <>
-              {busy || analysis || attachments.length > 0 ? <ThreadScreen prompt={user?.content || 'Uploaded documents'} analysis={analysis} files={attachments} thinking={busy} steps={steps} /> :
-                !loading && !error && <p>No analysis yet. Add a request or upload a verdict.</p>}
+              {busy || analysis || attachments.length > 0 ? <ThreadScreen prompt={user?.content || 'Загруженные документы'} analysis={analysis} files={attachments} thinking={busy} steps={steps} /> :
+                !loading && !error && <p>Анализа пока нет. Задайте вопрос или загрузите проект приговора.</p>}
               {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} />}
             </>
           ) : view === 'attach' || selectedFiles.length ? <AttachScreen files={pendingFiles} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} /> : <NewCaseScreen onFiles={addFiles} />}
         </div>
         {view !== 'settings' && <>
-          {caseId && !busy && <p className="cab-request-note">A new request uses only its own attachments. Attach previous documents again to include them.</p>}
-          {account.is_admin && <label className="cab-knowledge"><input type="checkbox" checked={useKnowledge} disabled={busy} onChange={e => setUseKnowledge(e.target.checked)} />Search shared precedent library</label>}
+          {caseId && !busy && <p className="cab-request-note">Новый запрос учитывает только свои вложения. Чтобы использовать прежние документы, прикрепите их снова.</p>}
+          <label className="cab-knowledge"><input type="checkbox" checked={useKnowledge} disabled={busy} onChange={e => setUseKnowledge(e.target.checked)} />Сравнить с практикой из общей базы</label>
           <Composer mode={busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}
             value={prompt} onChange={setPrompt} onFiles={addFiles} onSend={() => void send()}
             onStop={() => go('/app')} />

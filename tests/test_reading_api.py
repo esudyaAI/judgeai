@@ -44,7 +44,7 @@ async def test_no_text_and_no_question_fails_before_llm(client, monkeypatch):
     messages = (await client.get(url)).json()
     assert messages[0]["attachments"][0]["extraction_status"] == "empty"
     assert messages[1]["status"] == "failed"
-    assert "readable text" in messages[1]["error"]
+    assert "Читаемый текст не найден" in messages[1]["error"]
     assert messages[1]["result"] is None
 
 

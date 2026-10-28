@@ -24,16 +24,22 @@ def classify_pages(page_texts: list[str]) -> str:
 
 
 _MESSAGES = {
-    "unsupported_format": "This file variant is unsupported. Convert it to TXT, DOCX or PDF.",
-    "invalid_encoding": "Text encoding is invalid or ambiguous. Save the file as UTF-8.",
-    "binary_text": "The file contains binary data rather than supported plain text.",
-    "resource_limit": "The document exceeds the supported reading limits.",
-    "no_text_layer": "Some PDF pages have no readable text. OCR or another copy is required.",
-    "unreadable_pages": "Some PDF pages could not be read. Provide another copy.",
-    "unsupported_content": "Images or embedded content were not read; document text is incomplete.",
-    "tracked_changes": "The document contains tracked changes. Review a finalized copy.",
-    "invalid_document": "The document is damaged, encrypted or unsupported.",
-    "empty_document": "No usable text was found in this document.",
+    "unsupported_format": (
+        "Этот вариант файла не поддерживается. Сохраните его в TXT, DOCX или PDF."
+    ),
+    "invalid_encoding": "Кодировка текста неверна или неоднозначна. Сохраните файл в UTF-8.",
+    "binary_text": "Файл содержит двоичные данные, а не обычный текст.",
+    "resource_limit": "Документ превышает допустимые пределы чтения.",
+    "no_text_layer": (
+        "На некоторых страницах PDF нет текста. Нужно распознавание (OCR) или другая копия."
+    ),
+    "unreadable_pages": "Некоторые страницы PDF не удалось прочитать. Загрузите другую копию.",
+    "unsupported_content": (
+        "Изображения и встроенные объекты не прочитаны; текст документа неполный."
+    ),
+    "tracked_changes": "В документе есть неподтверждённые исправления. Загрузите итоговую версию.",
+    "invalid_document": "Документ повреждён, зашифрован или не поддерживается.",
+    "empty_document": "В документе не найден пригодный текст.",
 }
 
 

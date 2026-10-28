@@ -132,7 +132,7 @@ export function Features() {
         <h2 className="wipe h2" style={{ maxWidth: 760 }}>
           Каждый вывод — с обоснованием.
         </h2>
-        <p className="lead">Вердикт не просто называет срок. Он показывает, на какие нормы, обстоятельства и приговоры опирается рекомендация.</p>
+        <p className="lead">Цифровой судья не просто называет срок. Он показывает, на какие нормы, обстоятельства и приговоры опирается рекомендация.</p>
         <div className="bento">
           <div className="feat rise" style={{ gridColumn: 1, gridRow: 1 }}>
             <IconTile className="tile" name="doc" bg="#0066ff" size={52} iconSize={26} />
@@ -183,7 +183,7 @@ export function LawHighlight() {
       <div className="rise law">
         <div className="law-copy">
           <h2 className="wipe h2">Рекомендация в пределах закона.</h2>
-          <p className="lead">Вердикт показывает санкцию статьи, верхний предел с учётом смягчающих обстоятельств и то, где находится рекомендация и практика по схожим делам.</p>
+          <p className="lead">Цифровой судья показывает санкцию статьи, верхний предел с учётом смягчающих обстоятельств и то, где находится рекомендация и практика по схожим делам.</p>
         </div>
         <div ref={ref} className="law-card">
           <span style={{ fontWeight: 600 }}>Лишение свободы, п. «в» ч. 2 ст. 158</span>
@@ -264,7 +264,7 @@ export function Footer() {
       <div className="container foot-inner">
         <div className="foot-top">
           <div className="foot-brand">
-            <span className="foot-word">Вердикт</span>
+            <span className="foot-word">Цифровой судья</span>
             <span className="foot-muted" style={{ maxWidth: 360 }}>
               ИИ-помощник для подготовки проектов судебных решений.
             </span>

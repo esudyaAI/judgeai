@@ -35,7 +35,7 @@ _OFFICE_RELS = {
 
 
 def invalid() -> UploadRejected:
-    return UploadRejected("docx_invalid", "DOCX is not a supported Word document package")
+    return UploadRejected("docx_invalid", "Файл не является поддерживаемым документом Word")
 
 
 def _directory_preflight(source: BinaryIO, limits: DocxLimits) -> int:
@@ -96,7 +96,7 @@ class _XmlReader:
         self.parser.ExternalEntityRefHandler = self.forbidden
 
     def forbidden(self, *args):
-        raise UploadRejected("docx_unsafe", "DOCX XML declarations are unsupported")
+        raise UploadRejected("docx_unsafe", "Такие XML-объявления в DOCX не поддерживаются")
 
     def start(self, name, attrs):
         self.depth += 1
@@ -110,7 +110,7 @@ class _XmlReader:
         if name in {_CT_NS + "Override", _CT_NS + "Default"}:
             content_type = attrs.get("ContentType", "")
             if "macroenabled" in content_type.lower() or "vbaproject" in content_type.lower():
-                raise UploadRejected("docx_unsafe", "Macro-enabled documents are unsupported")
+                raise UploadRejected("docx_unsafe", "Документы с макросами не поддерживаются")
             mapping = self.facts.overrides if name == _CT_NS + "Override" else self.facts.defaults
             key = attrs.get(
                 "PartName" if name == _CT_NS + "Override" else "Extension", ""
@@ -146,9 +146,7 @@ class DocxInspector:
                 for entry in entries:
                     name = entry.filename.casefold()
                     if name in seen:
-                        raise UploadRejected(
-                            "docx_unsafe", "DOCX contains duplicate package entries"
-                        )
+                        raise UploadRejected("docx_unsafe", "DOCX содержит повторяющиеся элементы")
                     seen.add(name)
                     check_entry(
                         ArchiveEntry(

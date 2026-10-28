@@ -257,9 +257,9 @@ def assemble_analysis(
         )
     if context_size > DOCUMENT_CHARS_LIMIT:
         warnings.append(
-            f"Model context limited to {DOCUMENT_CHARS_LIMIT} characters; "
-            f"{context_size - DOCUMENT_CHARS_LIMIT} characters were omitted. "
-            "This analysis does not cover the complete documents."
+            f"Модели передано не больше {DOCUMENT_CHARS_LIMIT} символов; "
+            f"{context_size - DOCUMENT_CHARS_LIMIT} символов не вошли. "
+            "Анализ охватывает документы не полностью."
         )
     # Quotes are accepted only from what the model actually saw.
     source_text = "\n".join(

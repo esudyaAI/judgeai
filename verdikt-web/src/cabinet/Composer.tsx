@@ -61,7 +61,7 @@ export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop
               key="stop"
               type="button"
               className="btn btn-ink btn-icon"
-              aria-label="Keep running in background" title="Hide progress; analysis continues"
+              aria-label="Продолжить в фоне" title="Скрыть ход анализа; анализ продолжится"
               onClick={(e) => {
                 e.preventDefault();
                 onStop();

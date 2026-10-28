@@ -21,7 +21,7 @@ _REL = "http://schemas.openxmlformats.org/package/2006/relationships}"
 
 
 def _forbidden(*args):
-    raise UploadRejected("docx_unsafe", "Unsupported Word XML declaration")
+    raise UploadRejected("docx_unsafe", "Такое XML-объявление Word не поддерживается")
 
 
 def _parser():
@@ -48,7 +48,7 @@ def _relationships(package):
         if tag == _REL + "Relationship":
             identity = attrs.get("Id")
             if not identity or identity in relationships:
-                raise UploadRejected("docx_invalid", "Invalid Word relationships")
+                raise UploadRejected("docx_invalid", "Повреждены связи внутри документа Word")
             relationships[identity] = attrs
 
     parser.StartElementHandler = start
@@ -80,7 +80,7 @@ class _Stories:
     def append(self, text):
         self.size += len(text)
         if self.size > MAX_TEXT_CHARACTERS:
-            raise UploadRejected("reading_limit", "Document text is too large")
+            raise UploadRejected("reading_limit", "Текст документа слишком большой")
         self.output.append(text)
 
     def parse(self, data, root, note_ids=None, *, collect=False):
@@ -95,7 +95,7 @@ class _Stories:
             tag = local if namespace in _WORD else "foreign"
             stack.append(tag)
             if len(stack) == 1 and (namespace not in _WORD or local != root):
-                raise UploadRejected("docx_invalid", "Invalid Word story")
+                raise UploadRejected("docx_invalid", "Повреждена часть текста документа Word")
             if skip_depth is not None:
                 return
             if note_ids is not None and len(stack) == 2:

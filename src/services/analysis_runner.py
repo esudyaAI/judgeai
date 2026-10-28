@@ -90,7 +90,6 @@ async def run_analysis(
             or chat.owner_id != user.user_id
             or result is None
             or not is_pending_reply(request, result)
-            or ((use_knowledge_base or save_to_knowledge_base) and not account.is_admin)
         ):
             logger.warning("rejected unauthorized analysis job")
             return
@@ -123,8 +122,8 @@ async def run_analysis(
             warnings: list[str] = []
             if settings.LLM_PROVIDER == "fake":
                 warnings.append(
-                    "Development mode: this is a fixed synthetic sample, not an analysis "
-                    "of the uploaded documents. Configure a real LLM for actual analysis."
+                    "Режим разработки: показан фиксированный синтетический пример, а не анализ "
+                    "загруженных документов. Для настоящего анализа подключите языковую модель."
                 )
             for att in user_message.attachments:
                 doc = await extract_document(Path(att.stored_path))
@@ -147,7 +146,7 @@ async def run_analysis(
 
         if not (question or "").strip() and not any(text.strip() for text in texts):
             raise UnreadableInput(
-                "No readable text was found. Provide a readable document or a question."
+                "Читаемый текст не найден. Загрузите документ с текстом или задайте вопрос."
             )
 
         await _set_stage(assistant_message_id, stage="searching")

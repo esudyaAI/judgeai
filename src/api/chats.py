@@ -102,7 +102,7 @@ async def get_message(chat_id: int, message_id: int, db: DbSession, user: Curren
     """Poll target while an analysis is running (status / stage / result)."""
     chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
     if chat is None:
-        raise HTTPException(404, "Case not found")
+        raise HTTPException(404, "Дело не найдено")
     message = await load_message(db, message_id)
     if message.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="Сообщение не найдено")
@@ -124,8 +124,6 @@ async def create_message(
     chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
-    if (use_knowledge_base or save_to_knowledge_base) and not user.is_admin:
-        raise HTTPException(403, "Shared precedent library requires administrator access")
     if not (content and content.strip()) and not files:
         raise HTTPException(status_code=422, detail="Нужен текст запроса или хотя бы один файл")
     for file in files:  # reject the whole request before writing anything

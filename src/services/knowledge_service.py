@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.db.models import KnowledgeChunk, KnowledgeVerdict
+from src.domain.practice import PRIVATE_SOURCE_TYPES
 from src.services.embeddings import embed_passages
 
 
@@ -59,8 +60,16 @@ async def create_knowledge_verdict_from_text(
 ) -> tuple[KnowledgeVerdict, bool]:
     file_hash = calculate_text_hash(raw_text)
 
+    # Deduplicate only within the same visibility: a shared upload must never resolve
+    # to (and reveal) a private document saved from someone else's case.
+    if source_type in PRIVATE_SOURCE_TYPES:
+        same_visibility = KnowledgeVerdict.source_type.in_(PRIVATE_SOURCE_TYPES)
+    else:
+        same_visibility = KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES)
     existing = await db.scalar(
-        select(KnowledgeVerdict).where(KnowledgeVerdict.file_hash == file_hash)
+        select(KnowledgeVerdict)
+        .where(KnowledgeVerdict.file_hash == file_hash, same_visibility)
+        .limit(1)
     )
 
     if existing:

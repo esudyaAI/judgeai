@@ -31,7 +31,7 @@ def test_context_overflow_is_visible_in_result():
         extra_warnings=[],
         document_texts=["A" * 40000],
     )
-    assert any("context" in warning.lower() for warning in result.warnings)
+    assert any("не полностью" in warning.lower() for warning in result.warnings)
 
 
 def test_negative_model_terms_are_rejected():

@@ -3,15 +3,16 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, or_, select
 
-from src.api.deps import AdminUser, DbSession
+from src.api.deps import AdminUser, CurrentUser, DbSession
 from src.api.precedents import get_embedder
 from src.application.precedent_cards import CARD_EXTRACTOR_VERSION
 from src.application.similar_precedents import EmbeddingPort, IndexPrecedents, StoredCard
 from src.db import session as db_session
 from src.db.models import KnowledgeChunk, KnowledgeVerdict
 from src.domain.documents import reading_warnings
+from src.domain.practice import PRIVATE_SOURCE_TYPES
 from src.infrastructure.precedent_store import SqlPrecedentStore
-from src.infrastructure.verdict_reader import RegexVerdictReader
+from src.infrastructure.verdict_reader import PracticeReader
 from src.schemas.knowledge import (
     KnowledgeListResponse,
     KnowledgeUploadItem,
@@ -46,9 +47,7 @@ async def _index_cards(db, embedder: EmbeddingPort, verdict_ids: list[int]):
     """Build cards for the new verdicts (regex, fast) and return the cards of the uploaded ones."""
     store = SqlPrecedentStore(db)
     try:
-        await IndexPrecedents(store, RegexVerdictReader(), embedder).build_cards(
-            CARD_EXTRACTOR_VERSION
-        )
+        await IndexPrecedents(store, PracticeReader(), embedder).build_cards(CARD_EXTRACTOR_VERSION)
     except Exception:  # the verdicts are saved; `python -m src.cli.precedents index` retries
         logger.exception("precedent cards were not built on upload")
         await db.rollback()
@@ -58,13 +57,13 @@ async def _index_cards(db, embedder: EmbeddingPort, verdict_ids: list[int]):
 async def _embed_precedents(embedder: EmbeddingPort) -> None:
     async with db_session.async_session_factory() as db:
         store = SqlPrecedentStore(db)
-        await IndexPrecedents(store, RegexVerdictReader(), embedder).embed_pending()
+        await IndexPrecedents(store, PracticeReader(), embedder).embed_pending()
 
 
 @router.post("/verdicts/upload", response_model=KnowledgeUploadResponse)
 async def upload_verdicts(
     db: DbSession,
-    user: AdminUser,
+    user: CurrentUser,
     background: BackgroundTasks,
     files: list[UploadFile] = File(default_factory=list),
     source_type: str = Form("manual"),
@@ -72,6 +71,8 @@ async def upload_verdicts(
 ):
     if not files:
         raise HTTPException(status_code=422, detail="Не переданы файлы")
+    if source_type in PRIVATE_SOURCE_TYPES:  # set only by the analysis of a user's own case
+        raise HTTPException(status_code=422, detail="Недопустимый источник документа")
 
     items: list[KnowledgeUploadItem] = []
 
@@ -84,7 +85,7 @@ async def upload_verdicts(
             warnings = reading_warnings(document)
             if document.status not in {"ok", "partial"} or not document.text.strip():
                 raise HTTPException(
-                    422, "; ".join(warnings) or "No usable document text was found."
+                    422, "; ".join(warnings) or "В документе не найден пригодный текст."
                 )
             verdict, duplicate = await create_knowledge_verdict_from_text(
                 db=db,
@@ -124,13 +125,14 @@ async def upload_verdicts(
 @router.get("/verdicts", response_model=KnowledgeListResponse)
 async def list_verdicts(
     db: DbSession,
-    user: AdminUser,
+    user: CurrentUser,
     page: int = 1,
     size: int = 20,
     q: str | None = None,
 ):
-    base_stmt = select(KnowledgeVerdict)
-    count_stmt = select(func.count(KnowledgeVerdict.id))
+    shared = KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES)
+    base_stmt = select(KnowledgeVerdict).where(shared)
+    count_stmt = select(func.count(KnowledgeVerdict.id)).where(shared)
 
     if q:
         filter_expr = or_(
@@ -160,10 +162,10 @@ async def list_verdicts(
 
 
 @router.get("/verdicts/{verdict_id}", response_model=KnowledgeVerdictDetail)
-async def get_verdict(verdict_id: int, db: DbSession, user: AdminUser):
+async def get_verdict(verdict_id: int, db: DbSession, user: CurrentUser):
     verdict = await db.get(KnowledgeVerdict, verdict_id)
 
-    if not verdict:
+    if not verdict or verdict.source_type in PRIVATE_SOURCE_TYPES:
         raise HTTPException(status_code=404, detail="Приговор не найден")
 
     chunks_count = await db.scalar(
