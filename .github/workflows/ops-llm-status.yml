@@ -55,6 +55,11 @@ jobs:
             | grep -i -E 'analysis|llm|error|exception|traceback|timeout|httpx|POST /api' \
             | sed -E 's/(sk-|Bearer )[A-Za-z0-9._-]+/\1***/g' \
             | tail -80
+          echo "== embeddings: settings (no key) and vectors per model"
+          grep -E '^(EMBEDDING_PROVIDER|EMBEDDING_MODEL|EMBEDDING_DIM)=' .env || echo "(defaults)"
+          if grep -q -E '^JINA_API_KEY=.+' .env; then echo "JINA_API_KEY: set"; else echo "JINA_API_KEY: empty"; fi
+          docker ps -a --format '{{.Names}}  {{.Status}}' | grep -i 'run' || echo "(no one-off containers)"
+          docker exec judgeai_db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F " | " -c "select count(*) as cards from precedent_cards" -c "select model, count(*) from precedent_embeddings group by model" -c "select coalesce(embedding_model, chr(45)), count(*) from knowledge_chunks group by 1"'
           echo "== host resources"
           nproc; free -m; df -h / | tail -1
           docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" judgeai_api judgeai_db
