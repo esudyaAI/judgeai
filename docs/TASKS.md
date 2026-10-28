@@ -428,3 +428,10 @@
 - [x] Frontend: npm ci, 28 tests, typecheck, build — успешно. Core: 136 passed/cov98,86%; ruff check/format, unit17, inventory --check — успешно.
 - [!] Первые API-запуски: неверный унаследованный порт тестового образа (55439) и устаревший установленный legal_core; исправлены параметры запуска (5432 и PYTHONPATH на актуальные исходники), регресс повторяется. Это ошибки окружения, функциональный результат пока не заявлен.
 - [x] Workflow дополнен обязательным закрытым pg_dump -Fc до обновления deploy.env/контейнеров; pg_restore --list проверяет дамп, ошибка блокирует deploy. Секреты не выводятся.
+
+- [x] Интеграционный merge-коммит d76ab45 создан локально; git diff --check, YAML parse и bash -n нового backup-шага — успешно.
+- [!] GitHub отклонил push integration/chat-search-profile: текущий PAT не имеет workflow scope для обновления .github/workflows/ci.yml. У владельца запрошено обновление существующей авторизации; секреты не читались в вывод/чат. Удалённая main не менялась, deploy не запускался. До публикации и обязательного CI слияние остаётся открытым.
+
+- [x] Полный регресс интеграции: pytest tests tests_uploads tests_uploads_http tests_pdf tests_reading --cov=src — 358 passed за 164,37 с, coverage92,20% ≥80%; включая обе ветви миграций и их roundtrip. Тестовые данные синтетические. Core136/cov98,86%, unit17, web28/typecheck/build, ruff/format, inventory и diff --check — зелёные.
+- [x] GitHub API: main b189b8f, последний CI40737686753 success (https://github.com/esudyaAI/judgeai/actions/runs/40737686753). Это CI основной ветки, не непубликованной интеграции.
+- [!] Осталось: право workflow для push, публикация интеграции и PR, обязательный CI и desktop/mobile визуальная проверка, слияние и проверенный production deploy. Владелец разрешил merge/deploy, повторное разрешение не требуется; блокер — технические права текущего PAT.
