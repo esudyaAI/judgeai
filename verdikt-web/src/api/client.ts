@@ -10,7 +10,7 @@ export type WireAnalysis = Omit<CaseAnalysis, 'scale' | 'legalChecks' | 'precede
   precedent_source?: PrecedentSource;
 };
 export interface Message {
-  id: number; role: string; content: string | null;
+  id: number; role: string; content: string | null; created_at?: string;
   status: 'pending' | 'running' | 'completed' | 'failed'; stage: string | null;
   error: string | null; result: WireAnalysis | null;
   attachments: { id: number; filename: string; page_count: number | null;

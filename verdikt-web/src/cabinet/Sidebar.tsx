@@ -87,7 +87,7 @@ export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDe
                     <span className={`cab-dot ${status}`} aria-hidden="true" />
                     <span className="cab-row-text">
                       <span className="cab-row-title">{c.title}</span>
-                      <span className="cab-row-meta">{on && thinking ? 'Идёт анализ' : c.meta}</span>
+                      <span className={`cab-row-meta ${on && thinking ? 'text-shimmer' : ''}`}>{on && thinking ? 'Идёт анализ' : c.meta}</span>
                     </span>
                   </button>
                   <ActionMenu label={`Действия чата «${c.title}»`} className="cab-chat-actions" actions={[

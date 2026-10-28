@@ -49,7 +49,6 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
   // Practice comparison is on by default: the shared base is open to every user.
-  const [useKnowledge, setUseKnowledge] = useState(true);
   const [retry, setRetry] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -134,7 +133,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     try {
       const id = caseId || draftId.current || String((await api.createCase()).id);
       if (!caseId && isCurrent()) draftId.current = id;
-      await api.sendCase(id, prompt, selectedFiles, useKnowledge);
+      await api.sendCase(id, prompt, selectedFiles, true);
       void refreshCases();
       if (!isCurrent()) return;
       setSelectedFiles([]); setPrompt(''); setRetry(n => n + 1);
@@ -162,7 +161,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
             <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть боковое меню"
               aria-expanded={sidebarOpen} onClick={() => { setSidebarCollapsed(false); setSidebarOpen(true); }}><Icon name="menu" size={18} /></button>
             <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
-            {busy && <span className="badge shimmer" role="status"><span className="spin" />Идёт анализ</span>}
+            {busy && <span className="badge" role="status"><span className="spin" /><span className="text-shimmer">Идёт анализ</span></span>}
             {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>
         </header>
@@ -180,7 +179,6 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
         </div>
         {view !== 'settings' && <>
           {caseId && !busy && <p className="cab-request-note">Уточнения учитывают переписку и ранее прочитанные документы этого дела.</p>}
-          <label className="cab-knowledge"><input type="checkbox" checked={useKnowledge} disabled={busy} onChange={e => setUseKnowledge(e.target.checked)} />Сравнить с практикой из общей базы</label>
           <Composer mode={busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}
             value={prompt} onChange={setPrompt} onFiles={addFiles} onSend={() => void send()}
             onStop={() => go('/app')} />

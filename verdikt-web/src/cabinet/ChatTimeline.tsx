@@ -20,7 +20,7 @@ export function ChatTimeline({messages, onOpen, chatId}: {chatId?: string; messa
             <div className="file-meta">{fileReadingLabel({pages:a.page_count || 0, recognition:a.extraction_status})}</div>
             {chatId && <a className="chat-file-download" href={api.attachmentUrl(chatId,a.id,true)} download={a.filename} aria-label={`Скачать «${a.filename}»`}>Скачать</a>}
           </div>)}</div>
-        </div></div> : busy ? <div aria-busy="true"><Thinking steps={LABELS.map((label,i) => ({label,done:stage > i,active:stage === i}))} /></div> : message.status === 'failed' ?
+        </div></div> : busy ? <div aria-busy="true"><Thinking startedAt={message.created_at} steps={LABELS.map((label,i) => ({label,done:stage > i,active:stage === i}))} /></div> : message.status === 'failed' ?
           <div className="warn-box" role="alert">{message.error || 'Анализ не выполнен. Отправьте уточнение, чтобы повторить попытку.'}</div> :
           message.result ? <Result a={mapAnalysis(message.result)} /> : <div className="thread-ai chat-message-text">{message.content}</div>}
       </section>;

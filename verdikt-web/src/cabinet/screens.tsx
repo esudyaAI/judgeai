@@ -7,6 +7,7 @@ import { SentenceScale } from '../components/SentenceScale';
 import { plural } from '../lib/format';
 import { fileReadingLabel, fileReadingWarning } from './fileReadingPresentation';
 import { ACCEPT } from './Composer';
+import { useElapsedSeconds } from './useElapsedSeconds';
 import { legalCheckSourceUrl, legalCheckStatusLabel } from './legalCheckPresentation';
 import { practiceSummary, precedentSourceNote, shareLabel } from './practicePresentation';
 
@@ -119,7 +120,7 @@ export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { pro
             {files.map((f) => (
               <div key={f.name}>
                 <FileChip name={f.name} ext={f.ext} />
-                <div className={`file-meta ${thinking ? 'shimmer' : ''}`}>{fileReadingLabel(thinking ? {...f, recognition: 'pending'} : f)}</div>
+                <div className={`file-meta ${thinking ? 'shimmer text-shimmer' : ''}`}>{fileReadingLabel(thinking ? {...f, recognition: 'pending'} : f)}</div>
               </div>
             ))}
           </div>
@@ -130,14 +131,15 @@ export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { pro
   );
 }
 
-export function Thinking({ steps }: { steps: Step[] }) {
+export function Thinking({ steps, startedAt }: { steps: Step[]; startedAt?: string }) {
+  const seconds = useElapsedSeconds(startedAt);
   return (
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
       <div className="steps" aria-busy="true">
-        <span className="steps-title">Анализирую материалы дела</span>
+        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer" role="timer" aria-label="Прошло времени" aria-live="off">{seconds} с</span></div>
         {steps.map((s) => (
-          <div key={s.label} className="step-row" data-loading={s.active || undefined}>
+          <div key={s.label} className="step-row">
             {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
             {s.active && <span className="spin" style={{ margin: '0 2px' }} />}
             {!s.done && !s.active && (
@@ -145,7 +147,7 @@ export function Thinking({ steps }: { steps: Step[] }) {
                 <span />
               </span>
             )}
-            <span className={s.done ? 'step-done' : s.active ? 'step-active' : 'step-pending'}>{s.label}</span>
+            <span data-loading={s.active || undefined} className={s.done ? 'step-done' : s.active ? 'step-active text-shimmer' : 'step-pending'}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -291,18 +293,7 @@ export function Result({ a }: { a: CaseAnalysis }) {
             </p>
           </section>;
         })}
-        {/* TODO(api): follow-up prompts */}
-        <div className="followups">
-          <button type="button" className="btn btn-soft btn-xs" disabled title="Пока не реализовано">
-            Сравнить с практикой региона
-          </button>
-          <button type="button" className="btn btn-soft btn-xs" disabled title="Пока не реализовано">
-            Позиция защиты
-          </button>
-          <button type="button" className="btn btn-soft btn-xs" disabled title="Пока не реализовано">
-            Подробнее об обстоятельствах
-          </button>
-        </div>
+
       </div>
     </div>
   );

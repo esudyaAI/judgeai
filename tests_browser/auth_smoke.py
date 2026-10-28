@@ -237,7 +237,6 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.get_by_role("textbox", name="Задача по делу", exact=True).fill(
                     "Synthetic first question"
                 )
-                page.locator(".cab-knowledge input").uncheck()
                 page.get_by_role("button", name="Отправить", exact=True).click()
                 expect(page.locator(".result")).to_have_count(1, timeout=20000)
                 page.get_by_role("textbox", name="Задача по делу", exact=True).fill(
