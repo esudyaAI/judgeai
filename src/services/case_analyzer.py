@@ -314,8 +314,14 @@ def assemble_analysis(
         source_text,
         statutory_ceiling=ceiling,
     )
+    cited_guilt = facts.legal_facts.guilt if facts.legal_facts is not None else None
     legal_checks += build_sentence_checks(
-        sentence, count_statutes or {}, legal_checks, facts.mitigating
+        sentence,
+        count_statutes or {},
+        legal_checks,
+        facts.mitigating,
+        document_text="\n".join(document_texts or []),
+        guilt=cited_guilt.value if cited_guilt is not None else None,
     )
     return CaseAnalysis(
         legal_checks=legal_checks,

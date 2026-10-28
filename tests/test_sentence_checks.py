@@ -146,3 +146,63 @@ def test_assemble_analysis_includes_the_sentence_checks():
     )
     norms = [check.norm for check in analysis.legal_checks]
     assert any(norm.startswith("Условное осуждение") for norm in norms)
+
+
+def _art15(value="grave"):
+    return LegalCheck(norm="ст. 15 УК РФ", status="ok", explanation="", source="", value=value)
+
+
+REAL_TEXT = (
+    "Подсудимый Иванов, ранее не судимый. Признать Иванова виновным и назначить наказание "
+    "в виде лишения свободы с отбыванием в исправительной колонии строгого режима."
+)
+
+
+def test_wrong_regime_is_flagged_with_its_quote():
+    checks = build_sentence_checks(
+        _sentence(months=24),
+        {},
+        [_art15("grave"), *_recidivism("none")],
+        [],
+        document_text=REAL_TEXT,
+        guilt="intentional",
+    )
+    [regime] = [c for c in checks if c.norm.startswith("Вид исправительного")]
+    assert regime.status == "possible_violation"
+    assert "колония общего режима" in regime.explanation
+    assert "исправительной колонии строгого режима" in regime.evidence
+    assert "ранее не судимый" in regime.evidence
+
+
+def test_regime_needs_a_confirmed_category():
+    checks = build_sentence_checks(
+        _sentence(months=24),
+        {},
+        _recidivism("none"),
+        [],
+        document_text=REAL_TEXT,
+        guilt="intentional",
+    )
+    [regime] = [c for c in checks if c.norm.startswith("Вид исправительного")]
+    assert regime.status == "insufficient_data"
+
+
+def test_no_regime_check_when_no_institution_is_named_or_sentence_is_conditional():
+    plain = build_sentence_checks(
+        _sentence(months=24),
+        {},
+        [_art15()],
+        [],
+        document_text="Подсудимый виновен.",
+        guilt="intentional",
+    )
+    assert not [c for c in plain if c.norm.startswith("Вид исправительного")]
+    conditional = build_sentence_checks(
+        _sentence(months=24, conditional=True, probation=24),
+        {},
+        [_art15()],
+        [],
+        document_text=REAL_TEXT,
+        guilt="intentional",
+    )
+    assert not [c for c in conditional if c.norm.startswith("Вид исправительного")]
