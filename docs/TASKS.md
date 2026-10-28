@@ -435,3 +435,6 @@
 - [x] Полный регресс интеграции: pytest tests tests_uploads tests_uploads_http tests_pdf tests_reading --cov=src — 358 passed за 164,37 с, coverage92,20% ≥80%; включая обе ветви миграций и их roundtrip. Тестовые данные синтетические. Core136/cov98,86%, unit17, web28/typecheck/build, ruff/format, inventory и diff --check — зелёные.
 - [x] GitHub API: main b189b8f, последний CI40737686753 success (https://github.com/esudyaAI/judgeai/actions/runs/40737686753). Это CI основной ветки, не непубликованной интеграции.
 - [!] Осталось: право workflow для push, публикация интеграции и PR, обязательный CI и desktop/mobile визуальная проверка, слияние и проверенный production deploy. Владелец разрешил merge/deploy, повторное разрешение не требуется; блокер — технические права текущего PAT.
+
+- [~] Продолжение по сообщению владельца об обновлении токена: повторная публикация и дальнейшие CI/merge/deploy в прежнем разрешённом объёме.
+- [x] Предыдущая публикация через API создала integration/chat-search-profile 1f102b3 с деревом, идентичным локально проверенному HEAD (64a457ca). После временных DNS-сбоев git fetch снова успешен; локальная и удалённая история согласованы обычным merge без изменения файлов и force push.
