@@ -119,7 +119,7 @@ export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { pro
             {files.map((f) => (
               <div key={f.name}>
                 <FileChip name={f.name} ext={f.ext} />
-                <div className="file-meta">{fileReadingLabel(thinking ? {...f, recognition: 'pending'} : f)}</div>
+                <div className={`file-meta ${thinking ? 'shimmer' : ''}`}>{fileReadingLabel(thinking ? {...f, recognition: 'pending'} : f)}</div>
               </div>
             ))}
           </div>
@@ -134,10 +134,10 @@ function Thinking({ steps }: { steps: Step[] }) {
   return (
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
-      <div className="steps">
+      <div className="steps" aria-busy="true">
         <span className="steps-title">Анализирую материалы дела</span>
         {steps.map((s) => (
-          <div key={s.label} className="step-row">
+          <div key={s.label} className="step-row" data-loading={s.active || undefined}>
             {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
             {s.active && <span className="spin" style={{ margin: '0 2px' }} />}
             {!s.done && !s.active && (

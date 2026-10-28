@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import type { Profile } from '../api/client';
+import { useChatSearch } from './useChatSearch';
 import type { CaseSummary } from '../api/types';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
@@ -7,6 +9,7 @@ import { Link } from '../router';
 interface Props {
   cases: CaseSummary[];
   username: string;
+  profile?: Profile | null;
   activeId: string | null;
   thinking: boolean;
   settingsActive: boolean;
@@ -18,7 +21,8 @@ interface Props {
   onSettings: () => void;
 }
 
-export function Sidebar({ username, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
+export function Sidebar({ username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
+  const {query, setQuery, results, searching, searchError, retry: retrySearch} = useChatSearch(cases);
   const asideRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -30,7 +34,7 @@ export function Sidebar({ username, cases, activeId, thinking, settingsActive, o
   }, [open, onClose]);
 
   const groups: { title: string; items: CaseSummary[] }[] = [];
-  for (const c of cases) {
+  for (const c of query.trim() ? results : cases) {
     const last = groups[groups.length - 1];
     if (last && last.title === c.group) last.items.push(c);
     else groups.push({ title: c.group, items: [c] });
@@ -51,11 +55,14 @@ export function Sidebar({ username, cases, activeId, thinking, settingsActive, o
         <label className="cab-search">
           <span className="sr-only">Поиск по делам</span>
           <Icon name="search" size={16} strokeWidth={2} color="#707070" className="cab-search-icon" />
-          {/* TODO(api): filter cases */}
-          <input type="search" placeholder="Поиск по делам" />
+          <input type="search" placeholder="Поиск по чатам" maxLength={200} value={query} onChange={e => setQuery(e.target.value)} />
         </label>
 
-        <nav className="cab-list" aria-label="Список дел">
+        {query && <button type="button" className="btn btn-soft btn-xs" onClick={() => setQuery('')}>Сбросить поиск</button>}
+        <nav className="cab-list" aria-label="Список дел" aria-busy={searching}>
+          {searching && <p className="cab-search-status shimmer" role="status">Ищем по названию, сообщениям и файлам…</p>}
+          {searchError && <div className="cab-search-status" role="alert">{searchError}<button type="button" onClick={retrySearch}>Повторить</button></div>}
+          {query.trim() && !searching && !searchError && !results.length && <p className="cab-search-status" role="status">Ничего не найдено. Попробуйте другой запрос.</p>}
           {groups.map((g) => (
             <div key={g.title} className="cab-group">
               <span className="cab-group-title">{g.title}</span>
@@ -63,7 +70,7 @@ export function Sidebar({ username, cases, activeId, thinking, settingsActive, o
                 const on = c.id === activeId;
                 const status = on && thinking ? 'busy' : c.status;
                 return (
-                  <button key={c.id} type="button" className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
+                  <button key={c.id} type="button" data-loading={status === 'busy' || undefined} className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
                     <span className={`cab-dot ${status}`} aria-hidden="true" />
                     <span className="cab-row-text">
                       <span className="cab-row-title">{c.title}</span>
@@ -78,10 +85,10 @@ export function Sidebar({ username, cases, activeId, thinking, settingsActive, o
 
         <button type="button" className={`cab-row cab-profile ${settingsActive ? 'on' : ''}`} onClick={onSettings} aria-label="Настройки аккаунта">
           <span className="avatar" aria-hidden="true">
-            {username.slice(0, 2).toUpperCase()}
+            {profile?.avatar ? <img src={profile.avatar} alt="" /> : (profile?.firstName || username).slice(0, 2).toUpperCase()}
           </span>
           <span className="cab-row-text">
-            <span className="cab-row-title">{username}</span>
+            <span className="cab-row-title">{[profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || username}</span>
             <span className="cab-row-meta">Личный кабинет</span>
           </span>
           <Icon name="gear" size={18} color="#707070" />

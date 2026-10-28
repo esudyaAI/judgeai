@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { Link } from '../router';
-import { ACCENTS, CLOUD, CRIMES } from './content';
+import { ACCENTS, CLOUD } from './content';
 
 const HEADLINE: [string, number][] = [
   ['Приговор', 0.05], ['по', 0.13], ['материалам', 0.21], ['дела', 0.29],
@@ -72,21 +72,33 @@ export function Hero() {
   );
 }
 
-export function Marquee() {
-  const items = [...CRIMES, ...CRIMES];
+const TASKS = [
+  { icon: 'doc' as const, title: 'Материалы в одном месте', text: 'Документы, вопросы и результаты анализа — в контексте дела.' },
+  { icon: 'scales' as const, title: 'Проверка проекта', text: 'Квалификация, наказание и обстоятельства, на которые стоит обратить внимание.' },
+  { icon: 'search' as const, title: 'Сравнение с практикой', text: 'Схожие приговоры и ориентиры по доступной выборке.' },
+];
+
+export function CaseWorkflow() {
   return (
-    <section className="hero-in marquee-section" style={{ animationDelay: '.5s' }} aria-label="Категории дел">
-      <div className="marquee">
-        <div className="track">
-          {items.map(([label, icon], i) => (
-            <span key={`${label}-${i}`} className="marquee-item" aria-hidden={i >= CRIMES.length ? true : undefined}>
-              <span className="ftile" style={{ width: 48, height: 48, background: '#141414' }}>
-                <Icon name={icon} size={24} color="#ffffff" />
-              </span>
-              <span className="marquee-label">{label}</span>
-            </span>
-          ))}
+    <section className="case-workflow" aria-labelledby="workflow-title">
+      <div className="container">
+        <div className="workflow-heading">
+          <span className="eyebrow">Помощник в работе с уголовными делами</span>
+          <h2 id="workflow-title">Работа с делом — по существу.</h2>
+          <p>От изучения материалов до проверки выводов. Окончательное решение — за человеком.</p>
         </div>
+        <ul className="workflow-grid">
+          {TASKS.map(({icon, title, text}, index) => (
+            <li key={title} className="workflow-item">
+              <div className="workflow-item-head">
+                <Icon name={icon} size={22} />
+                <span aria-hidden="true">0{index + 1}</span>
+              </div>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

@@ -191,6 +191,22 @@ jobs:
           eval "$(ssh-agent -s)"
           echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
           ssh-add ~/.ssh/deploy_key
+      - name: Backup database before migration
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'sh -s' <<'REMOTE'
+          set -eu
+          cd /opt/judgeai
+          mkdir -p backups
+          chmod 700 backups
+          umask 077
+          backup="backups/predeploy_$(date -u +%Y%m%dT%H%M%SZ).dump"
+          docker compose --env-file deploy.env -f docker-compose.prod.yml exec -T db \
+            sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > "$backup"
+          test -s "$backup"
+          docker compose --env-file deploy.env -f docker-compose.prod.yml exec -T db \
+            pg_restore --list < "$backup" > /dev/null
+          echo "Pre-deploy database backup verified"
+          REMOTE
       - name: Deploy
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
