@@ -1,4 +1,4 @@
-"""Adapter: EmbeddingPort over the local fastembed model configured in settings."""
+"""Adapter: EmbeddingPort over the configured embeddings (local fastembed or Jina cloud)."""
 
 from src.config import settings
 from src.services.embeddings import embed_passages, embed_query
