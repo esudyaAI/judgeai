@@ -503,3 +503,5 @@
 
 - [x] Целевые API tests/test_chat_delete.py + test_account.py: 13 passed (включая 4 новых теста/варианта); изоляция владельца/CSRF, busy, каскад, остальные чаты и общая практика, shared upload сохранён. Frontend30 tests passed; две ошибки новых тестов (имя auth и слишком широкий regex) исправлены, продуктовых обходов нет.
 - [~] Добавлен Chromium desktop/mobile сценарий: отмена, ошибка DELETE с сохранением чата, повтор/успех, удаление активного чата из результатов поиска, reload и подтверждение 404 в API. Локально Playwright отсутствует, сценарий запускается в штатном CI.
+
+- [x] Реализация опубликована a9e9bdf в feat/delete-chat-sidebar; локальные typecheck/build и ruff check/format — успешно. Chromium selector открытия чата уточнён до .cab-row, чтобы название не совпало с aria-label корзины; ожидается CI.

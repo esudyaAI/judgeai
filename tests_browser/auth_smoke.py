@@ -161,7 +161,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.reload()
                 if label == "mobile":
                     page.get_by_role("button", name="Открыть список дел").click()
-                page.get_by_label("Список дел").get_by_role("button", name=title).click()
+                page.get_by_label("Список дел").locator(".cab-row").filter(has_text=title).click()
                 expect(page).to_have_url(URL + f"/app/case/{chat_id}/result")
                 if label == "mobile":
                     page.get_by_role("button", name="Открыть список дел").click()
