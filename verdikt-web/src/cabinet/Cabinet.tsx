@@ -46,6 +46,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [useKnowledge, setUseKnowledge] = useState(true);
   const [retry, setRetry] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const draftId = useRef<string | null>(null);
   const sendingRef = useRef(false);
   const operation = useRef(0);
@@ -145,7 +146,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
         error={deletion.deleteError} onCancel={deletion.cancel} onConfirm={() => { void deletion.confirm(); }} />}
       <Sidebar deletingId={deletion.deletingId} deleteError="" deleteNotice={deletion.deleteNotice}
         onDelete={deletion.remove} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
-        open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNew={startNew}
+        open={sidebarOpen} onClose={closeSidebar} onNew={startNew}
         onPick={c => { setSelectedFiles([]); setPrompt(''); go(`/app/case/${c.id}/result`); }}
         onSettings={() => go('/app/settings')} username={account.username} profile={accountProfile} />
       <main className="cab-main">

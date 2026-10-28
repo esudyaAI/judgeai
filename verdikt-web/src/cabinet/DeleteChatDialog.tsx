@@ -28,7 +28,7 @@ export function DeleteChatDialog({chat, busy, error, onCancel, onConfirm}: Props
     aria-describedby="delete-chat-description" aria-busy={busy || undefined}
     onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}
     onKeyDown={event => {
-      if (event.key === 'Escape') { event.stopPropagation(); return; }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) onCancel(); return; }
       if (event.key !== 'Tab') return;
       const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
       if (!buttons.length) { event.preventDefault(); return; }
