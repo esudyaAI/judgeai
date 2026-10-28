@@ -55,6 +55,9 @@ jobs:
             | grep -i -E 'analysis|llm|error|exception|traceback|timeout|httpx|POST /api' \
             | sed -E 's/(sk-|Bearer )[A-Za-z0-9._-]+/\1***/g' \
             | tail -80
+          echo "== host resources"
+          nproc; free -m; df -h / | tail -1
+          docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" judgeai_api judgeai_db
           echo "== api restarts"
           docker inspect -f 'started {{.State.StartedAt}} restarts {{.RestartCount}}' judgeai_api
           REMOTE
