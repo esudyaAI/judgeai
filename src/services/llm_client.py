@@ -5,8 +5,8 @@
             only the last message and ignores `response_format`, so the system prompt is folded
             into one user turn, every call gets its own conversation (no context bleed between
             cases) and the JSON object is extracted from a possibly fenced answer.
-- `fake`:   deterministic stub for local development and tests. It is only used when
-            LLM_PROVIDER=fake is set explicitly — never as a silent fallback.
+- `fake`:   fixed sample case for tests. Refused unless LLM_ALLOW_FAKE=true is also set,
+            so a server without a model reports an error instead of a sample verdict.
 """
 
 import json
@@ -22,6 +22,11 @@ class LLMError(RuntimeError):
     """The model could not be reached or returned something unusable."""
 
 
+LLM_NOT_CONNECTED = (
+    "Языковая модель не подключена — анализ не выполнен. Обратитесь к администратору сервиса."
+)
+
+
 class LLMClient(Protocol):
     async def complete_json(self, system: str, user: str) -> dict: ...
 
@@ -30,7 +35,7 @@ class OpenAICompatibleClient:
     async def complete_json(self, system: str, user: str) -> dict:
         if not settings.LLM_API_KEY:
             raise LLMError(
-                "LLM не настроен: задайте LLM_API_KEY (или LLM_PROVIDER=fake для разработки)."
+                "Языковая модель не подключена: не задан LLM_API_KEY. Анализ не выполнен."
             )
 
         payload = {
@@ -177,6 +182,8 @@ class FakeLLMClient:
 
 def get_llm_client() -> LLMClient:
     if settings.LLM_PROVIDER == "fake":
+        if not settings.LLM_ALLOW_FAKE:
+            raise LLMError(LLM_NOT_CONNECTED)
         return FakeLLMClient()
     if settings.LLM_PROVIDER == "deepseek_web":
         return DeepSeekWebClient()
