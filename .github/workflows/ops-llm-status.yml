@@ -1,0 +1,52 @@
+# Read-only check of how the language model is wired on the production server.
+# Prints container names/images, docker networks of a DeepSeek proxy if one runs, and the
+# non-secret LLM_* settings from /opt/judgeai/.env. LLM_API_KEY is never printed: only
+# whether it is set. Runs by hand (Actions -> ops-llm-status -> Run workflow).
+name: ops-llm-status
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: production
+    env:
+      DEPLOY_DIR: /opt/judgeai
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          (umask 077 && printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key)
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          ssh-add ~/.ssh/deploy_key
+      - name: LLM status on the server
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'bash -s' <<'REMOTE'
+          cd /opt/judgeai || exit 1
+          echo "== containers"
+          docker ps --format '{{.Names}}  {{.Image}}  {{.Status}}'
+          echo "== deepseek-like containers: networks and exposed ports"
+          for c in $(docker ps --format '{{.Names}}' | grep -i -E 'deepseek|proxy|llm' | grep -v caddy); do
+            echo "$c networks: $(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$c")"
+            echo "$c exposed: $(docker inspect -f '{{range $p, $v := .Config.ExposedPorts}}{{$p}} {{end}}' "$c")"
+          done
+          echo "== LLM settings in .env (no secrets)"
+          grep -E '^(LLM_PROVIDER|LLM_API_BASE|LLM_MODEL|LLM_ALLOW_FAKE|LLM_TIMEOUT_SECONDS)=' .env || echo "(none)"
+          if grep -q -E '^LLM_API_KEY=.+' .env; then echo "LLM_API_KEY: set"; else echo "LLM_API_KEY: empty"; fi
+          echo "== api container view"
+          docker exec judgeai_api python -c "from src.config import settings as s; print('provider', s.LLM_PROVIDER, 'base_host', s.LLM_API_BASE.split('/')[2] if '//' in s.LLM_API_BASE else s.LLM_API_BASE, 'model', s.LLM_MODEL)"
+          REMOTE
