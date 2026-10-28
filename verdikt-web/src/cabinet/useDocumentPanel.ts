@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { DocumentPanelState } from './DocumentPanel';
 
-export type DocumentSource = {name: string} & ({file: File} | {chatId: string; attachmentId: number});
+export type DocumentSource = {name: string} & ({file: File} | {chatId: string; attachmentId: number} | {verdictId: number});
 
 export function useDocumentPanel(scope: string) {
   const [source, setSource] = useState<DocumentSource | null>(null);
@@ -13,6 +13,11 @@ export function useDocumentPanel(scope: string) {
   useEffect(close, [scope, close]);
   useEffect(() => {
     if (!source) return;
+    if ('verdictId' in source) {
+      // Practice verdicts are stored as text only: shown as is, downloaded as .txt.
+      setState({name:source.name, status:'ready', url:api.verdictTextUrl(source.verdictId), downloadUrl:api.verdictTextUrl(source.verdictId, true)});
+      return;
+    }
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let objectUrl: string | undefined;

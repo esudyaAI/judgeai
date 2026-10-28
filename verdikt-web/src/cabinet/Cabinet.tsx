@@ -170,7 +170,8 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
           {loading && <p role="status" aria-busy="true">Загружаем дело…</p>}
           {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={onSignOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
-              {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={attachment => documentPanel.open({name:attachment.filename,chatId:caseId,attachmentId:attachment.id})} /> :
+              {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={attachment => documentPanel.open({name:attachment.filename,chatId:caseId,attachmentId:attachment.id})}
+                onOpenVerdict={verdict => { if (verdict.verdict_id != null) documentPanel.open({name:`Приговор · ${verdict.court}.txt`, verdictId:verdict.verdict_id}); }} /> :
                 !loading && !error && <p>Задайте вопрос или прикрепите материалы дела.</p>}
               {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} />}
             </>

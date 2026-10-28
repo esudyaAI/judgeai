@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react';
-import type { CaseAnalysis, CaseFile, PracticeComparison } from '../api/types';
+import type { CaseAnalysis, CaseFile, PracticeComparison, SimilarVerdict } from '../api/types';
 import { FileChip, FileTile } from '../components/FileTile';
 import { Icon, IconTile, type IconName } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
@@ -177,7 +177,7 @@ function Practice({ p }: { p: PracticeComparison }) {
   );
 }
 
-export function Result({ a }: { a: CaseAnalysis }) {
+export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: (verdict: SimilarVerdict) => void }) {
   const [variant, setVariant] = useState(0);
   const current = a.variants[variant];
   const { documents, pages, seconds } = a.stats;
@@ -264,8 +264,8 @@ export function Result({ a }: { a: CaseAnalysis }) {
               Показать все
             </a>
           </div>
-          {a.similar.map((s, i) => (
-            <div key={`${i}-${s.punishment}`} className="similar-row">
+          {a.similar.map((s, i) => {
+            const body = <>
               <div className="similar-text">
                 <span className="similar-title">{s.punishment}</span>
                 <span className="similar-meta">
@@ -276,8 +276,13 @@ export function Result({ a }: { a: CaseAnalysis }) {
                 <span style={{ width: `${s.score}%` }} />
               </span>
               <span className="similar-score">{s.score}%</span>
-            </div>
-          ))}
+            </>;
+            const verdictId = s.verdict_id;
+            return verdictId != null && onOpenVerdict
+              ? <button key={`${i}-${s.punishment}`} type="button" className="similar-row similar-open"
+                  aria-label={`Открыть приговор: ${s.punishment}, ${s.court}`} onClick={() => onOpenVerdict(s)}>{body}</button>
+              : <div key={`${i}-${s.punishment}`} className="similar-row">{body}</div>;
+          })}
         </div>
 
         }
