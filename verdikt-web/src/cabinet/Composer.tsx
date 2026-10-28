@@ -27,7 +27,7 @@ export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop
 
   return (
     <div className="cab-composer-wrap">
-      <form className="composer cab-composer" data-loading={mode === 'thinking' || undefined} aria-busy={mode === 'thinking'} onSubmit={submit}>
+      <form className="composer cab-composer" aria-busy={mode === 'thinking'} onSubmit={submit}>
         {mode === 'attach' && (
           <div className="chips">
             {files.slice(0, 3).map((f) => (
