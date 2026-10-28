@@ -214,7 +214,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 held = []
                 page.route(
                     endpoint,
-                    lambda route, held=held: (
+                    lambda route, request, held=held: (
                         held.append(route)
                         if route.request.method == "DELETE"
                         else route.continue_()

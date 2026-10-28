@@ -527,3 +527,5 @@
 - [x] Push выполнен: feat/delete-chat-dialog f5c79f1; PR #9 https://github.com/esudyaAI/judgeai/pull/9. Frontend32 tests/typecheck/build, ruff/format, diff --check — успешно. Chromium/визуальная проверка ожидают CI; main/production не менялись.
 
 - [!] CI40758394942: API/inventory success, browser-auth failed на focus assertion после Shift+Tab (обе ширины). Нативный dialog позволял фокусу уходить в browser chrome; добавлен явный цикл Tab/Shift+Tab по доступным кнопкам, при busy Tab блокируется. Проверка не ослаблялась; добавлена прямая проверка forward-wrap.
+
+- [!] CI40758880511: API/inventory success, keyboard wrap прошёл; browser-auth обнаружил Escape, всплывающий до sidebar и закрывающий мобильную панель. В dialog остановлено всплытие Escape (нативная отмена окна сохраняется). Отдельно исправлен тестовый delayed route callback: Playwright передаёт вторым аргументом Request, который перекрывал default held; теперь Request принят отдельным параметром. Проверки повторяются.
