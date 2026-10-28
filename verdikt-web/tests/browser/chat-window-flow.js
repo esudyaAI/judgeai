@@ -29,6 +29,8 @@ async page => {
     const trigger = page.getByRole('button',{name:'Действия чата «Проверка материалов дела»',exact:true});
     await trigger.click();
     await page.getByRole('menuitem',{name:'Закрепить',exact:true}).waitFor();
+    await page.locator('.cab-list').evaluate(el => el.dispatchEvent(new Event('scroll')));
+    await page.getByRole('menuitem',{name:'Закрепить',exact:true}).waitFor();
     await page.keyboard.press('Escape');
     if (!await trigger.evaluate(el => el === document.activeElement)) throw Error('Menu focus not restored');
     await trigger.click();

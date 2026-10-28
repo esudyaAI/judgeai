@@ -8,20 +8,26 @@ export function ActionMenu({label, children, actions, className = ''}: {label: s
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const close = (focus = false) => { setPosition(null); if (focus) trigger.current?.focus(); };
+  const isOpen = position !== null;
+  const locate = () => {
+    const rect = trigger.current?.getBoundingClientRect();
+    return rect ? {left:Math.max(8, Math.min(rect.right - 210,window.innerWidth - 218)),top:Math.max(8, Math.min(rect.bottom + 6,window.innerHeight - actions.length * 44 - 28))} : null;
+  };
   useEffect(() => {
-    if (!position) return;
-    menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    if (!isOpen) return;
+    menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({preventScroll:true});
     const outside = (event: PointerEvent) => { if (!menu.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setPosition(null); };
     const dismiss = () => setPosition(null);
+    // Search results can change the list scroll offset while the menu is open.
+    const reposition = () => setPosition(locate());
     document.addEventListener('pointerdown', outside);
     window.addEventListener('resize', dismiss);
-    window.addEventListener('scroll', dismiss, true);
-    return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', dismiss); window.removeEventListener('scroll', dismiss, true); };
-  }, [position]);
+    window.addEventListener('scroll', reposition, true);
+    return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', dismiss); window.removeEventListener('scroll', reposition, true); };
+  }, [isOpen]);
   const open = () => {
     if (position) { close(true); return; }
-    const rect = trigger.current?.getBoundingClientRect();
-    if (rect) setPosition({left:Math.max(8, Math.min(rect.right - 210,window.innerWidth - 218)),top:Math.max(8, Math.min(rect.bottom + 6,window.innerHeight - actions.length * 44 - 28))});
+    setPosition(locate());
   };
   return <>
     <button ref={trigger} type="button" className={className} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={!!position} onClick={open} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); open(); } }}>{children}</button>

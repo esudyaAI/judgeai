@@ -179,6 +179,8 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 trigger = page.get_by_role("button", name=f"Действия чата «{title}»", exact=True)
                 trigger.click()
                 expect(page.get_by_role("menuitem", name="Закрепить", exact=True)).to_be_focused()
+                page.locator(".cab-list").evaluate("el => el.dispatchEvent(new Event('scroll'))")
+                expect(page.get_by_role("menuitem", name="Закрепить", exact=True)).to_be_visible()
                 page.keyboard.press("Escape")
                 expect(trigger).to_be_focused()
                 trigger.click()
