@@ -51,8 +51,8 @@ jobs:
           echo "== api container view"
           docker exec judgeai_api python -c "from src.config import settings as s; print('provider', s.LLM_PROVIDER, 'base_host', s.LLM_API_BASE.split('/')[2] if '//' in s.LLM_API_BASE else s.LLM_API_BASE, 'model', s.LLM_MODEL)"
           echo "== api log, last 40 minutes: analysis stages, LLM calls, errors (secrets masked)"
-          docker logs --since 40m judgeai_api 2>&1 \
-            | grep -i -E 'analysis|llm|error|exception|traceback|timeout|/messages' \
+          docker logs --timestamps --since 40m judgeai_api 2>&1 \
+            | grep -i -E 'analysis|llm|error|exception|traceback|timeout|httpx|POST /api' \
             | sed -E 's/(sk-|Bearer )[A-Za-z0-9._-]+/\1***/g' \
             | tail -80
           echo "== api restarts"
