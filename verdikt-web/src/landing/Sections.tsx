@@ -4,6 +4,7 @@ import { LogoSteps } from '../components/Logo';
 import { easeOut, useCountUp, useTicker } from '../hooks/motion';
 import { formatMonths } from '../lib/format';
 import { Link } from '../router';
+import { INFO_PAGES } from '../info/content';
 import { AUDIENCE, BENTO_ROWS, FAQ, SIMILAR_BARS, STEPS } from './content';
 
 /** "Для" + rotating 3D drum of audiences (one word every 2.2 s). */
@@ -277,16 +278,13 @@ export function Footer() {
               <a href="#features">Почему мы</a>
             </div>
             <div className="foot-col">
-              <span style={{ fontWeight: 600 }}>Компания</span>
-              {/* TODO(content): real pages for contacts and legal documents */}
-              <a href="#top">Контакты</a>
-              <a href="#top">Политика конфиденциальности</a>
-              <a href="#top">Пользовательское соглашение</a>
+              <span style={{ fontWeight: 600 }}>О сервисе и данных</span>
+              {INFO_PAGES.map(page => <Link key={page.path} href={page.path}>{page.label}</Link>)}
             </div>
           </div>
         </div>
         <p className="foot-muted" style={{ fontSize: 12 }}>
-          © 2026 [НАЗВАНИЕ КОМПАНИИ]
+          © 2026 Цифровой судья
         </p>
       </div>
     </footer>

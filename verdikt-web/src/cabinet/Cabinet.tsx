@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, fileExt, mapAnalysis, type Message, type AuthUser } from '../api/client';
+import { api, accountApi, fileExt, mapAnalysis, type Message, type AuthUser, type Profile } from '../api/client';
 import type { CaseAnalysis, CaseFile, CaseSummary } from '../api/types';
 import { Icon } from '../components/Icon';
 import { Composer } from './Composer';
@@ -25,6 +25,12 @@ const LABELS = ['Читаем документы', 'Ищем похожие пр
 
 export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const {view, caseId} = route;
+  const [accountProfile, setAccountProfile] = useState<Profile | null>(null);
+  useEffect(() => {
+    let current = true;
+    void accountApi.profile().then(p => { if (current) setAccountProfile(p); }).catch(() => {});
+    return () => { current = false; };
+  }, []);
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -128,14 +134,14 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
       <Sidebar cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
         open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNew={startNew}
         onPick={c => { setSelectedFiles([]); setPrompt(''); go(`/app/case/${c.id}/result`); }}
-        onSettings={() => go('/app/settings')} username={account.username} />
+        onSettings={() => go('/app/settings')} username={account.username} profile={accountProfile} />
       <main className="cab-main">
         <header className="cab-header">
           <div className="cab-header-title">
             <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть список дел"
               aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Icon name="menu" size={18} /></button>
             <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
-            {busy && <span className="badge"><span className="spin" />Идёт анализ</span>}
+            {busy && <span className="badge shimmer" role="status"><span className="spin" />Идёт анализ</span>}
             {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>
           <button type="button" className="btn btn-line btn-sm" onClick={() => { void onSignOut().catch(() => setError("Не удалось выйти. Попробуйте ещё раз.")); }}>Выйти</button>
@@ -144,8 +150,8 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
         <div className="cab-scroll">
           {listError && <div className="warn-box" role="alert">{listError}<button type="button" onClick={() => void refreshCases()}>Повторить</button></div>}
           {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
-          {loading && <p role="status">Загружаем дело…</p>}
-          {view === 'settings' ? <SettingsScreen onCancel={() => go('/app')} /> : caseId ? (
+          {loading && <p className="shimmer" role="status" aria-busy="true">Загружаем дело…</p>}
+          {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={onSignOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
               {busy || analysis || attachments.length > 0 ? <ThreadScreen prompt={user?.content || 'Загруженные документы'} analysis={analysis} files={attachments} thinking={busy} steps={steps} /> :
                 !loading && !error && <p>Анализа пока нет. Задайте вопрос или загрузите проект приговора.</p>}

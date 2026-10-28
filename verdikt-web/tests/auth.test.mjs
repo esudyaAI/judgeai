@@ -68,3 +68,41 @@ test('failed login reads in Russian', async () => {
   try { await assert.rejects(auth.login('a', 'b'), /Неверное имя пользователя или пароль/); }
   finally { globalThis.fetch = original; }
 });
+
+test('account requests use authenticated transport without retaining secret values', async () => {
+  const { accountApi } = await import('../src/api/client.ts');
+  const original = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({url, ...options});
+    return new Response(JSON.stringify(url.endsWith('/login') ? {id:1, username:'alice', csrf_token:'profile-csrf'} : {}));
+  };
+  try {
+    await auth.login('alice', 'synthetic-password');
+    await accountApi.saveProfile({firstName:'Анна'});
+    await accountApi.changePassword('synthetic-old', 'synthetic-new');
+    await accountApi.revoke('id/with/slash');
+    await accountApi.deleteCases('synthetic-delete', 'УДАЛИТЬ');
+    await accountApi.exportData();
+    for (const req of requests.slice(1, -1)) assert.equal(req.headers.get('X-CSRF-Token'), 'profile-csrf');
+    assert.equal(requests[1].method, 'PUT');
+    assert.equal(requests[3].url, '/api/account/sessions/id%2Fwith%2Fslash');
+    assert.deepEqual(JSON.parse(requests[4].body), {password:'synthetic-delete', confirmation:'УДАЛИТЬ'});
+    assert.equal(requests[5].url, '/api/account/export');
+    assert.ok(requests.every(r => r.credentials === 'same-origin'));
+  } finally { globalThis.fetch = original; }
+});
+
+test('chat search encodes literal user input and forwards cancellation', async () => {
+  const original = globalThis.fetch;
+  const controller = new AbortController();
+  let sent;
+  globalThis.fetch = async (url, options) => { sent = {url, ...options}; return new Response('[]'); };
+  try {
+    await api.listCases('  Протокол 100% & _  ', controller.signal);
+    assert.equal(sent.url, `/api/chats?q=${encodeURIComponent('Протокол 100% & _')}`);
+    assert.equal(sent.signal, controller.signal);
+    await api.listCases('  ');
+    assert.equal(sent.url, '/api/chats');
+  } finally { globalThis.fetch = original; }
+});

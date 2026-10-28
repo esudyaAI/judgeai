@@ -19,3 +19,34 @@
 .doc-meta { margin-top: 2px; font-size: 13px; color: var(--muted); }
 .composer { background: var(--line); border-radius: 24px; padding: 10px; display: flex; flex-direction: column; }
 .composer-row { display: flex; align-items: center; gap: 8px; }
+
+/* Loading sweep from the supplied button: 1.25s pass, .15s pause. */
+.shimmer, [data-loading='true'] {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  --shimmer-tint: rgba(0, 0, 0, .18);
+}
+.btn-ink[data-loading='true'] { --shimmer-tint: rgba(255, 255, 255, .12); }
+.shimmer::after, [data-loading='true']::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 33.333333%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--shimmer-tint), transparent);
+  filter: blur(12px);
+  transform: translateX(-120%) skewX(-3deg);
+  animation: loading-shimmer 1.4s infinite;
+}
+@keyframes loading-shimmer {
+  0% { transform: translateX(-120%) skewX(-3deg); opacity: 0; }
+  8% { opacity: 1; }
+  89.2857% { transform: translateX(420%) skewX(-3deg); opacity: 1; }
+  100% { transform: translateX(420%) skewX(-3deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after, [data-loading='true']::after { animation: none !important; display: none; }
+}

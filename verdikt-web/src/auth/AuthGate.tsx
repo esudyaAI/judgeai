@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { auth, AuthenticationError, type AuthUser } from '../api/client';
 import { LogoMark } from '../components/Logo';
 import './auth.css';
+import { Link } from '../router';
 
 export function AuthGate({children}: {children: (user: AuthUser, signOut: () => Promise<void>) => ReactNode}) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -19,7 +20,7 @@ export function AuthGate({children}: {children: (user: AuthUser, signOut: () => 
     return () => { current = false; window.removeEventListener('judgeai:unauthorized', expired); };
   }, [retry]);
 
-  if (checking) return <div className="auth-status" role="status">Проверяем сеанс…</div>;
+  if (checking) return <div className="auth-status shimmer" role="status" aria-busy="true">Проверяем сеанс…</div>;
   if (connectionError) return <div className="auth-status" role="alert"><p>{connectionError}</p><button className="btn btn-ink" onClick={() => setRetry(n => n + 1)}>Повторить</button></div>;
   if (user) return children(user, async () => { await auth.logout(); setUser(null); });
   return <SignIn onSignedIn={setUser} />;
@@ -80,7 +81,7 @@ function SignIn({onSignedIn}: {onSignedIn: (user: AuthUser) => void}) {
           aria-describedby={[registering ? 'password-hint' : '', error ? 'auth-error' : ''].filter(Boolean).join(' ') || undefined} />
         {registering && <p id="password-hint" className="auth-hint">Не меньше 12 символов.</p>}
         {error && <p id="auth-error" className="auth-error" role="alert">{error}</p>}
-        <button type="submit" className="btn btn-ink btn-md" disabled={pending}>{pending ? text.pending : text.submit}</button>
+        <button type="submit" className="btn btn-ink btn-md" data-loading={pending || undefined} aria-busy={pending} disabled={pending}>{pending ? text.pending : text.submit}</button>
       </form>
       <p className="auth-help">
         {text.switchHint}{' '}
@@ -88,6 +89,6 @@ function SignIn({onSignedIn}: {onSignedIn: (user: AuthUser) => void}) {
           onClick={() => { setMode(registering ? 'login' : 'register'); setError(''); setPassword(''); }}>{text.switchTo}</button>
       </p>
     </section>
-    <footer className="auth-footer">Второе мнение для взвешенного решения.</footer>
+    <footer className="auth-footer"><Link href="/privacy">Конфиденциальность</Link> · <Link href="/cookies">Cookie</Link> · <Link href="/about">О сервисе</Link></footer>
   </main>;
 }
