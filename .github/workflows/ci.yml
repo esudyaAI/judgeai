@@ -225,7 +225,9 @@ jobs:
             "docker login ghcr.io -u '${GHCR_USER}' --password-stdin >/dev/null"
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "cd ${DEPLOY_DIR} \
             && docker compose --env-file deploy.env -f docker-compose.prod.yml pull --quiet \
-            && docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --remove-orphans; \
+            && docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --remove-orphans \
+            && docker compose --env-file deploy.env -f docker-compose.prod.yml run -d --rm api \
+              python -m src.cli.precedents index >/dev/null; \
             status=\$?; docker logout ghcr.io >/dev/null; exit \$status"
       - name: Health check
         run: |

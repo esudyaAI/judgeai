@@ -5,7 +5,6 @@ from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.config import settings
 from src.db.base import Base
 
 # Message.status lifecycle for assistant messages:
@@ -114,7 +113,9 @@ class KnowledgeChunk(Base):
     )
     chunk_type: Mapped[str] = mapped_column(String(32), default="full_text")
     content: Mapped[str] = mapped_column(Text)
-    embedding = mapped_column(Vector(settings.EMBEDDING_DIM), nullable=True)
+    # Any dimension: the vector belongs to embedding_model (migration 0011).
+    embedding = mapped_column(Vector(), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     verdict: Mapped["KnowledgeVerdict"] = relationship(back_populates="chunks")
