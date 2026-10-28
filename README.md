@@ -10,7 +10,7 @@ Local assistant for reviewing draft criminal verdicts. The legal rules produce c
 
 ## Run locally
 
-Python 3.11+; Node 20.19+ or 22.12+; Docker Compose.
+Python 3.11+; Node 22.13+ (22.18+ or 24 for tests); Docker Compose.
 
 1. Copy `.env.example` to `.env` and configure your local database and LLM settings.
 2. For tests only, set `LLM_PROVIDER=fake` together with `LLM_ALLOW_FAKE=true` (without the flag the service refuses the fake model and reports an error). This returns a fixed example, independent of the input, and the result is labelled as development data.

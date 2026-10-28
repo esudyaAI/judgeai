@@ -124,6 +124,17 @@ async def create_message(
     )
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
+    active = await db.scalar(
+        select(Message.id)
+        .where(
+            Message.chat_id == chat_id,
+            Message.role == "assistant",
+            Message.status.in_(("pending", "running")),
+        )
+        .limit(1)
+    )
+    if active is not None:
+        raise HTTPException(409, "Дождитесь завершения текущего анализа")
     if not (content and content.strip()) and not files:
         raise HTTPException(status_code=422, detail="Нужен текст запроса или хотя бы один файл")
     for file in files:  # reject the whole request before writing anything

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
 
     AUTH_COOKIE_SECURE: bool = True
 
+    DOCUMENT_PREVIEW_DIR: str | None = None
+
     UPLOAD_DIR: str = "uploads"
     UPLOAD_MAX_MB: int = 50
     UPLOAD_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.dotx,.txt,.md"

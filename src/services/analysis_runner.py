@@ -20,6 +20,7 @@ from src.db import session as db_session
 from src.db.auth import User
 from src.db.models import Chat, Message
 from src.domain.documents import UnreadableInput, reading_warnings
+from src.infrastructure.conversation import load_conversation
 from src.infrastructure.fastembed_embedder import FastembedEmbedder
 from src.infrastructure.precedent_store import SqlPrecedentStore
 from src.infrastructure.verdict_reader import RegexVerdictReader
@@ -142,6 +143,11 @@ async def run_analysis(
             question = user_message.content
             chat_id = user_message.chat_id
             documents = len(user_message.attachments)
+            context = await load_conversation(db, user.user_id, chat_id, user_message_id, question)
+            texts.extend(document.text for document in context.documents)
+            pages += sum(document.pages for document in context.documents)
+            documents += len(context.documents)
+            warnings.extend(context.warnings)
             await db.commit()
 
         if not (question or "").strip() and not any(text.strip() for text in texts):
@@ -161,7 +167,9 @@ async def run_analysis(
         await _set_stage(assistant_message_id, stage="qualifying")
         llm = get_llm_client()
         structure = read_verdict_structure(texts, DOCUMENT_CHARS_LIMIT)
-        facts = await extract_facts(llm, question, structure.model_texts, similar_items)
+        if sum(len(text) for text in structure.model_texts) > DOCUMENT_CHARS_LIMIT:
+            warnings.append("Текст документов для модели сокращён. Проверьте оригиналы файлов.")
+        facts = await extract_facts(llm, context.question, structure.model_texts, similar_items)
         sentence = structure.sentence
         if structure.ambiguous_windows and settings.LLM_PROVIDER != "fake":
             async with db_session.async_session_factory() as db:

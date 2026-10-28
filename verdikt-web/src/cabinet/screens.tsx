@@ -66,7 +66,7 @@ export function NewCaseScreen({ onFiles }: { onFiles: (list: FileList | null) =>
 }
 
 
-export function AttachScreen({ files, onRemove }: { files: CaseFile[]; onRemove: (name: string) => void }) {
+export function AttachScreen({ files, onRemove, onOpen }: { files: CaseFile[]; onRemove: (name: string) => void; onOpen?: (index: number) => void }) {
   const pages = files.reduce((s, f) => s + f.pages, 0);
   const limited = files.filter((f) => fileReadingWarning(f.recognition));
   return (
@@ -78,11 +78,11 @@ export function AttachScreen({ files, onRemove }: { files: CaseFile[]; onRemove:
         </span>
       </div>
       <ul className="file-list">
-        {files.map((f) => (
+        {files.map((f, index) => (
           <li key={f.name} className="file-row">
             <FileTile ext={f.ext} size={40} />
             <div className="file-text">
-              <span className="file-name">{f.name}</span>
+              <button type="button" className="file-name document-filename" onClick={() => onOpen?.(index)} aria-label={`Открыть ${f.name}`}>{f.name}</button>
               <span className={`file-meta ${fileReadingWarning(f.recognition) ? 'warn' : ''}`}>{fileReadingLabel(f)}</span>
             </div>
             <button type="button" aria-label={`Удалить файл ${f.name}`} className="btn btn-soft btn-icon" onClick={() => onRemove(f.name)}>
@@ -130,7 +130,7 @@ export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { pro
   );
 }
 
-function Thinking({ steps }: { steps: Step[] }) {
+export function Thinking({ steps }: { steps: Step[] }) {
   return (
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
@@ -175,7 +175,7 @@ function Practice({ p }: { p: PracticeComparison }) {
   );
 }
 
-function Result({ a }: { a: CaseAnalysis }) {
+export function Result({ a }: { a: CaseAnalysis }) {
   const [variant, setVariant] = useState(0);
   const current = a.variants[variant];
   const { documents, pages, seconds } = a.stats;

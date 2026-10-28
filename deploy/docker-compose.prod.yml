@@ -57,9 +57,11 @@ services:
       - .env
     environment:
       EMBEDDING_CACHE_DIR: /app/.fastembed_cache
+      DOCUMENT_PREVIEW_DIR: /app/previews
     volumes:
       - uploads:/app/uploads
       - model_cache:/app/.fastembed_cache
+      - previews:/app/previews
     depends_on:
       db:
         condition: service_healthy
@@ -79,6 +81,23 @@ services:
       start_period: 60s
     restart: unless-stopped
     logging: *logging
+
+  preview:
+    image: ${PREVIEW_IMAGE:-ghcr.io/esudyaai/judgeai/preview:latest}
+    network_mode: none
+    read_only: true
+    init: true
+    restart: always
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, KILL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    volumes:
+      - previews:/app/previews
 
   db:
     image: pgvector/pgvector:pg16
@@ -102,3 +121,4 @@ volumes:
   uploads:
   model_cache:
   pgdata:
+  previews:

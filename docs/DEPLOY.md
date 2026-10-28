@@ -766,3 +766,29 @@ tail -1000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
 - Требования T17 (privacy-аудит до загрузки реальных материалов) остаются обязательными: не загружать приватные образцы приговоров до его закрытия.
 
 Статусы задач и результаты проверок — в [TASKS.md](TASKS.md).
+
+
+## Private document previews
+
+The compose stacks include a separate `preview` worker and a private `previews` volume.
+The API needs `DOCUMENT_PREVIEW_DIR=/app/previews`; compose sets it explicitly. Without
+this directory, Word previews return 503 while original downloads remain available.
+The worker has no network, database credentials or original uploads mount. It processes
+one admitted DOCX/DOTX per container lifetime using a separate converter UID, then restarts.
+Keep the read-only filesystem, capabilities allowlist, tmpfs, memory/CPU/PID and time limits.
+API and worker must share the private volume with their root-owned queue inaccessible to
+converter UID 65534. Do not expose the volume through the web server.
+
+Previews expire after 10 minutes; source copies are removed immediately after conversion.
+There are at most 8 active jobs (2 per owner) and 32 cached jobs. All file/token requests require
+a live session and re-check original attachment ownership; deleting a chat revokes its
+previews. A full queue returns 503 and the UI offers a retry. The standard CI builds and
+checks the converter before publishing `${PREVIEW_IMAGE}` alongside API/web images.
+
+Word pagination uses local LibreOffice with Liberation, DejaVu, Carlito and Caladea fonts.
+Missing or substituted source fonts can change line/page breaks compared with Microsoft
+Word. For exact original layout, upload a PDF exported by the document author. Legacy DOC,
+macro-enabled and encrypted documents remain outside the admitted upload subset.
+PDF.js worker, CMaps, standard fonts and WASM decoders are versioned local web assets;
+`npm run dev` and `npm run build` prepare them automatically. No public document viewer
+receives case files. No database migration is needed for this feature.

@@ -55,10 +55,26 @@ export function mapAnalysis(a: WireAnalysis): CaseAnalysis {
 
 export function fileExt(name: string): CaseFile['ext'] {
   const ext = name.split('.').pop()?.toLowerCase();
-  return ext === 'pdf' ? 'PDF' : ext === 'docx' ? 'DOC' : ext === 'txt' || ext === 'md' ? 'TXT' : 'JPG';
+  return ext === 'pdf' ? 'PDF' : ext === 'docx' || ext === 'dotx' ? 'DOC' : ext === 'txt' || ext === 'md' ? 'TXT' : 'JPG';
 }
 
+export interface PreviewJob {id: string; filename: string; status: 'queued' | 'converting' | 'ready' | 'failed'; error: string | null}
+
 export const api = {
+  attachmentUrl(chatId: string, attachmentId: number, download = false): string {
+    return `/api/chats/${encodeURIComponent(chatId)}/attachments/${attachmentId}/file${download ? '?download=true' : ''}`;
+  },
+  previewUrl(id: string): string { return `/api/document-previews/${encodeURIComponent(id)}/file`; },
+  previewStatus(id: string, signal?: AbortSignal): Promise<PreviewJob> {
+    return request(`/document-previews/${encodeURIComponent(id)}`, {signal});
+  },
+  preparePreview(chatId: string, attachmentId: number, signal?: AbortSignal): Promise<PreviewJob> {
+    return request(`/chats/${encodeURIComponent(chatId)}/attachments/${attachmentId}/preview`, {method:'POST',signal});
+  },
+  stagePreview(file: File, signal?: AbortSignal): Promise<PreviewJob> {
+    const body = new FormData(); body.append('file', file);
+    return request('/document-previews', {method:'POST',body,signal});
+  },
   async listCases(query = '', signal?: AbortSignal): Promise<CaseSummary[]> {
     const suffix = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
     const chats = await request<Chat[]>(`/chats${suffix}`, {signal});

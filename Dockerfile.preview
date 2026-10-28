@@ -1,0 +1,20 @@
+FROM python:3.12-slim-bookworm
+
+# Local, offline Word pagination; common metric-compatible Microsoft font replacements.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer fonts-liberation fonts-dejavu-core fonts-crosextra-carlito \
+    fonts-crosextra-caladea \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir 'pdfplumber>=0.11,<0.12'
+WORKDIR /app
+COPY src/application/upload_validation.py src/application/upload_validation.py
+COPY src/infrastructure/docx_inspector.py src/infrastructure/docx_inspector.py
+COPY src/domain/uploads.py src/domain/uploads.py
+COPY src/application/document_preview.py src/application/document_preview.py
+COPY src/infrastructure/pdf_process.py src/infrastructure/pdf_process.py
+COPY src/infrastructure/pdf_inspector.py src/infrastructure/pdf_inspector.py
+COPY src/infrastructure/pdf_worker.py src/infrastructure/pdf_worker.py
+COPY src/infrastructure/preview_spool.py src/infrastructure/preview_spool.py
+COPY src/infrastructure/word_preview_worker.py src/infrastructure/word_preview_worker.py
+ENV PYTHONDONTWRITEBYTECODE=1
+CMD ["python", "-m", "src.infrastructure.word_preview_worker"]

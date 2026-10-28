@@ -141,6 +141,112 @@ class BrowserAuthAcceptance(unittest.TestCase):
         page.get_by_role("button", name="Войти", exact=True).click()
         expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
 
+    def test_document_panel_and_full_conversation(self):
+        from tests_pdf.fixtures import pdf
+        from tests_unit.test_word_conversion import document
+
+        for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+            with self.subTest(viewport=label):
+                context = self.browser.new_context(viewport={"width": width, "height": height})
+                self.addCleanup(context.close)
+                page = context.new_page()
+                page.goto(URL + "/app")
+                self.sign_in(page)
+                page.locator('input[type="file"]').last.set_input_files(
+                    [
+                        {
+                            "name": "Synthetic verdict.pdf",
+                            "mimeType": "application/pdf",
+                            "buffer": pdf(pages=2),
+                        },
+                        {
+                            "name": "Word judgment.docx",
+                            "mimeType": "application/octet-stream",
+                            "buffer": document(),
+                        },
+                    ]
+                )
+                page.get_by_role("button", name="Открыть Synthetic verdict.pdf", exact=True).click()
+                expect(
+                    page.locator('.document-panel canvas[data-rendered="true"]').first
+                ).to_be_visible()
+                page.get_by_role("button", name="Закрыть документ", exact=True).click()
+                page.get_by_role("textbox", name="Задача по делу", exact=True).fill(
+                    "Synthetic first question"
+                )
+                page.locator(".cab-knowledge input").uncheck()
+                page.get_by_role("button", name="Отправить", exact=True).click()
+                expect(page.locator(".result")).to_have_count(1, timeout=20000)
+                page.get_by_role("textbox", name="Задача по делу", exact=True).fill(
+                    "Synthetic follow-up question"
+                )
+                page.get_by_role("button", name="Отправить", exact=True).click()
+                expect(page.locator(".result")).to_have_count(2, timeout=20000)
+                expect(page.locator("[data-message-id]")).to_have_count(4)
+                page.reload()
+                expect(page.locator("[data-message-id]")).to_have_count(4)
+                expect(page.get_by_text("Synthetic first question", exact=True)).to_be_visible()
+                page.get_by_role("button", name="Открыть Synthetic verdict.pdf", exact=True).click()
+                expect(
+                    page.locator('.document-panel canvas[data-rendered="true"]').first
+                ).to_be_visible()
+                expect(page.get_by_role("button", name="Следующая", exact=True)).to_have_count(0)
+                page.locator('[data-pdf-page="2"]').scroll_into_view_if_needed()
+                expect(
+                    page.locator('[data-pdf-page="2"] canvas[data-rendered="true"]')
+                ).to_be_visible()
+                self.assertGreater(page.locator(".pdf-pages").evaluate("(el) => el.scrollTop"), 0)
+                page.locator('[data-pdf-page="1"]').scroll_into_view_if_needed()
+                self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+                page.screenshot(
+                    path=str(ROOT / "acceptance-screenshots" / f"{label}-document-panel.png"),
+                    full_page=True,
+                )
+                page.get_by_role("button", name="Закрыть документ", exact=True).click()
+                # The worker has its own real offline pagination gate. Stub only its
+                # asynchronous HTTP status here to verify UI loading/failure/retry.
+                polls = [0]
+
+                def word_job(route):
+                    route.fulfill(
+                        json={
+                            "id": "synthetic-word",
+                            "filename": "Word judgment.docx",
+                            "status": "queued",
+                            "error": None,
+                        }
+                    )
+
+                def word_status(route, _request, counter=polls):
+                    counter[0] += 1
+                    route.fulfill(
+                        json={
+                            "id": "synthetic-word",
+                            "filename": "Word judgment.docx",
+                            "status": "converting" if counter[0] == 1 else "failed",
+                            "error": None if counter[0] == 1 else "Synthetic conversion failure",
+                        }
+                    )
+
+                page.route("**/attachments/*/preview", word_job)
+                page.route("**/api/document-previews/synthetic-word", word_status)
+                page.get_by_role("button", name="Открыть Word judgment.docx", exact=True).click()
+                expect(page.get_by_text("Подготавливаем документ", exact=True)).to_be_visible()
+                expect(page.get_by_text("Synthetic conversion failure", exact=True)).to_be_visible(
+                    timeout=10000
+                )
+                expect(
+                    page.get_by_role("link", name="Скачать оригинал", exact=True)
+                ).to_be_visible()
+                page.get_by_role("button", name="Повторить", exact=True).click()
+                expect(page.get_by_text("Synthetic conversion failure", exact=True)).to_be_visible()
+                page.get_by_role("button", name="Закрыть документ", exact=True).focus()
+                page.keyboard.press("Escape")
+                expect(page.locator(".document-panel")).to_have_count(0)
+                expect(
+                    page.get_by_role("button", name="Открыть Word judgment.docx", exact=True)
+                ).to_be_focused()
+
     def test_delete_chat_from_sidebar_cancel_error_confirm_and_reload(self):
         for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
             with self.subTest(viewport=label):
