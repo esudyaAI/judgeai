@@ -78,3 +78,9 @@ temp/
 
 .superpowers/
 .playwright-cli/
+
+# Краулер судакта: сырые HTML, состояние, датасеты
+data/
+
+# Данные краулеров (ВС РФ / sudact): только на диске, не в git
+verdikt-parser/data/
