@@ -2,13 +2,13 @@
 
 Статус: **инструкция к выполнению.** Деплой запускается автоматически только пушем в `main` через GitHub Actions; ручной деплой на сервере — только по процедурам отката/восстановления из этого документа.
 
-Действующая конфигурация: пуш в `main` → workflow GitHub Actions `.github/workflows/ci.yml` (тесты → сборка образов в `ghcr.io/shoshkovs/judjeai` → деплой на сервер по SSH) → сайт обновляется сам. Изменения на сервере руками не применяются.
+Действующая конфигурация: пуш в `main` → workflow GitHub Actions `.github/workflows/ci.yml` (тесты → сборка образов в `ghcr.io/esudyaai/judgeai` → деплой на сервер по SSH) → сайт обновляется сам. Изменения на сервере руками не применяются.
 
-> **Переезд с GitLab на GitHub (28.10.2026).** Репозиторий: https://github.com/shoshkovs/judjeai (GitLab `judgeai/judgeai` заморожен). Подготовка сервера (этап B) не меняется. Вместо шагов A.5 (deploy token GitLab), B.6 (логин в реестр GitLab) и этапа C (переменные GitLab CI) действует раздел «GitHub Actions» ниже. Упоминания GitLab, kaniko и `registry.gitlab.com` в остальных разделах — история прежней схемы.
+> **Переезд с GitLab на GitHub (28.10.2026).** Репозиторий: https://github.com/esudyaAI/judgeai (GitLab `judgeai/judgeai` заморожен). Подготовка сервера (этап B) не меняется. Вместо шагов A.5 (deploy token GitLab), B.6 (логин в реестр GitLab) и этапа C (переменные GitLab CI) действует раздел «GitHub Actions» ниже. Упоминания GitLab, kaniko и `registry.gitlab.com` в остальных разделах — история прежней схемы.
 
 ## GitHub Actions: секреты и первый деплой
 
-1. **Секреты репозитория** — github.com/shoshkovs/judjeai → **Settings → Secrets and variables → Actions → New repository secret**:
+1. **Секреты репозитория** — github.com/esudyaAI/judgeai → **Settings → Secrets and variables → Actions → New repository secret**:
 
    | Name | Value |
    |---|---|
@@ -19,7 +19,7 @@
 
    Значения секретов GitHub маскирует в логах; workflow пишет ключ в файл, не выводя его, и выравнивает CRLF/последний перевод строки. Если ключ когда-либо попадал в лог (инцидент T30) — сначала выпустить новую пару (B.7).
 2. **Окружение `production`** создаётся при первом деплое само; при желании в **Settings → Environments → production** можно ограничить его веткой `main` и включить ручное подтверждение деплоя.
-3. **Реестр образов.** Сборка пушит `ghcr.io/shoshkovs/judjeai/api` и `/web` токеном workflow. Постоянный логин сервера в реестр не нужен: на время деплоя workflow выполняет на сервере `docker login ghcr.io` одноразовым токеном этого запуска и после `pull` делает `docker logout`. Старый логин в `registry.gitlab.com` на сервере можно удалить (`docker logout registry.gitlab.com`).
+3. **Реестр образов.** Сборка пушит `ghcr.io/esudyaai/judgeai/api` и `/web` токеном workflow. Постоянный логин сервера в реестр не нужен: на время деплоя workflow выполняет на сервере `docker login ghcr.io` одноразовым токеном этого запуска и после `pull` делает `docker logout`. Старый логин в `registry.gitlab.com` на сервере можно удалить (`docker logout registry.gitlab.com`).
 4. **Первый деплой** — любой пуш (или слияние PR) в `main`. Порядок: `inventory`, `api-tests`, `browser-auth` → `build` (api и web параллельно) → `deploy` с health-check `https://esudya.ru/health`. Pull request и прочие ветки гоняют только тесты.
 5. **Откат** — Actions → нужный зелёный запуск на `main` → **Re-run jobs** для `deploy`: workflow развернёт образы того коммита (тег — первые 8 символов SHA).
 
