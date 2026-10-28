@@ -68,4 +68,5 @@ async def private_response_cache_control(request, call_next):
 
 @app.get("/health")
 async def health_check():
+    """Liveness probe polled by the deploy job after `docker compose up`."""
     return {"status": "ok"}
