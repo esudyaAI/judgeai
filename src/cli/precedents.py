@@ -2,7 +2,8 @@
 
 Usage: python -m src.cli.precedents index
 Idempotent: verdicts that already have a card and texts that already have a vector are skipped.
-Knowledge-base chunks without a vector of the configured EMBEDDING_MODEL are embedded too.
+With --chunks, knowledge-base chunks without a vector of the configured EMBEDDING_MODEL are
+embedded too (the fallback search only; costly with a cloud model).
 """
 
 import argparse
@@ -19,13 +20,14 @@ from src.infrastructure.verdict_reader import PracticeReader
 from src.services.knowledge_service import reembed_knowledge_chunks
 
 
-async def run_index(embedder=None) -> dict:
+async def run_index(embedder=None, chunks: bool = False) -> dict:
     async with async_session_factory() as db:
         use_case = IndexPrecedents(
             SqlPrecedentStore(db), PracticeReader(), embedder or FastembedEmbedder()
         )
         report = asdict(await use_case.execute(CARD_EXTRACTOR_VERSION))
-    report["knowledge_chunks"] = await _reembed_chunks()
+    if chunks:
+        report["knowledge_chunks"] = await _reembed_chunks()
     return report
 
 
@@ -43,9 +45,14 @@ async def _reembed_chunks() -> int | str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("index", help="build missing cards and vectors")
-    parser.parse_args()
-    print(json.dumps(asyncio.run(run_index()), ensure_ascii=False))
+    index = commands.add_parser("index", help="build missing cards and vectors")
+    index.add_argument(
+        "--chunks",
+        action="store_true",
+        help="also re-embed knowledge-base chunks (used only by the fallback search)",
+    )
+    args = parser.parse_args()
+    print(json.dumps(asyncio.run(run_index(chunks=args.chunks)), ensure_ascii=False))
 
 
 if __name__ == "__main__":
