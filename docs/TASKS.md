@@ -483,3 +483,52 @@
 
 - [x] Push по обновлённому токену успешен: integration/chat-search-profile cda3a2a; PR #5 https://github.com/esudyaAI/judgeai/pull/5, CI40741175641 запущен, inventory success.
 - [~] Browser host недоступен; для проверки реальных кнопок на desktop/mobile расширен существующий CI Chromium-сценарий: поиск/сброс, сохранение профиля и reload, вкладки/сеансы, JSON download, скриншоты и отсутствие горизонтальной прокрутки. Проверка ожидает CI.
+
+### Диагностика 429 после production deploy — 28.10.2026
+
+- [~] Владелец сообщил, что production развёрнут и получает 429 с внешним OpenAI-compatible gateway. Значения runtime env/ключей/паролей не сохранялись и не использовались для внешних запросов.
+- [x] Fetch main ced981f: PR #5 уже влит (d255f95); сообщение владельца о работающем deploy принято, независимая серверная приёмка этим не подтверждена. Прочитаны актуальные llm_client, analysis_runner, punishment_window_resolver, план local-analysis и DEPLOY.
+- [x] Адаптер deepseek_web предназначен для локального stateful proxy: conversation_id, folded system prompt, дополнительный DELETE conversations после каждого POST. Gateway документирует OpenAI-compatible chat API; штатный адаптер для такого контракта — openai. Смена адаптера сама по себе не гарантирует снятия 429.
+- [x] Документация gateway https://reformboss.com/docs: 429 — лимит ключа/частоты/дневного использования; нужны безопасный error code, request ID и срок ожидания. Наши адаптеры отбрасывают эти сведения в сообщении ошибки (только статус); один анализ может вызвать несколько LLM-запросов (окна наказания + извлечение фактов). Автоматической паузы по 429 сейчас нет.
+- [ ] Установить источник конкретного 429 (вход/регистрация либо LLM), получить безопасные code/request ID/Retry-After и проверить лимиты в Mini App. Доступа к runtime сервера в этой проверке нет; реальные документы провайдеру не отправлялись. Production-код и конфигурация не менялись.
+
+### Удаление отдельного чата из боковой панели — 28.10.2026
+
+- [~] Запрос владельца: кнопка рядом с чатом, удаление из БД. Ветка feat/delete-chat-sidebar от актуального main ced981f; прочитаны реестр, план профиля и существующие механизмы удаления всех дел.
+- [x] Найден пригодный общий механизм account_data.delete_cases: owner-фильтр, блокировка строк против отправки/анализа, каскад сообщений/вложений и безопасная очистка файлов. Будет расширен выбором одного чата, без новой схемы и изменения общей практики.
+- [x] API DELETE /api/chats/{id}: только владелец, CSRF, 404 чужого/отсутствующего, 409 при анализе. Тесты изоляции/каскада/файлов/общей базы прошли.
+- [x] Кнопка-корзина справа, подтверждение/отмена, ожидание/ошибка, обновление поиска/списка, переход из удалённого активного чата. Frontend tests/typecheck/build и desktop/mobile Chromium — успешно.
+- [x] Итоговые проверки реализации завершены. Слияние и штатный деплой разрешены владельцем отдельным сообщением «давай смёрджим»; результат ниже.
+
+- [x] RED: 4 новых API-теста падали ожидаемым 405 (DELETE отсутствовал). Реализованы application port/use case + SQL adapter поверх общего удаления, endpoint 404/409; UI-кнопка и отдельный hook с подтверждением/ошибками и защитой повторного запроса. Миграции отсутствуют.
+
+- [x] Целевые API tests/test_chat_delete.py + test_account.py: 13 passed (включая 4 новых теста/варианта); изоляция владельца/CSRF, busy, каскад, остальные чаты и общая практика, shared upload сохранён. Frontend30 tests passed; две ошибки новых тестов (имя auth и слишком широкий regex) исправлены, продуктовых обходов нет.
+- [~] Добавлен Chromium desktop/mobile сценарий: отмена, ошибка DELETE с сохранением чата, повтор/успех, удаление активного чата из результатов поиска, reload и подтверждение 404 в API. Локально Playwright отсутствует, сценарий запускается в штатном CI.
+
+- [x] Реализация опубликована a9e9bdf в feat/delete-chat-sidebar; локальные typecheck/build и ruff check/format — успешно. Chromium selector открытия чата уточнён до .cab-row, чтобы название не совпало с aria-label корзины; ожидается CI.
+
+- [x] PR #8 https://github.com/esudyaAI/judgeai/pull/8, код 284267e; CI40755745213: inventory/api-tests/browser-auth success, build/deploy skipped по правилам feature PR. Chromium desktop1440×1000/mobile390×844: поиск, отмена/ошибка/подтверждение удаления активного чата, переход на /app, reload и GET404 — успешно; горизонтальной прокрутки нет. Существующие auth/profile smoke также зелёные. Скриншоты — acceptance-screenshots artifact12846200669.
+- [x] Локально frontend30 tests/typecheck/build, ruff check/format, git diff --check; полный серверный/core регресс выполнен штатным CI. Повтор локального полного прогона не нужен. Рабочая БД/production не менялись, схема не менялась.
+
+- [x] Визуально просмотрены CI desktop-delete-chat.png и mobile-delete-chat.png: корзина справа, длинный заголовок не перекрывает кнопку, mobile drawer штатный, tap target44×44. Проверки выполнены на синтетике.
+- [~] По явному запросу владельца начато слияние PR #8: head284267e, baseced981f; mergeable=true/clean. Сверяются checks точного SHA, затем снятие Draft и SHA-guard merge; штатный main workflow запускает deploy.
+
+- [x] PR #8 Draft снят, обязательные checks точного SHA284267e: inventory/api-tests/browser-auth success. SHA-guard merge выполнен: main bfe4627c7d2568e45e97040d9e5e24768e2b2099, GitHub merged=true. Source-ветка сохранена, squash/force не применялись.
+- [~] Проверяется штатный main CI/build/deploy; успех production пока не заявляется.
+
+### Диалог удаления в приложении — 28.10.2026
+
+- [~] Владелец подтвердил работу удаления на сервере и запросил красивое окно приложения вместо window.confirm; разрешил сразу push. Ветка feat/delete-chat-dialog от main bfe4627; прочитаны реестр и план удаления.
+- [ ] Заменить confirm на styled dialog с названием, предупреждением, отменой/Escape, безопасным начальным фокусом, фокус-ловушкой и блокировкой фона; ожидание и ошибка внутри окна. API не меняется.
+- [ ] Обновить frontend/Chromium тесты отмены, ошибки/повтора, клавиатуры и ожидания; typecheck/build, desktop/mobile скриншоты; push и CI. Merge/deploy этой доработки отдельно не запрошен.
+
+- [x] Реализован DeleteChatDialog: окно по центру с затемнением/blur, иконкой, заголовком/названием, пояснением и кнопками; focus trap/inert через HTML showModal, начальный фокус на отмене и возврат на корзину при закрытии. Ошибка/повтор внутри, busy блокирует Escape/закрытие/повтор. window.confirm удалён; API/БД не менялись.
+- [x] Frontend32 tests прошли (новые SSR-состояния окна normal/busy/error), typecheck/build проверяются; Chromium обновлён под отмену/Escape/фокус, ошибку/повтор и отложенный DELETE. Ruff заметил незамкнутую переменную held в тестовом callback — привязана default argument, повторная проверка ниже.
+
+- [x] Push выполнен: feat/delete-chat-dialog f5c79f1; PR #9 https://github.com/esudyaAI/judgeai/pull/9. Frontend32 tests/typecheck/build, ruff/format, diff --check — успешно. Chromium/визуальная проверка ожидают CI; main/production не менялись.
+
+- [!] CI40758394942: API/inventory success, browser-auth failed на focus assertion после Shift+Tab (обе ширины). Нативный dialog позволял фокусу уходить в browser chrome; добавлен явный цикл Tab/Shift+Tab по доступным кнопкам, при busy Tab блокируется. Проверка не ослаблялась; добавлена прямая проверка forward-wrap.
+
+- [!] CI40758880511: API/inventory success, keyboard wrap прошёл; browser-auth обнаружил Escape, всплывающий до sidebar и закрывающий мобильную панель. В dialog остановлено всплытие Escape (нативная отмена окна сохраняется). Отдельно исправлен тестовый delayed route callback: Playwright передаёт вторым аргументом Request, который перекрывал default held; теперь Request принят отдельным параметром. Проверки повторяются.
+
+- [!] CI40759564580: desktop прошёл весь сценарий, API/inventory success; mobile падал только на возврате фокуса после Escape. Найден корень: Sidebar effect зависит от onClose, а Cabinet передавал новый callback на каждом render, поэтому mobile drawer повторно фокусировал свою первую кнопку после закрытия dialog. onClose стабилизирован useCallback; Escape обработан до native default action, busy закрытие по-прежнему запрещено. Тест фокуса сохранён без ослабления.

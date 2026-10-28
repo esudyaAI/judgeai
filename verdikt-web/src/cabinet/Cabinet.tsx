@@ -6,6 +6,8 @@ import { Composer } from './Composer';
 import { AttachScreen, NewCaseScreen, ThreadScreen } from './screens';
 import { SettingsScreen } from './Settings';
 import { Sidebar } from './Sidebar';
+import { useDeleteChat } from './useDeleteChat';
+import { DeleteChatDialog } from './DeleteChatDialog';
 import './cabinet.css';
 
 export type CabinetView = 'new' | 'attach' | 'thinking' | 'result' | 'settings';
@@ -44,6 +46,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [useKnowledge, setUseKnowledge] = useState(true);
   const [retry, setRetry] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const draftId = useRef<string | null>(null);
   const sendingRef = useRef(false);
   const operation = useRef(0);
@@ -52,8 +55,10 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     sendingRef.current = false;
     setSending(false);
   }, [caseId, view]);
+  const listRequest = useRef(0);
   const refreshCases = useCallback(async () => {
-    try { setCases(await api.listCases()); setListError(''); }
+    const request = ++listRequest.current;
+    try { const next = await api.listCases(); if (request === listRequest.current) { setCases(next); setListError(''); } }
     catch (e) { setListError(e instanceof Error ? e.message : 'Cannot load cases'); }
   }, []);
   useEffect(() => { void refreshCases(); }, [refreshCases]);
@@ -105,6 +110,12 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const startNew = () => {
     draftId.current = null; setSelectedFiles([]); setPrompt(''); setError(''); go('/app');
   };
+  const deletion = useDeleteChat(id => {
+    listRequest.current += 1;
+    setCases(current => current.filter(c => c.id !== id));
+    if (draftId.current === id) draftId.current = null;
+    if (caseId === id) { setMessages([]); setAnalysis(null); startNew(); }
+  });
   const addFiles = (list: FileList | null) => {
     if (busy) return;
     if (list) setSelectedFiles(prev => [...prev, ...Array.from(list)]);
@@ -131,8 +142,11 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
 
   return (
     <div className="cab">
-      <Sidebar cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
-        open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNew={startNew}
+      {deletion.pendingChat && <DeleteChatDialog chat={deletion.pendingChat} busy={deletion.deletingId !== null}
+        error={deletion.deleteError} onCancel={deletion.cancel} onConfirm={() => { void deletion.confirm(); }} />}
+      <Sidebar deletingId={deletion.deletingId} deleteError="" deleteNotice={deletion.deleteNotice}
+        onDelete={deletion.remove} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
+        open={sidebarOpen} onClose={closeSidebar} onNew={startNew}
         onPick={c => { setSelectedFiles([]); setPrompt(''); go(`/app/case/${c.id}/result`); }}
         onSettings={() => go('/app/settings')} username={account.username} profile={accountProfile} />
       <main className="cab-main">

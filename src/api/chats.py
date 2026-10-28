@@ -4,7 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.api.deps import CurrentUser, DbSession
+from src.application.account import AnalysisInProgress
+from src.application.chat_deletion import ChatNotFound, delete_chat
 from src.db.models import Attachment, Chat, Message
+from src.infrastructure.chat_deletion import SqlChatDeletionRepository
 from src.infrastructure.chat_queries import owned_chat_query
 from src.schemas.chat import ChatCreate, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
@@ -172,3 +175,13 @@ async def create_message(
         user_message=MessageRead.model_validate(await load_message(db, user_message.id)),
         assistant_message=MessageRead.model_validate(await load_message(db, assistant_message.id)),
     )
+
+
+@router.delete("/{chat_id}")
+async def remove_chat(chat_id: int, db: DbSession, user: CurrentUser):
+    try:
+        return await delete_chat(SqlChatDeletionRepository(db), user.user_id, chat_id)
+    except ChatNotFound:
+        raise HTTPException(404, "Чат не найден") from None
+    except AnalysisInProgress:
+        raise HTTPException(409, "Дождитесь завершения анализа перед удалением чата") from None
