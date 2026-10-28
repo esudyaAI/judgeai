@@ -1,7 +1,8 @@
 # Read-only check of how the language model is wired on the production server.
 # Prints container names/images, docker networks of a DeepSeek proxy if one runs, and the
 # non-secret LLM_* settings from /opt/judgeai/.env. LLM_API_KEY is never printed: only
-# whether it is set. Runs by hand (Actions -> ops-llm-status -> Run workflow).
+# whether it is set, and the last api log lines about analyses and LLM calls with tokens
+# masked (no document texts are logged). Runs by hand (Actions -> ops-llm-status -> Run workflow).
 name: ops-llm-status
 
 on:
@@ -49,4 +50,11 @@ jobs:
           if grep -q -E '^LLM_API_KEY=.+' .env; then echo "LLM_API_KEY: set"; else echo "LLM_API_KEY: empty"; fi
           echo "== api container view"
           docker exec judgeai_api python -c "from src.config import settings as s; print('provider', s.LLM_PROVIDER, 'base_host', s.LLM_API_BASE.split('/')[2] if '//' in s.LLM_API_BASE else s.LLM_API_BASE, 'model', s.LLM_MODEL)"
+          echo "== api log, last 40 minutes: analysis stages, LLM calls, errors (secrets masked)"
+          docker logs --since 40m judgeai_api 2>&1 \
+            | grep -i -E 'analysis|llm|error|exception|traceback|timeout|/messages' \
+            | sed -E 's/(sk-|Bearer )[A-Za-z0-9._-]+/\1***/g' \
+            | tail -80
+          echo "== api restarts"
+          docker inspect -f 'started {{.State.StartedAt}} restarts {{.RestartCount}}' judgeai_api
           REMOTE
