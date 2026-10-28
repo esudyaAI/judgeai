@@ -20,8 +20,9 @@ try {
         import { AuthGate } from './src/auth/AuthGate';
         import { InfoPage } from './src/info/InfoPage';
         import { CaseWorkflow } from './src/landing/Hero';
+        import { Sidebar } from './src/cabinet/Sidebar';
         import { Footer } from './src/landing/Sections';
-        export const render = (name, props) => renderToStaticMarkup(createElement({Composer, ThreadScreen, AuthGate, InfoPage, CaseWorkflow, Footer}[name], props));
+        export const render = (name, props) => renderToStaticMarkup(createElement({Composer, ThreadScreen, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar}[name], props));
       `,
       resolveDir: fileURLToPath(new URL('../..', import.meta.url)), loader: 'tsx',
     },

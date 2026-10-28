@@ -231,3 +231,11 @@
   .set-fields { grid-template-columns: minmax(0, 1fr); }
   .session { flex-wrap: wrap; }
 }
+
+.cab-chat-row { display: flex; align-items: center; border-radius: 10px; }
+.cab-chat-row.on { background: #fff; }
+.cab-chat-row > .cab-row { flex: 1; min-width: 0; }
+.cab-delete { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.cab-delete:hover:not(:disabled) { color: #b42318; background: #fef3f2; }
+.cab-delete:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.cab-delete:disabled { opacity: .4; cursor: not-allowed; }
