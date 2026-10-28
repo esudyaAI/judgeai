@@ -25,7 +25,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.config import settings
 from src.db.base import Base
 
 
@@ -103,5 +102,5 @@ class PrecedentEmbedding(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     text_hash: Mapped[str] = mapped_column(String(64))
     model: Mapped[str] = mapped_column(String(255))
-    embedding = mapped_column(Vector(settings.EMBEDDING_DIM))
+    embedding = mapped_column(Vector())  # any dimension; compared only within one model
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

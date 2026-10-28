@@ -124,6 +124,7 @@ async def test_private_case_document_cannot_be_read_by_id():
 
 async def test_private_case_documents_never_reach_the_vector_search(monkeypatch):
     """Same boundary for the vector branch: a private chunk closest to the query stays out."""
+    from src.config import settings
     from src.db.models import KnowledgeChunk
     from src.services import similarity_search
     from tests.fixtures.fake_embedder import HashingEmbedder
@@ -139,7 +140,11 @@ async def test_private_case_documents_never_reach_the_vector_search(monkeypatch)
             [vector] = await embedder.embed_passages([text])
             db.add(
                 KnowledgeChunk(
-                    verdict_id=verdict.id, chunk_type="text", content=text, embedding=vector
+                    verdict_id=verdict.id,
+                    chunk_type="text",
+                    content=text,
+                    embedding=vector,
+                    embedding_model=settings.EMBEDDING_MODEL,
                 )
             )
         await db.commit()
