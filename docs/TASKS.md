@@ -545,7 +545,7 @@
 
 ### Панель документов и продолжение диалога — 28.10.2026
 
-- [~] Ветка feat/document-panel-chat-history от GitHub main 8bc1173. Цель: полная лента сообщений и открытие вложений справа без ухода из диалога. Владелец выбрал Word → PDF с сохранением страниц.
+- [x] Ветка feat/document-panel-chat-history от GitHub main 8bc1173. Цель: полная лента сообщений и открытие вложений справа без ухода из диалога. Владелец выбрал Word → PDF с сохранением страниц.
 - Объём: frontend timeline/panel/state; application context selection; owner-scoped attachment delivery; isolated local conversion worker and deployment configuration. Новая схема БД не нужна. T24–T27 legal algorithms не меняются.
 - Риски: чужие вложения, external references/macros в Word, ресурсы конвертации, устаревшие ответы после навигации, отсутствующие шрифты. Worker без сети/ключей/БД/общих originals; отдельный converter UID, приватные задания, лимиты времени/размера/страниц; каждый HTTP fetch проверяет владельца. Точное совпадение шрифтов возможно только при наличии исходного шрифта.
 - Definition of Done: все реплики и статусы видны после reload; follow-up получает историю текущего чата и прежние читаемые документы; PDF/Word открываются в панели с ожиданием/ошибкой/download; чужие и удалённые вложения недоступны; тесты, typecheck/build/lint, реальная конвертация и desktop/mobile проверены. Реализация/CI/merge/deploy учитываются раздельно; production этой задачей не разрешён.
@@ -553,7 +553,7 @@
 - [x] TDD: приватные preview jobs, TTL/очистка, upload validation, owner/CSRF/attachment access, PDF response headers.
 - [x] Worker: Word → PDF, ограничения процесса и контейнера, безопасный output, синтетическая многостраничная приёмка, runtime inventory.
 - [x] Frontend: все сообщения, кликабельные вложения, отдельный hook/panel, desktop split/mobile overlay, cancel/stale-response protection.
-- [~] Проверки и независимый review; исправления; актуализация этого реестра; Draft PR и обязательный CI. Слияние/production не входят в текущую приёмку.
+- [x] Проверки и независимый review; исправления; актуализация этого реестра; Draft PR и обязательный CI. Слияние/production не входят в текущую приёмку.
 - [x] RED→GREEN: 4 независимых теста контекста (история, приоритет текущего вопроса, документы, лимиты/предупреждения, пустые входы). Добавлен owner-scoped SQL reader; runner использует ранее извлечённые документы без повторного индексирования. Endpoint сериализует запросы чата через существующую блокировку Chat. Интеграционные проверки ещё впереди.
 - [x] UI: 34 frontend tests/typecheck/build успешно. Полная timeline переиспользует Result/Thinking; ошибки относятся к своей реплике. Preview state/API вынесены из view; локальные Blob URL освобождаются, запросы отменяются при закрытии/смене чата, тип локального preview принудительно PDF/plain text. Визуальная/браузерная приёмка ещё не выполнена.
 - [x] Unit25 успешно: owner-bound очередь, TTL, capacity, отказ на symlink, безопасная ошибка/удаление original после неудачи worker. API-интеграция и полный регресс запущены в отдельной тестовой БД; результат ожидается.
@@ -571,3 +571,9 @@
 
 - [x] Опубликована ветка ba07003 и Draft PR #13 https://github.com/esudyaAI/judgeai/pull/13. GitHub connector не имел PR-write (403), штатный gh с существующей авторизацией создал PR успешно; main/production не менялись. Обязательный CI проверяется.
 - [x] По уточнению владельца удалена подпись «Не видны страницы? Скачайте оригинал.»; ссылка скачивания оригинала сохранена справа. Проверки UI повторяются на обновлённом head.
+
+- [x] Интеграция с актуальным main cfa18f6 (T4/Jina/LLM retries) обычным merge d106e80, история не переписывалась. Конфликт только в generated SBOM, устранён регенерацией. Привнесённая main миграция0011 не создавалась этой задачей; отработала на отдельной тестовой БД вместе с существующими roundtrip checks.
+- [x] Финальный объединённый локальный регресс:423 API/reader tests passed, coverage87,93%; legal_core183/cov99,03%; unit25, frontend37/typecheck/build; ruff/format/inventory/diff и YAML3 — успешно. Настоящие документы/секреты не использовались.
+- [x] CI https://github.com/esudyaAI/judgeai/actions/runs/40770360174 на d106e8094a25bd31f4314d90c694042bf8db5b34: inventory/api-tests/browser-auth/document-preview success. Build/deploy штатно skipped для feature PR; required test jobs не пропущены. Desktop/mobile приёмка с реальным API и PDF прошла. Word HTTP states в browser smoke синтетические, настоящий converter проверен отдельным обязательным job.
+- [x] Дополнительная локальная Playwright приёмка200страниц на обеих ширинах: scroll1→2→200→1, resize, first offscreen canvas удалён, одновременно≤8canvas; PDF error→retry и Word pending→pages, focus/Escape/reload — успешно. Русские подписи и отсутствие лишней подсказки подтверждены визуально.
+- [x] Реализация завершена и опубликована Draft PR #13; merge/deploy владельцем в этой задаче не запрошены и не выполнялись. Остаточные ограничения: шрифты Word могут менять переносы; DOC/макросы/пароли вне принятого subset; качество реального LLM follow-up и production conversion не оценивались. Дальнейшая приёмка: согласованный merge/deploy и проверка на сервере, при необходимости установка разрешённых исходных шрифтов.
