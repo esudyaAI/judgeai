@@ -43,7 +43,7 @@ export function Demo() {
         <div className="demo-window">
           <div className="demo-head">
             <span className="demo-title">Новое дело</span>
-            <span className="badge" aria-live="polite">
+            <span className="badge" data-loading={sent && !answer || undefined} aria-live="polite">
               {status}
             </span>
           </div>
@@ -68,7 +68,7 @@ export function Demo() {
                 <div className="steps">
                   <span className="steps-title">Анализирую материалы дела</span>
                   {steps.map((s) => (
-                    <div key={s.label} className="d-in step-row">
+                    <div key={s.label} className="d-in step-row" data-loading={s.active || undefined}>
                       {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
                       {s.active && <span className="spin" />}
                       <span className={s.done ? 'step-done' : 'step-active'}>{s.label}</span>
@@ -126,7 +126,7 @@ export function Demo() {
               <div className={`chips-wrap ${chipsOpen ? 'open' : ''}`}>
                 <div className="chips" style={{ paddingBottom: 10 }}>
                   {files.map((f) => (
-                    <span key={f.name} className="d-chip upload-chip">
+                    <span key={f.name} className="d-chip upload-chip" data-loading={f.p < 1 || undefined}>
                       <FileTile ext={f.ext} size={32} />
                       <span className="upload-body">
                         <span className="upload-name">{f.name}</span>

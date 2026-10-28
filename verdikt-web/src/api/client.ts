@@ -59,8 +59,9 @@ export function fileExt(name: string): CaseFile['ext'] {
 }
 
 export const api = {
-  async listCases(): Promise<CaseSummary[]> {
-    const chats = await request<Chat[]>('/chats');
+  async listCases(query = '', signal?: AbortSignal): Promise<CaseSummary[]> {
+    const suffix = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
+    const chats = await request<Chat[]>(`/chats${suffix}`, {signal});
     const labels = {draft: 'Черновик', busy: 'Идёт анализ', ready: 'Анализ готов', failed: 'Ошибка анализа'};
     return chats.map(c => ({id: String(c.id), title: c.title || 'Дело без названия',
       group: 'Ранее', status: c.status, meta: labels[c.status]}));
@@ -113,4 +114,26 @@ export const auth = {
     await request('/auth/logout', {method: 'POST'});
     csrfToken = '';
   },
+};
+
+export interface Profile {
+  firstName: string; lastName: string; email: string; position: string;
+  org: string; region: string; avatar: string;
+}
+export interface AccountSession { id: string; current: boolean; created_at: string; expires_at: string }
+export const accountApi = {
+  profile: () => request<Profile>('/account/profile'),
+  saveProfile: (profile: Profile) => request<Profile>('/account/profile', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(profile),
+  }),
+  sessions: () => request<AccountSession[]>('/account/sessions'),
+  revoke: (id: string) => request(`/account/sessions/${encodeURIComponent(id)}`, {method: 'DELETE'}),
+  changePassword: (current: string, next: string) => request('/account/password', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({current_password: current, new_password: next}),
+  }),
+  exportData: () => request<unknown>('/account/export'),
+  deleteCases: (password: string, confirmation: string) => request<{deleted: number; files_pending: number}>('/account/delete-cases', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password, confirmation}),
+  }),
 };

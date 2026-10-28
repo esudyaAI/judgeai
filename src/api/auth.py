@@ -90,7 +90,9 @@ async def login(payload: LoginInput, request: Request, response: Response, db: D
     client_host = _require_app_header(request)
     if not await consume_login_attempt(db, client_host, payload.username):
         raise HTTPException(429, "Слишком много попыток входа; попробуйте через 15 минут")
-    user = await db.scalar(select(User).where(User.username == payload.username.strip().lower()))
+    user = await db.scalar(
+        select(User).where(User.username == payload.username.strip().lower()).with_for_update()
+    )
     password = payload.password.get_secret_value()
     valid = await check_password(user.password_hash if user else None, password)
     if not valid or user is None or not user.is_active:

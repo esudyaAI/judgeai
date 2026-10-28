@@ -1,10 +1,11 @@
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.api.deps import CurrentUser, DbSession
 from src.db.models import Attachment, Chat, Message
+from src.infrastructure.chat_queries import owned_chat_query
 from src.schemas.chat import ChatCreate, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
 from src.services.analysis_runner import run_analysis
@@ -51,14 +52,8 @@ def _chat_read(chat: Chat, status: ChatStatus) -> ChatRead:
 
 
 @router.get("", response_model=list[ChatRead])
-async def list_chats(db: DbSession, user: CurrentUser):
-    chats = (
-        await db.scalars(
-            select(Chat)
-            .where(Chat.owner_id == user.user_id)
-            .order_by(Chat.updated_at.desc(), Chat.id.desc())
-        )
-    ).all()
+async def list_chats(db: DbSession, user: CurrentUser, q: str = Query("", max_length=200)):
+    chats = (await db.scalars(owned_chat_query(user.user_id, q))).all()
     statuses = await _chat_statuses(db, [c.id for c in chats])
     return [_chat_read(c, statuses.get(c.id, "draft")) for c in chats]
 
@@ -121,7 +116,9 @@ async def create_message(
     files: list[UploadFile] = File(default_factory=list),
 ):
     """Store the request and files, then analyse in the background (202 + poll)."""
-    chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
+    chat = await db.scalar(
+        select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id).with_for_update()
+    )
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
     if not (content and content.strip()) and not files:

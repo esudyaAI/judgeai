@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api import auth, chats, criminal_sanctions, knowledge, legal_library, precedents
+from src.api import account, auth, chats, criminal_sanctions, knowledge, legal_library, precedents
 from src.config import settings
 from src.services.analysis_runner import fail_interrupted_analyses
 
@@ -38,6 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(account.router, prefix="/api/account", tags=["account"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(chats.router, prefix="/api/chats", tags=["chats"])
 app.include_router(precedents.router, prefix="/api/chats", tags=["precedents"])
@@ -50,7 +51,7 @@ app.include_router(
 
 @app.exception_handler(RequestValidationError)
 async def hide_auth_validation_inputs(request, exc):
-    if request.url.path.startswith("/api/auth"):
+    if request.url.path.startswith(("/api/auth", "/api/account")):
         # A missing field can otherwise echo the entire login body, including passwords.
         errors = [{key: item[key] for key in ("loc", "msg", "type")} for item in exc.errors()]
         return JSONResponse(status_code=422, content={"detail": errors})
@@ -60,7 +61,7 @@ async def hide_auth_validation_inputs(request, exc):
 @app.middleware("http")
 async def private_response_cache_control(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/api/chats", "/api/knowledge", "/api/auth")):
+    if request.url.path.startswith(("/api/chats", "/api/knowledge", "/api/auth", "/api/account")):
         response.headers["Cache-Control"] = "no-store"
     return response
 

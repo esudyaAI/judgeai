@@ -1,188 +1,115 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { accountApi, type AuthUser, type Profile } from '../api/client';
+import { Link } from '../router';
+import { downloadAccountData, readAvatar, useAccount } from './useAccount';
 
-type Tab = 'profile' | 'prefs' | 'security' | 'data';
-type ToggleKey = 'regionOnly' | 'notify' | 'twofa' | 'autodelete' | 'noTraining';
-
-const TABS: [Tab, string][] = [
-  ['profile', 'Профиль'],
-  ['prefs', 'Предпочтения'],
-  ['security', 'Безопасность'],
-  ['data', 'Данные'],
+type Tab = 'profile' | 'security' | 'data';
+const TABS: [Tab, string][] = [['profile', 'Профиль'], ['security', 'Безопасность'], ['data', 'Данные']];
+const FIELDS: [keyof Omit<Profile, 'avatar'>, string, string][] = [
+  ['firstName', 'Имя', 'Имя'], ['lastName', 'Фамилия', 'Фамилия'], ['email', 'Email', 'name@example.ru'],
+  ['position', 'Должность', 'Например, помощник судьи'], ['org', 'Суд или организация', 'Название'], ['region', 'Регион', 'Регион'],
 ];
-
-const PROFILE_FIELDS: [string, string, string][] = [
-  ['firstName', 'Имя', 'Имя'],
-  ['lastName', 'Фамилия', 'Фамилия'],
-  ['email', 'Email', 'name@example.ru'],
-  ['position', 'Должность', 'Например, помощник судьи'],
-  ['org', 'Суд или организация', 'Название'],
-  ['region', 'Регион', 'Регион'],
-];
-
-const TOGGLES: Record<ToggleKey, [string, string]> = {
-  regionOnly: ['Практика только моего региона', 'Схожие приговоры подбираются в первую очередь из вашего региона'],
-  notify: ['Уведомлять, когда проект готов', 'Письмо на email после завершения анализа'],
-  twofa: ['Двухфакторная аутентификация', 'Код подтверждения при входе с нового устройства'],
-  autodelete: ['Удалять материалы через 30 дней', 'Проекты приговоров сохранятся, исходные файлы — нет'],
-  noTraining: ['Не использовать мои дела для улучшения сервиса', 'Материалы не попадают в обучение моделей'],
-};
-
-const SESSIONS = [
-  { device: 'MacBook · Chrome', meta: '[Город] · сейчас', current: true },
-  { device: 'iPhone · Safari', meta: '[Город] · вчера', current: false },
-];
-
-function Row({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
-  return (
-    <div className="set-row">
-      <div>
-        <div className="set-title">{title}</div>
-        <div className="muted-14">{hint}</div>
-      </div>
-      {children}
-    </div>
-  );
+const LIMITS = {firstName:100, lastName:100, email:254, position:200, org:200, region:100};
+function Row({title, hint, children}: {title: string; hint: string; children: ReactNode}) {
+  return <div className="set-row"><div><div className="set-title">{title}</div><div className="muted-14">{hint}</div></div>{children}</div>;
 }
 
-// TODO(api): there is no auth/user/settings API in the backend yet — everything here is local state.
-export function SettingsScreen({ onCancel }: { onCancel: () => void }) {
+export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileSaved}: {
+  onProfileSaved: (profile: Profile) => void;
+  user: AuthUser; onCancel: () => void; onDeleted: () => Promise<void>; onSignOut: () => Promise<void>;
+}) {
+  const state = useAccount();
+  const {profile, setProfile, sessions, loading, busy, error, status, run, setStatus} = state;
   const [tab, setTab] = useState<Tab>('profile');
-  const [format, setFormat] = useState<'DOCX' | 'PDF'>('DOCX');
-  const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({ regionOnly: true, notify: true, twofa: true, autodelete: false, noTraining: true });
-  const [saved, setSaved] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const photo = useRef<HTMLInputElement>(null);
 
-  const sw = (key: ToggleKey) => (
-    <Row key={key} title={TOGGLES[key][0]} hint={TOGGLES[key][1]}>
-      <button type="button" role="switch" aria-checked={toggles[key]} aria-label={TOGGLES[key][0]} className="switch" onClick={() => setToggles((t) => ({ ...t, [key]: !t[key] }))}>
-        <span />
-      </button>
-    </Row>
-  );
-
-  return (
-    <div className="fade-in settings">
-      <h1 className="screen-h2">Настройки</h1>
-      <div role="tablist" aria-label="Разделы настроек" className="seg" style={{ alignSelf: 'flex-start' }}>
-        {TABS.map(([id, label]) => (
-          <button key={id} type="button" role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="fade-in" key={tab}>
-        {tab === 'profile' && (
-          <div className="set-profile">
-            <div className="set-avatar-row">
-              <span className="avatar avatar-lg" aria-hidden="true">
-                ИП
-              </span>
-              <button type="button" className="btn btn-soft btn-sm">
-                Изменить фото
-              </button>
-            </div>
-            <div className="set-fields">
-              {PROFILE_FIELDS.map(([name, label, placeholder]) => (
-                <label key={name} className="set-field">
-                  <span>{label}</span>
-                  <input type={name === 'email' ? 'email' : 'text'} name={name} placeholder={placeholder} />
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {tab === 'prefs' && (
-          <div className="set-list">
-            <Row title="Регион практики" hint="По нему подбираются схожие приговоры и среднее по практике">
-              <label className="set-select">
-                <span className="sr-only">Регион практики</span>
-                <select defaultValue="">
-                  <option value="" disabled>
-                    [Регион]
-                  </option>
-                </select>
-              </label>
-            </Row>
-            <Row title="Формат проекта приговора" hint="В каком виде скачивать готовый проект">
-              <div role="group" aria-label="Формат" className="seg">
-                {(['DOCX', 'PDF'] as const).map((f) => (
-                  <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </Row>
-            {sw('regionOnly')}
-            {sw('notify')}
-          </div>
-        )}
-
-        {tab === 'security' && (
-          <div className="set-list">
-            <Row title="Пароль" hint="Последнее изменение — [дата]">
-              <button type="button" className="btn btn-line btn-sm">
-                Изменить
-              </button>
-            </Row>
-            {sw('twofa')}
-            <div className="set-sessions">
-              <div className="set-title">Активные сеансы</div>
-              {SESSIONS.map((s) => (
-                <div key={s.device} className="session">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{s.device}</div>
-                    <div style={{ fontSize: 13, color: '#707070' }}>{s.meta}</div>
-                  </div>
-                  {s.current ? (
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#707070' }}>Этот сеанс</span>
-                  ) : (
-                    <button type="button" className="btn btn-line btn-xs">
-                      Завершить
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {tab === 'data' && (
-          <div className="set-list">
-            {sw('autodelete')}
-            {sw('noTraining')}
-            <Row title="Экспорт данных" hint="Архив со всеми делами и проектами приговоров">
-              <button type="button" className="btn btn-line btn-sm">
-                Скачать архив
-              </button>
-            </Row>
-            <div className="danger-box">
-              <div>
-                <div className="set-title" style={{ color: '#b42318' }}>
-                  Удалить все дела
-                </div>
-                <div className="muted-14">Материалы и проекты будут удалены без возможности восстановления</div>
-              </div>
-              {/* TODO(api): require explicit confirmation before calling a destructive endpoint */}
-              <button type="button" className="btn btn-danger btn-sm">
-                Удалить
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="set-actions">
-        <button type="button" className="btn btn-ink btn-md" onClick={() => setSaved(true)}>
-          Сохранить
-        </button>
-        <button type="button" className="btn btn-soft btn-md" onClick={onCancel}>
-          Отмена
-        </button>
-        <span role="status" className="muted-14">
-          {saved ? 'Сохранено локально (нет API)' : ''}
-        </span>
-      </div>
+  return <div className="fade-in settings">
+    <h1 className="screen-h2">Настройки аккаунта</h1>
+    <div role="tablist" aria-label="Разделы настроек" className="seg">
+      {TABS.map(([id, label]) => <button key={id} type="button" role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id}
+        onClick={() => { setTab(id); state.setError(''); setStatus(''); }}>{label}</button>)}
     </div>
-  );
+    {loading && <p className="shimmer" role="status">Загружаем настройки…</p>}
+    {error && <div className="warn-box" role="alert">{error}<button type="button" disabled={busy} onClick={state.reload}>Загрузить заново</button></div>}
+    {status && <p role="status">{status}</p>}
+    {!loading && state.loaded && <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab}>
+      {tab === 'profile' && <form className="set-profile" onSubmit={e => {
+        e.preventDefault(); void run(async () => { const saved = await accountApi.saveProfile(profile); setProfile(saved); onProfileSaved(saved); setStatus('Профиль сохранён'); });
+      }}>
+        <p className="muted-14">Имя пользователя: <strong>{user.username}</strong>. Данные профиля видны только вам.</p>
+        <div className="set-avatar-row">
+          <span className="avatar avatar-lg" aria-hidden="true">{profile.avatar ? <img src={profile.avatar} alt="" /> : (profile.firstName || user.username).slice(0, 2).toUpperCase()}</span>
+          <input ref={photo} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => {
+            const file = e.target.files?.[0]; e.target.value = '';
+            if (file) void run(async () => { const avatar = await readAvatar(file); setProfile(p => ({...p, avatar})); setStatus('Фото выбрано. Нажмите «Сохранить профиль».'); });
+          }} />
+          <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => photo.current?.click()}>Изменить фото</button>
+          {profile.avatar && <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => { setProfile(p => ({...p, avatar:''})); setStatus('Фото убрано. Нажмите «Сохранить профиль».'); }}>Убрать фото</button>}
+        </div>
+        <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Email — контактное поле, уведомления на него не отправляются.</p>
+        <div className="set-fields">{FIELDS.map(([name, label, placeholder]) => <label key={name} className="set-field"><span>{label}</span>
+          <input type={name === 'email' ? 'email' : 'text'} name={name} maxLength={LIMITS[name]} placeholder={placeholder} value={profile[name]} disabled={busy}
+            onChange={e => { setProfile(p => ({...p, [name]: e.target.value})); setStatus(''); }} />
+        </label>)}</div>
+        <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy} data-loading={busy || undefined}>Сохранить профиль</button>
+          <button type="button" className="btn btn-soft btn-md" disabled={busy} onClick={onCancel}>Отмена</button></div>
+      </form>}
+      {tab === 'security' && <div className="set-list">
+        <form className="set-profile" onSubmit={e => {
+          e.preventDefault();
+          if (newPassword !== repeatPassword) { state.setError('Новые пароли не совпадают'); return; }
+          void run(async () => { await accountApi.changePassword(oldPassword, newPassword);
+            setOldPassword(''); setNewPassword(''); setRepeatPassword('');
+            state.setSessions(await accountApi.sessions()); setStatus('Пароль изменён. Остальные сеансы завершены.'); });
+        }}>
+          <h2 className="set-title">Изменить пароль</h2>
+          <div className="set-fields">
+            <label className="set-field"><span>Текущий пароль</span><input type="password" autoComplete="current-password" required maxLength={1024} value={oldPassword} disabled={busy} onChange={e => setOldPassword(e.target.value)} /></label>
+            <label className="set-field"><span>Новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={newPassword} disabled={busy} onChange={e => setNewPassword(e.target.value)} /></label>
+            <label className="set-field"><span>Повторите новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={repeatPassword} disabled={busy} onChange={e => setRepeatPassword(e.target.value)} /></label>
+          </div>
+          <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy} data-loading={busy || undefined}>Изменить пароль</button></div>
+        </form>
+        <div className="set-sessions"><h2 className="set-title">Активные сеансы</h2>
+          <p className="muted-14">Открытые входы в аккаунт. Названия устройств и геолокация не собираются.</p>
+          {sessions.map(s => <div key={s.id} className="session"><div className="session-details"><strong>{s.current ? 'Этот сеанс' : 'Другой сеанс'}</strong>
+            <span>Вход: {new Date(s.created_at).toLocaleString('ru-RU')}</span><span>Действует до: {new Date(s.expires_at).toLocaleString('ru-RU')}</span></div>
+            <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => void run(async () => {
+              if (s.current) await onSignOut(); else { await accountApi.revoke(s.id); state.setSessions(await accountApi.sessions()); setStatus('Сеанс завершён'); }
+            })}>{s.current ? 'Выйти' : 'Завершить'}</button>
+          </div>)}
+        </div>
+      </div>}
+      {tab === 'data' && <div className="set-list">
+        <Row title="Экспорт данных" hint="JSON: профиль, запросы, извлечённый текст и результаты анализа. Без оригиналов файлов.">
+          <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => void run(async () => {
+            downloadAccountData(await accountApi.exportData()); setStatus('Файл экспорта подготовлен');
+          })}>Скачать данные</button>
+        </Row>
+        <Row title="Обработка данных" hint="Узнайте, как разделены личные дела и общая база практики."><Link href="/privacy">Конфиденциальность</Link></Row>
+        <div className="danger-box"><div><div className="set-title">Удалить все мои дела</div><p className="muted-14">Запросы, результаты и вложения будут удалены. Аккаунт и документы, отдельно сохранённые в базе практики, сохранятся.</p></div>
+          {!confirming && <button type="button" className="btn btn-danger btn-sm" disabled={busy} onClick={() => setConfirming(true)}>Удалить дела</button>}
+          {confirming && <form className="set-delete-confirm" onSubmit={e => {
+            e.preventDefault(); void run(async () => {
+              const result = await accountApi.deleteCases(deletePassword, confirmation);
+              setDeletePassword(''); setConfirmation(''); setConfirming(false); await onDeleted();
+              setStatus(`Удалено дел: ${result.deleted}.${result.files_pending ? ' Часть исходных файлов требует очистки оператором.' : ''}`);
+            });
+          }}>
+            <p>Удаление необратимо. Сначала скачайте данные, если они вам нужны. Во время анализа удаление недоступно.</p>
+            <label className="set-field"><span>Введите УДАЛИТЬ</span><input value={confirmation} required pattern="УДАЛИТЬ" disabled={busy} onChange={e => setConfirmation(e.target.value)} /></label>
+            <label className="set-field"><span>Пароль аккаунта</span><input type="password" autoComplete="current-password" required maxLength={1024} value={deletePassword} disabled={busy} onChange={e => setDeletePassword(e.target.value)} /></label>
+            <div className="set-actions"><button type="submit" className="btn btn-danger btn-sm" disabled={busy || confirmation !== 'УДАЛИТЬ'}>Удалить безвозвратно</button>
+              <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => { setConfirming(false); setConfirmation(''); setDeletePassword(''); }}>Отмена</button></div>
+          </form>}
+        </div>
+      </div>}
+    </div>}
+  </div>;
 }
