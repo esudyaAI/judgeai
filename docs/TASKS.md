@@ -523,3 +523,7 @@
 
 - [x] Реализован DeleteChatDialog: окно по центру с затемнением/blur, иконкой, заголовком/названием, пояснением и кнопками; focus trap/inert через HTML showModal, начальный фокус на отмене и возврат на корзину при закрытии. Ошибка/повтор внутри, busy блокирует Escape/закрытие/повтор. window.confirm удалён; API/БД не менялись.
 - [x] Frontend32 tests прошли (новые SSR-состояния окна normal/busy/error), typecheck/build проверяются; Chromium обновлён под отмену/Escape/фокус, ошибку/повтор и отложенный DELETE. Ruff заметил незамкнутую переменную held в тестовом callback — привязана default argument, повторная проверка ниже.
+
+- [x] Push выполнен: feat/delete-chat-dialog f5c79f1; PR #9 https://github.com/esudyaAI/judgeai/pull/9. Frontend32 tests/typecheck/build, ruff/format, diff --check — успешно. Chromium/визуальная проверка ожидают CI; main/production не менялись.
+
+- [!] CI40758394942: API/inventory success, browser-auth failed на focus assertion после Shift+Tab (обе ширины). Нативный dialog позволял фокусу уходить в browser chrome; добавлен явный цикл Tab/Shift+Tab по доступным кнопкам, при busy Tab блокируется. Проверка не ослаблялась; добавлена прямая проверка forward-wrap.

@@ -26,7 +26,15 @@ export function DeleteChatDialog({chat, busy, error, onCancel, onConfirm}: Props
 
   return <dialog ref={dialog} className="delete-chat-dialog" aria-labelledby="delete-chat-title"
     aria-describedby="delete-chat-description" aria-busy={busy || undefined}
-    onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}>
+    onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}
+    onKeyDown={event => {
+      if (event.key !== 'Tab') return;
+      const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+      if (!buttons.length) { event.preventDefault(); return; }
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }}>
     <div className="delete-chat-body">
       <div className="delete-chat-top">
         <span className="delete-chat-icon"><Icon name="trash" size={24} /></span>

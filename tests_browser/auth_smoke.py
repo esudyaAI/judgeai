@@ -181,6 +181,8 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.keyboard.press("Shift+Tab")
                 page.keyboard.press("Shift+Tab")
                 self.assertTrue(page.evaluate("!!document.activeElement.closest('dialog')"))
+                page.keyboard.press("Tab")
+                expect(modal.get_by_role("button", name="Закрыть окно", exact=True)).to_be_focused()
                 page.keyboard.press("Escape")
                 expect(modal).to_have_count(0)
                 expect(remove).to_be_focused()
