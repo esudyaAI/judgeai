@@ -174,10 +174,29 @@ class BrowserAuthAcceptance(unittest.TestCase):
                     path=str(ROOT / "acceptance-screenshots" / f"{label}-delete-chat.png"),
                     full_page=True,
                 )
-                page.once("dialog", lambda dialog: dialog.dismiss())
+                modal = page.get_by_role("dialog", name="Удалить чат?")
                 remove.click()
-                expect(remove).to_be_visible()
+                expect(modal).to_be_visible()
+                expect(modal.get_by_role("button", name="Отмена", exact=True)).to_be_focused()
+                page.keyboard.press("Shift+Tab")
+                page.keyboard.press("Shift+Tab")
+                self.assertTrue(page.evaluate("!!document.activeElement.closest('dialog')"))
+                page.keyboard.press("Tab")
+                expect(modal.get_by_role("button", name="Закрыть окно", exact=True)).to_be_focused()
+                page.keyboard.press("Escape")
+                expect(modal).to_have_count(0)
+                expect(remove).to_be_focused()
+                remove.click()
+                modal.get_by_role("button", name="Отмена", exact=True).click()
+                expect(modal).to_have_count(0)
                 self.assertEqual(context.request.get(URL + f"/api/chats/{chat_id}").status, 200)
+                remove.click()
+                expect(modal.get_by_text(title, exact=True)).to_be_visible()
+                self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+                page.screenshot(
+                    path=str(ROOT / "acceptance-screenshots" / f"{label}-delete-dialog.png"),
+                    full_page=True,
+                )
                 endpoint = "**/api/chats/" + str(chat_id)
                 page.route(
                     endpoint,
@@ -187,13 +206,32 @@ class BrowserAuthAcceptance(unittest.TestCase):
                         else route.continue_()
                     ),
                 )
-                page.once("dialog", lambda dialog: dialog.accept())
-                remove.click()
-                expect(page.get_by_role("alert")).to_contain_text("Тестовая ошибка удаления")
-                expect(remove).to_be_enabled()
+                confirm = modal.get_by_role("button", name="Удалить чат", exact=True)
+                confirm.click()
+                expect(modal.get_by_role("alert")).to_contain_text("Тестовая ошибка удаления")
+                expect(confirm).to_be_enabled()
                 page.unroute(endpoint)
-                page.once("dialog", lambda dialog: dialog.accept())
-                remove.click()
+                held = []
+                page.route(
+                    endpoint,
+                    lambda route, request, held=held: (
+                        held.append(route)
+                        if route.request.method == "DELETE"
+                        else route.continue_()
+                    ),
+                )
+                confirm.click()
+                expect(modal.get_by_role("status")).to_have_text("Удаляем чат…")
+                expect(modal.get_by_role("button", name="Отмена", exact=True)).to_be_disabled()
+                expect(
+                    modal.get_by_role("button", name="Закрыть окно", exact=True)
+                ).to_be_disabled()
+                page.keyboard.press("Escape")
+                expect(modal).to_be_visible()
+                self.assertEqual(len(held), 1)
+                held[0].fulfill(response=held[0].fetch())
+                page.unroute(endpoint)
+                expect(modal).to_have_count(0)
                 expect(page).to_have_url(URL + "/app")
                 expect(remove).to_have_count(0)
                 self.assertEqual(context.request.get(URL + f"/api/chats/{chat_id}").status, 404)

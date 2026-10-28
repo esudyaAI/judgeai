@@ -13,3 +13,23 @@ test('sidebar has separate accessible delete controls; busy chats cannot be dele
   }
   assert.equal(depth, 0);
 });
+
+
+test('application confirmation names the chat and keeps cancel and delete separate', () => {
+  const html = render('DeleteChatDialog', {chat:{id:'1', title:'Мой чат'}, busy:false, error:''});
+  assert.match(html, /<dialog[^>]*aria-labelledby="delete-chat-title"/);
+  assert.match(html, /Мой чат/);
+  assert.match(html, /Восстановить чат не получится/);
+  assert.match(html, /Документы в общей базе практики сохранятся/);
+  assert.match(html, />Отмена<\/button>/);
+  assert.match(html, />Удалить чат<\/button>/);
+});
+
+test('pending deletion disables closing and repeats; server errors stay in the dialog', () => {
+  const busy = render('DeleteChatDialog', {chat:{id:'1', title:'Чат'}, busy:true, error:''});
+  assert.match(busy, /aria-busy="true"/);
+  assert.equal((busy.match(/disabled=""/g) || []).length, 3);
+  assert.match(busy, /role="status"/);
+  const error = render('DeleteChatDialog', {chat:{id:'1', title:'Чат'}, busy:false, error:'Попробуйте снова'});
+  assert.match(error, /role="alert">Попробуйте снова/);
+});

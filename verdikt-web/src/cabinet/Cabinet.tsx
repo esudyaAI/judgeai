@@ -7,6 +7,7 @@ import { AttachScreen, NewCaseScreen, ThreadScreen } from './screens';
 import { SettingsScreen } from './Settings';
 import { Sidebar } from './Sidebar';
 import { useDeleteChat } from './useDeleteChat';
+import { DeleteChatDialog } from './DeleteChatDialog';
 import './cabinet.css';
 
 export type CabinetView = 'new' | 'attach' | 'thinking' | 'result' | 'settings';
@@ -45,6 +46,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [useKnowledge, setUseKnowledge] = useState(true);
   const [retry, setRetry] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const draftId = useRef<string | null>(null);
   const sendingRef = useRef(false);
   const operation = useRef(0);
@@ -140,9 +142,11 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
 
   return (
     <div className="cab">
-      <Sidebar deletingId={deletion.deletingId} deleteError={deletion.deleteError} deleteNotice={deletion.deleteNotice}
-        onDelete={c => { void deletion.remove(c); }} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
-        open={sidebarOpen} onClose={() => setSidebarOpen(false)} onNew={startNew}
+      {deletion.pendingChat && <DeleteChatDialog chat={deletion.pendingChat} busy={deletion.deletingId !== null}
+        error={deletion.deleteError} onCancel={deletion.cancel} onConfirm={() => { void deletion.confirm(); }} />}
+      <Sidebar deletingId={deletion.deletingId} deleteError="" deleteNotice={deletion.deleteNotice}
+        onDelete={deletion.remove} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
+        open={sidebarOpen} onClose={closeSidebar} onNew={startNew}
         onPick={c => { setSelectedFiles([]); setPrompt(''); go(`/app/case/${c.id}/result`); }}
         onSettings={() => go('/app/settings')} username={account.username} profile={accountProfile} />
       <main className="cab-main">
