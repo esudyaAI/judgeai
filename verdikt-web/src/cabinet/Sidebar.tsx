@@ -73,7 +73,7 @@ export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDe
         {deleteError && <p className="cab-search-status" role="alert">{deleteError}</p>}
         {deleteNotice && <p className="cab-search-status" role="status">{deleteNotice}</p>}
         <nav className="cab-list" aria-label="Список дел" aria-busy={searching}>
-          {searching && <p className="cab-search-status shimmer" role="status">Ищем по названию, сообщениям и файлам…</p>}
+          {searching && <p className="cab-search-status" role="status">Ищем по названию, сообщениям и файлам…</p>}
           {searchError && <div className="cab-search-status" role="alert">{searchError}<button type="button" onClick={retrySearch}>Повторить</button></div>}
           {query.trim() && !searching && !searchError && !results.length && <p className="cab-search-status" role="status">Ничего не найдено. Попробуйте другой запрос.</p>}
           {groups.flatMap((g) => [
@@ -83,11 +83,11 @@ export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDe
                 const status = on && thinking ? 'busy' : c.status;
                 return (
                   <div key={c.id} className={`cab-chat-row ${on ? 'on' : ''}`}>
-                  <button type="button" data-loading={status === 'busy' || undefined} className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
+                  <button type="button" className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
                     <span className={`cab-dot ${status}`} aria-hidden="true" />
                     <span className="cab-row-text">
                       <span className="cab-row-title">{c.title}</span>
-                      <span className={`cab-row-meta ${on && thinking ? 'text-shimmer' : ''}`}>{on && thinking ? 'Идёт анализ' : c.meta}</span>
+                      <span className="cab-row-meta">{on && thinking ? 'Идёт анализ' : c.meta}</span>
                     </span>
                   </button>
                   <ActionMenu label={`Действия чата «${c.title}»`} className="cab-chat-actions" actions={[

@@ -120,7 +120,7 @@ export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { pro
             {files.map((f) => (
               <div key={f.name}>
                 <FileChip name={f.name} ext={f.ext} />
-                <div className={`file-meta ${thinking ? 'shimmer text-shimmer' : ''}`}>{fileReadingLabel(thinking ? {...f, recognition: 'pending'} : f)}</div>
+                <div className="file-meta">{fileReadingLabel(thinking ? {...f, recognition: 'pending'} : f)}</div>
               </div>
             ))}
           </div>
@@ -137,7 +137,7 @@ export function Thinking({ steps, startedAt }: { steps: Step[]; startedAt?: stri
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
       <div className="steps" aria-busy="true">
-        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer" role="timer" aria-label="Прошло времени" aria-live="off">{seconds} с</span></div>
+        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{seconds} с</span></div>
         {steps.map((s) => (
           <div key={s.label} className="step-row">
             {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
@@ -147,7 +147,7 @@ export function Thinking({ steps, startedAt }: { steps: Step[]; startedAt?: stri
                 <span />
               </span>
             )}
-            <span data-loading={s.active || undefined} className={s.done ? 'step-done' : s.active ? 'step-active text-shimmer' : 'step-pending'}>{s.label}</span>
+            <span className={s.done ? 'step-done' : s.active ? 'step-active' : 'step-pending'}>{s.label}</span>
           </div>
         ))}
       </div>

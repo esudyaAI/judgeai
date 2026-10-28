@@ -35,7 +35,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
       {TABS.map(([id, label]) => <button key={id} type="button" role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id}
         onClick={() => { setTab(id); state.setError(''); setStatus(''); }}>{label}</button>)}
     </div>
-    {loading && <p className="shimmer" role="status">Загружаем настройки…</p>}
+    {loading && <p role="status">Загружаем настройки…</p>}
     {error && <div className="warn-box" role="alert">{error}<button type="button" disabled={busy} onClick={state.reload}>Загрузить заново</button></div>}
     {status && <p role="status">{status}</p>}
     {!loading && state.loaded && <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab}>
@@ -57,7 +57,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
           <input type={name === 'email' ? 'email' : 'text'} name={name} maxLength={LIMITS[name]} placeholder={placeholder} value={profile[name]} disabled={busy}
             onChange={e => { setProfile(p => ({...p, [name]: e.target.value})); setStatus(''); }} />
         </label>)}</div>
-        <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy} data-loading={busy || undefined}>Сохранить профиль</button>
+        <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy}>Сохранить профиль</button>
           <button type="button" className="btn btn-soft btn-md" disabled={busy} onClick={onCancel}>Отмена</button></div>
       </form>}
       {tab === 'security' && <div className="set-list">
@@ -74,7 +74,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
             <label className="set-field"><span>Новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={newPassword} disabled={busy} onChange={e => setNewPassword(e.target.value)} /></label>
             <label className="set-field"><span>Повторите новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={repeatPassword} disabled={busy} onChange={e => setRepeatPassword(e.target.value)} /></label>
           </div>
-          <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy} data-loading={busy || undefined}>Изменить пароль</button></div>
+          <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy}>Изменить пароль</button></div>
         </form>
         <div className="set-sessions"><h2 className="set-title">Активные сеансы</h2>
           <p className="muted-14">Открытые входы в аккаунт. Названия устройств и геолокация не собираются.</p>

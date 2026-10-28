@@ -50,7 +50,7 @@ export function DeleteChatDialog({chat, busy, error, onCancel, onConfirm}: Props
     </div>
     <div className="delete-chat-actions">
       <button ref={cancelButton} type="button" className="btn btn-soft btn-md" disabled={busy} onClick={onCancel}>Отмена</button>
-      <button type="button" className="btn btn-md delete-chat-confirm" disabled={busy} data-loading={busy || undefined} onClick={onConfirm}>
+      <button type="button" className="btn btn-md delete-chat-confirm" disabled={busy} onClick={onConfirm}>
         {busy ? 'Удаляем…' : 'Удалить чат'}
       </button>
     </div>

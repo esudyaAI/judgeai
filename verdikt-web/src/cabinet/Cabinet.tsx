@@ -161,14 +161,13 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
             <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть боковое меню"
               aria-expanded={sidebarOpen} onClick={() => { setSidebarCollapsed(false); setSidebarOpen(true); }}><Icon name="menu" size={18} /></button>
             <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
-            {busy && <span className="badge" role="status"><span className="spin" /><span className="text-shimmer">Идёт анализ</span></span>}
             {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>
         </header>
         <div ref={scroll} className="cab-scroll">
           {listError && <div className="warn-box" role="alert">{listError}<button type="button" onClick={() => void refreshCases()}>Повторить</button></div>}
           {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
-          {loading && <p className="shimmer" role="status" aria-busy="true">Загружаем дело…</p>}
+          {loading && <p role="status" aria-busy="true">Загружаем дело…</p>}
           {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={onSignOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
               {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={attachment => documentPanel.open({name:attachment.filename,chatId:caseId,attachmentId:attachment.id})} /> :
@@ -178,7 +177,6 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
           ) : view === 'attach' || selectedFiles.length ? <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} /> : <NewCaseScreen onFiles={addFiles} />}
         </div>
         {view !== 'settings' && <>
-          {caseId && !busy && <p className="cab-request-note">Уточнения учитывают переписку и ранее прочитанные документы этого дела.</p>}
           <Composer mode={busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}
             value={prompt} onChange={setPrompt} onFiles={addFiles} onSend={() => void send()}
             onStop={() => go('/app')} />
