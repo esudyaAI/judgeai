@@ -218,13 +218,23 @@ class DocxGuardTests(unittest.TestCase):
 
         root = Path(__file__).resolve().parents[1]
         # Inner layers may use pure standard-library modules and the legal_core domain package,
-        # never frameworks, storage, HTTP or the outer src layers.
-        pure = {"dataclasses", "enum", "hashlib", "re", "typing", "legal_core"}
+        # never frameworks, storage, HTTP or the outer src layers. datetime (domain) and
+        # threading/concurrent.futures (application) stay pure stdlib: computation and
+        # in-process orchestration only, no I/O.
+        pure = {"dataclasses", "datetime", "enum", "hashlib", "re", "typing", "legal_core"}
         for layer, allowed in [
             ("domain", pure),
             (
                 "application",
-                pure | {"collections", "datetime", "logging", "src.domain", "src.application"},
+                pure
+                | {
+                    "collections",
+                    "concurrent.futures",
+                    "logging",
+                    "threading",
+                    "src.domain",
+                    "src.application",
+                },
             ),
         ]:
             for path in (root / "src" / layer).glob("*.py"):

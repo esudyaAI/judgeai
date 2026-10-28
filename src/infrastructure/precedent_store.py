@@ -95,7 +95,16 @@ class SqlPrecedentStore:
             .order_by(KnowledgeVerdict.id)
         )
         return [
-            VerdictSource(v.id, v.raw_text or "", v.uid, v.court_name, v.verdict_date, None)
+            VerdictSource(
+                v.id,
+                v.raw_text or "",
+                v.uid,
+                v.court_name,
+                v.verdict_date,
+                # Imported practice (sudact) keeps its origin URL in structured;
+                # manual uploads have no URL and stay None.
+                (v.structured or {}).get("source_url"),
+            )
             for v in rows
         ]
 
