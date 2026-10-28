@@ -1,7 +1,7 @@
 import hashlib
 import re
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -128,12 +128,14 @@ async def create_knowledge_verdict_from_text(
 async def reembed_knowledge_chunks(db: AsyncSession, batch: int = 16) -> int:
     """Embeds public chunks that have no vector of the configured model; returns their number.
 
-    Run after switching EMBEDDING_MODEL (python -m src.cli.precedents index). Private chat
-    uploads are skipped for the same reason as on upload.
+    Run after switching EMBEDDING_MODEL (python -m src.cli.precedents index --chunks). Private
+    chat uploads are skipped for the same reason as on upload. Every batch is committed, so an
+    interrupted run (rate limit, quota, restart) resumes where it stopped: finished chunks
+    already carry the configured model and are not selected again.
     """
-    chunks = (
-        await db.scalars(
-            select(KnowledgeChunk)
+    rows = (
+        await db.execute(
+            select(KnowledgeChunk.id, KnowledgeChunk.content)
             .join(KnowledgeVerdict, KnowledgeChunk.verdict_id == KnowledgeVerdict.id)
             .where(
                 KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
@@ -146,12 +148,15 @@ async def reembed_knowledge_chunks(db: AsyncSession, batch: int = 16) -> int:
         )
     ).all()
     done = 0
-    for start in range(0, len(chunks), batch):
-        part = chunks[start : start + batch]
-        vectors = await embed_passages([chunk.content for chunk in part])
-        for chunk, vector in zip(part, vectors, strict=True):
-            chunk.embedding = vector
-            chunk.embedding_model = settings.EMBEDDING_MODEL
-        await db.flush()
+    for start in range(0, len(rows), batch):
+        part = rows[start : start + batch]
+        vectors = await embed_passages([content for _, content in part])
+        for (chunk_id, _), vector in zip(part, vectors, strict=True):
+            await db.execute(
+                update(KnowledgeChunk)
+                .where(KnowledgeChunk.id == chunk_id)
+                .values(embedding=vector, embedding_model=settings.EMBEDDING_MODEL)
+            )
+        await db.commit()
         done += len(part)
     return done

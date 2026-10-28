@@ -6,6 +6,7 @@ services:
       - .env
     environment:
       EMBEDDING_CACHE_DIR: /app/.fastembed_cache
+      DOCUMENT_PREVIEW_DIR: /app/previews
     ports:
       - "8000:8000"
     depends_on:
@@ -14,7 +15,27 @@ services:
     volumes:
       - uploads:/app/uploads
       - model_cache:/app/.fastembed_cache
+      - previews:/app/previews
     command: sh -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  preview:
+    build:
+      context: .
+      dockerfile: Dockerfile.preview
+    network_mode: none
+    read_only: true
+    init: true
+    restart: always
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, KILL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    volumes:
+      - previews:/app/previews
 
   db:
     image: pgvector/pgvector:pg16
@@ -37,3 +58,4 @@ volumes:
   pgdata:
   uploads:
   model_cache:
+  previews:

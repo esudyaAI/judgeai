@@ -42,6 +42,7 @@ from src.services.sanction_summary import (
     describe_term,
     format_amount,
 )
+from src.services.sentence_checks import build_sentence_checks
 from src.services.sentencing import art62_part1_limit
 
 logger = logging.getLogger(__name__)
@@ -308,13 +309,22 @@ def assemble_analysis(
         if rec is not None and rec > cap:
             warnings.append("Рекомендованный срок выходит за допустимый предел — проверьте.")
 
+    legal_checks = statute_checks + build_legal_checks(
+        facts.legal_facts,
+        source_text,
+        statutory_ceiling=ceiling,
+    )
+    cited_guilt = facts.legal_facts.guilt if facts.legal_facts is not None else None
+    legal_checks += build_sentence_checks(
+        sentence,
+        count_statutes or {},
+        legal_checks,
+        facts.mitigating,
+        document_text="\n".join(document_texts or []),
+        guilt=cited_guilt.value if cited_guilt is not None else None,
+    )
     return CaseAnalysis(
-        legal_checks=statute_checks
-        + build_legal_checks(
-            facts.legal_facts,
-            source_text,
-            statutory_ceiling=ceiling,
-        ),
+        legal_checks=legal_checks,
         imposed_sentence=_sentence_read(sentence),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
         prompt=prompt,

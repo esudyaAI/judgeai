@@ -14,6 +14,9 @@ async page => {
   await page.getByRole('button', {name:'Отправить',exact:true}).click();
   await page.locator('.thread-user .bubble').filter({hasText:'Follow-up without attachments.'}).waitFor();
   await page.locator('.result').waitFor();
-  if (await page.locator('.thread-user .file-chip').count()) throw Error('Old files shown as current request evidence');
-  return {followupFiles:'only the current request attachments are shown'};
+  const requests = page.locator('.thread-user .bubble');
+  if (await requests.count() !== 2) throw Error('Conversation history was lost');
+  if (await requests.first().locator('.file-chip').count() !== 1) throw Error('Original attachment lost from history');
+  if (await requests.last().locator('.file-chip').count()) throw Error('Old attachment duplicated as a new upload');
+  return {history:'both turns retained',followupFiles:'old attachment remains in its original message'};
 }

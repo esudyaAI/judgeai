@@ -6,7 +6,7 @@ import { downloadAccountData, readAvatar, useAccount } from './useAccount';
 type Tab = 'profile' | 'security' | 'data';
 const TABS: [Tab, string][] = [['profile', 'Профиль'], ['security', 'Безопасность'], ['data', 'Данные']];
 const FIELDS: [keyof Omit<Profile, 'avatar'>, string, string][] = [
-  ['firstName', 'Имя', 'Имя'], ['lastName', 'Фамилия', 'Фамилия'], ['email', 'Email', 'name@example.ru'],
+  ['firstName', 'Имя', 'Имя'], ['lastName', 'Фамилия', 'Фамилия'], ['email', 'Электронная почта', 'name@example.ru'],
   ['position', 'Должность', 'Например, помощник судьи'], ['org', 'Суд или организация', 'Название'], ['region', 'Регион', 'Регион'],
 ];
 const LIMITS = {firstName:100, lastName:100, email:254, position:200, org:200, region:100};
@@ -35,7 +35,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
       {TABS.map(([id, label]) => <button key={id} type="button" role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id}
         onClick={() => { setTab(id); state.setError(''); setStatus(''); }}>{label}</button>)}
     </div>
-    {loading && <p className="shimmer" role="status">Загружаем настройки…</p>}
+    {loading && <p role="status">Загружаем настройки…</p>}
     {error && <div className="warn-box" role="alert">{error}<button type="button" disabled={busy} onClick={state.reload}>Загрузить заново</button></div>}
     {status && <p role="status">{status}</p>}
     {!loading && state.loaded && <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab}>
@@ -52,12 +52,12 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
           <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => photo.current?.click()}>Изменить фото</button>
           {profile.avatar && <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => { setProfile(p => ({...p, avatar:''})); setStatus('Фото убрано. Нажмите «Сохранить профиль».'); }}>Убрать фото</button>}
         </div>
-        <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Email — контактное поле, уведомления на него не отправляются.</p>
+        <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Электронная почта — контактное поле, уведомления на него не отправляются.</p>
         <div className="set-fields">{FIELDS.map(([name, label, placeholder]) => <label key={name} className="set-field"><span>{label}</span>
           <input type={name === 'email' ? 'email' : 'text'} name={name} maxLength={LIMITS[name]} placeholder={placeholder} value={profile[name]} disabled={busy}
             onChange={e => { setProfile(p => ({...p, [name]: e.target.value})); setStatus(''); }} />
         </label>)}</div>
-        <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy} data-loading={busy || undefined}>Сохранить профиль</button>
+        <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy}>Сохранить профиль</button>
           <button type="button" className="btn btn-soft btn-md" disabled={busy} onClick={onCancel}>Отмена</button></div>
       </form>}
       {tab === 'security' && <div className="set-list">
@@ -74,7 +74,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
             <label className="set-field"><span>Новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={newPassword} disabled={busy} onChange={e => setNewPassword(e.target.value)} /></label>
             <label className="set-field"><span>Повторите новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={repeatPassword} disabled={busy} onChange={e => setRepeatPassword(e.target.value)} /></label>
           </div>
-          <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy} data-loading={busy || undefined}>Изменить пароль</button></div>
+          <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy}>Изменить пароль</button></div>
         </form>
         <div className="set-sessions"><h2 className="set-title">Активные сеансы</h2>
           <p className="muted-14">Открытые входы в аккаунт. Названия устройств и геолокация не собираются.</p>

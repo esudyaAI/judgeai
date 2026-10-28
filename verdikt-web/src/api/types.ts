@@ -12,6 +12,7 @@ export interface CaseSummary {
   title: string;
   group: CaseGroup;
   status: CaseStatus;
+  pinned?: boolean;
   /** Secondary line in the sidebar, e.g. "8 окт. · проект готов". */
   meta: string;
 }

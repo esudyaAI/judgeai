@@ -34,3 +34,19 @@ test('sending a case uploads original bytes and text using backend field names',
     assert.equal(request.body.get('use_knowledge_base'), 'false');
   } finally { globalThis.fetch = original; }
 });
+
+test('pin action persists a boolean and listing maps the account pin', async () => {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({url,options});
+    return new Response(JSON.stringify(options?.method === 'PATCH' ? {id:3,is_pinned:true} : [{id:3,title:'Pinned',is_pinned:true,status:'ready'}]));
+  };
+  try {
+    await api.pinCase('3',true);
+    assert.equal(calls[0].url,'/api/chats/3/pin');
+    assert.equal(calls[0].options.method,'PATCH');
+    assert.deepEqual(JSON.parse(calls[0].options.body),{pinned:true});
+    assert.equal((await api.listCases())[0].pinned,true);
+  } finally { globalThis.fetch = original; }
+});

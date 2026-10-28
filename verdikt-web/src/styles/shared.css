@@ -50,3 +50,24 @@
 @media (prefers-reduced-motion: reduce) {
   .shimmer::after, [data-loading='true']::after { animation: none !important; display: none; }
 }
+
+/* The sweep is clipped to glyphs, keeping the surrounding surface still. */
+.text-shimmer {
+  color: var(--ink);
+  background: linear-gradient(100deg, var(--ink) 30%, #a0a0a0 48%, var(--ink) 66%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 1.4s ease-in-out infinite;
+}
+.text-shimmer::after { display: none; }
+.thinking-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
+.analysis-timer { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@keyframes text-shimmer { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer { animation: none; background: none; -webkit-text-fill-color: currentColor; }
+}
+@media (forced-colors: active) {
+  .text-shimmer { animation: none; background: none; -webkit-text-fill-color: currentColor; }
+}

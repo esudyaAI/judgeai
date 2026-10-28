@@ -15,6 +15,8 @@ try {
       contents: `
         import { createElement } from 'react';
         import { renderToStaticMarkup } from 'react-dom/server';
+        import { ChatTimeline } from './src/cabinet/ChatTimeline';
+        import { DocumentPanel } from './src/cabinet/DocumentPanel';
         import { Composer } from './src/cabinet/Composer';
         import { ThreadScreen } from './src/cabinet/screens';
         import { AuthGate } from './src/auth/AuthGate';
@@ -23,10 +25,11 @@ try {
         import { DeleteChatDialog } from './src/cabinet/DeleteChatDialog';
         import { Sidebar } from './src/cabinet/Sidebar';
         import { Footer } from './src/landing/Sections';
-        export const render = (name, props) => renderToStaticMarkup(createElement({Composer, ThreadScreen, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar, DeleteChatDialog}[name], props));
+        export const render = (name, props) => renderToStaticMarkup(createElement({ChatTimeline, DocumentPanel, Composer, ThreadScreen, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar, DeleteChatDialog}[name], props));
       `,
       resolveDir: fileURLToPath(new URL('../..', import.meta.url)), loader: 'tsx',
     },
+    external: ['pdfjs-dist'],
     bundle: true, platform: 'node', format: 'cjs', jsx: 'automatic',
     loader: {'.css': 'empty'}, outfile,
   });

@@ -77,3 +77,31 @@ async def test_reembed_replaces_vectors_of_the_previous_model_once(monkeypatch):
     assert [float(x) for x in chunk.embedding] == [0.0, 1.0, 0.0]
     async with async_session_factory() as db:
         assert await knowledge_service.reembed_knowledge_chunks(db) == 0
+
+
+async def test_reembed_keeps_finished_batches_when_a_later_one_fails(monkeypatch):
+    monkeypatch.setattr(knowledge_service, "embed_passages", _five_dimensions)
+    first = await _save()
+    async with async_session_factory() as db:
+        verdict, _ = await knowledge_service.create_knowledge_verdict_from_text(
+            db, "b.txt", TEXT + " Второй документ."
+        )
+        await db.commit()
+        second = verdict.id
+    calls = []
+
+    async def fail_on_second(texts):
+        calls.append(texts)
+        if len(calls) == 2:
+            raise RuntimeError("429 after retries")
+        return [[0.0, 1.0, 0.0] for _ in texts]
+
+    monkeypatch.setattr(knowledge_service.settings, "EMBEDDING_MODEL", "new-model")
+    monkeypatch.setattr(knowledge_service, "embed_passages", fail_on_second)
+    async with async_session_factory() as db:
+        try:
+            await knowledge_service.reembed_knowledge_chunks(db, batch=1)
+        except RuntimeError:
+            await db.rollback()
+    assert (await _chunk(first)).embedding_model == "new-model"
+    assert (await _chunk(second)).embedding_model != "new-model"
