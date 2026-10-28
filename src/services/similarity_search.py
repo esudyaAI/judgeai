@@ -3,6 +3,7 @@ import logging
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.db.models import KnowledgeChunk, KnowledgeVerdict
 from src.domain.practice import PRIVATE_SOURCE_TYPES
 from src.services.embeddings import embed_query
@@ -25,6 +26,7 @@ async def _vector_search(
         )
         .where(
             KnowledgeChunk.embedding.is_not(None),
+            KnowledgeChunk.embedding_model == settings.EMBEDDING_MODEL,
             KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
         )
         .order_by(distance.asc())

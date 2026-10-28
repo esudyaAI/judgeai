@@ -663,6 +663,17 @@ CORS_ORIGINS=https://esudya.ru,https://www.esudya.ru
 
 Примечания: `LLM_PROVIDER=fake` — только для демонстрации без реального ключа; `AUTH_COOKIE_SECURE=true` обязателен для HTTPS; `CORS_ORIGINS` в проде фактически не участвует (фронт и API на одном домене), но задаётся явно.
 
+**Эмбеддинги через Jina (облако).** На сервере 1 CPU / 2 ГБ локальная jina-embeddings-v3 (2,3 ГБ) не помещается, поэтому векторы можно считать через Jina API. В `/opt/judgeai/.env`:
+
+```
+EMBEDDING_PROVIDER=jina
+EMBEDDING_MODEL=jina-embeddings-v3
+EMBEDDING_DIM=1024
+JINA_API_KEY=<ключ с jina.ai/api-dashboard>
+```
+
+Затем `docker compose --env-file deploy.env -f docker-compose.prod.yml up -d api` и `docker compose --env-file deploy.env -f docker-compose.prod.yml run -d --rm api python -m src.cli.precedents index` — пересчёт векторов карточек и базы знаний новой моделью (то же делает каждый деплой). Векторы разных моделей хранятся рядом (миграция 0011), поиск сравнивает только векторы текущей `EMBEDDING_MODEL`, поэтому переключение и откат — правка `.env`. В Jina уходят только обезличенные фабулы и фрагменты открытой базы знаний; приватные загрузки из чатов не векторизуются. Без ключа или при ошибке Jina поиск продолжает работать по квалификации и полному тексту.
+
 ### Приложение B — скрипты на сервере
 
 `/opt/judgeai/scripts/backup.sh`:

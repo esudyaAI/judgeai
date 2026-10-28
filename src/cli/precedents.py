@@ -2,6 +2,7 @@
 
 Usage: python -m src.cli.precedents index
 Idempotent: verdicts that already have a card and texts that already have a vector are skipped.
+Knowledge-base chunks without a vector of the configured EMBEDDING_MODEL are embedded too.
 """
 
 import argparse
@@ -15,6 +16,7 @@ from src.db.session import async_session_factory
 from src.infrastructure.fastembed_embedder import FastembedEmbedder
 from src.infrastructure.precedent_store import SqlPrecedentStore
 from src.infrastructure.verdict_reader import PracticeReader
+from src.services.knowledge_service import reembed_knowledge_chunks
 
 
 async def run_index(embedder=None) -> dict:
@@ -22,7 +24,20 @@ async def run_index(embedder=None) -> dict:
         use_case = IndexPrecedents(
             SqlPrecedentStore(db), PracticeReader(), embedder or FastembedEmbedder()
         )
-        return asdict(await use_case.execute(CARD_EXTRACTOR_VERSION))
+        report = asdict(await use_case.execute(CARD_EXTRACTOR_VERSION))
+    report["knowledge_chunks"] = await _reembed_chunks()
+    return report
+
+
+async def _reembed_chunks() -> int | str:
+    async with async_session_factory() as db:
+        try:
+            done = await reembed_knowledge_chunks(db)
+        except Exception as exc:  # cards and their vectors above are already saved
+            await db.rollback()
+            return f"{type(exc).__name__}: {exc}"
+        await db.commit()
+        return done
 
 
 def main() -> None:

@@ -33,6 +33,12 @@ class Settings(BaseSettings):
 
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     EMBEDDING_DIM: int = 384
+    # "fastembed" = local model from the fastembed catalogue; "jina" = Jina cloud API
+    # (EMBEDDING_MODEL e.g. jina-embeddings-v3, EMBEDDING_DIM 1024, key only in .env).
+    EMBEDDING_PROVIDER: Literal["fastembed", "jina"] = "fastembed"
+    JINA_API_BASE: str = "https://api.jina.ai/v1"
+    JINA_API_KEY: str | None = None
+    EMBEDDING_TIMEOUT_SECONDS: float = 60.0
     EMBEDDING_CACHE_DIR: str = ".fastembed_cache"
     EMBEDDING_CHUNK_SIZE: int = 2500
     EMBEDDING_MAX_CHUNKS: int = 8

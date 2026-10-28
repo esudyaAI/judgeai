@@ -1,7 +1,7 @@
 import hashlib
 import re
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -94,7 +94,9 @@ async def create_knowledge_verdict_from_text(
     chunks = build_chunks(raw_text)
     embeddings: list[list[float]] = []
 
-    if chunks:
+    # Private chat uploads are never searched by vector, so their text is not sent to an
+    # embedding service (which may be a cloud API).
+    if chunks and source_type not in PRIVATE_SOURCE_TYPES:
         try:
             embeddings = await embed_passages(chunks[: settings.EMBEDDING_MAX_CHUNKS])
         except Exception:
@@ -109,6 +111,7 @@ async def create_knowledge_verdict_from_text(
                 chunk_type="text",
                 content=chunk_text,
                 embedding=embedding,
+                embedding_model=settings.EMBEDDING_MODEL if embedding is not None else None,
             )
         )
 
@@ -120,3 +123,35 @@ async def create_knowledge_verdict_from_text(
     await db.flush()
 
     return verdict, False
+
+
+async def reembed_knowledge_chunks(db: AsyncSession, batch: int = 16) -> int:
+    """Embeds public chunks that have no vector of the configured model; returns their number.
+
+    Run after switching EMBEDDING_MODEL (python -m src.cli.precedents index). Private chat
+    uploads are skipped for the same reason as on upload.
+    """
+    chunks = (
+        await db.scalars(
+            select(KnowledgeChunk)
+            .join(KnowledgeVerdict, KnowledgeChunk.verdict_id == KnowledgeVerdict.id)
+            .where(
+                KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
+                or_(
+                    KnowledgeChunk.embedding_model.is_(None),
+                    KnowledgeChunk.embedding_model != settings.EMBEDDING_MODEL,
+                ),
+            )
+            .order_by(KnowledgeChunk.id)
+        )
+    ).all()
+    done = 0
+    for start in range(0, len(chunks), batch):
+        part = chunks[start : start + batch]
+        vectors = await embed_passages([chunk.content for chunk in part])
+        for chunk, vector in zip(part, vectors, strict=True):
+            chunk.embedding = vector
+            chunk.embedding_model = settings.EMBEDDING_MODEL
+        await db.flush()
+        done += len(part)
+    return done

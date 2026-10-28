@@ -9,6 +9,7 @@
             so a server without a model reports an error instead of a sample verdict.
 """
 
+import asyncio
 import json
 import uuid
 from typing import Protocol
@@ -27,11 +28,47 @@ LLM_NOT_CONNECTED = (
 )
 
 
+# Transient failures of the model provider (rate limit, overload, gateway errors, network) are
+# retried with a growing pause; Retry-After is honoured up to a cap. Other errors fail at once.
+LLM_ATTEMPTS = 4
+RETRY_PAUSES_SECONDS = (2.0, 4.0, 8.0)
+MAX_RETRY_PAUSE_SECONDS = 30.0
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+_sleep = asyncio.sleep
+
+
+def _retry_pause(attempt: int, response: httpx.Response | None) -> float:
+    if response is not None:
+        try:
+            requested = float(response.headers.get("Retry-After", ""))
+        except ValueError:
+            requested = None
+        if requested is not None and requested >= 0:
+            return min(requested, MAX_RETRY_PAUSE_SECONDS)
+    return RETRY_PAUSES_SECONDS[min(attempt, len(RETRY_PAUSES_SECONDS) - 1)]
+
+
+def _final_status_error(status: int) -> LLMError:
+    if status == 429:
+        return LLMError(
+            f"LLM ответил {status}: превышен лимит запросов к языковой модели, "
+            "попробуйте через минуту."
+        )
+    if status in RETRYABLE_STATUSES:
+        return LLMError(
+            f"LLM ответил {status}: языковая модель временно недоступна, попробуйте позже."
+        )
+    return LLMError(f"LLM ответил {status}")
+
+
 class LLMClient(Protocol):
     async def complete_json(self, system: str, user: str) -> dict: ...
 
 
 class OpenAICompatibleClient:
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        self._transport = transport
+
     async def complete_json(self, system: str, user: str) -> dict:
         if not settings.LLM_API_KEY:
             raise LLMError(
@@ -49,20 +86,31 @@ class OpenAICompatibleClient:
         }
         headers = {"Authorization": f"Bearer {settings.LLM_API_KEY}"}
 
-        try:
-            async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT_SECONDS) as client:
-                response = await client.post(
-                    f"{settings.LLM_API_BASE.rstrip('/')}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-                response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"]
-        except httpx.HTTPStatusError as exc:
-            # Never include request headers in the message: they carry the API key.
-            raise LLMError(f"LLM ответил {exc.response.status_code}") from exc
-        except (httpx.HTTPError, KeyError, IndexError, TypeError) as exc:
-            raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+        url = f"{settings.LLM_API_BASE.rstrip('/')}/chat/completions"
+        async with httpx.AsyncClient(
+            timeout=settings.LLM_TIMEOUT_SECONDS, transport=self._transport
+        ) as client:
+            for attempt in range(LLM_ATTEMPTS):
+                last = attempt == LLM_ATTEMPTS - 1
+                try:
+                    response = await client.post(url, json=payload, headers=headers)
+                except httpx.TransportError as exc:  # connection refused, timeout, reset
+                    if last:
+                        raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+                    await _sleep(_retry_pause(attempt, None))
+                    continue
+                status = response.status_code
+                if status in RETRYABLE_STATUSES and not last:
+                    await _sleep(_retry_pause(attempt, response))
+                    continue
+                if status >= 400:
+                    # Never include request headers in the message: they carry the API key.
+                    raise _final_status_error(status)
+                try:
+                    content = response.json()["choices"][0]["message"]["content"]
+                except (ValueError, KeyError, IndexError, TypeError) as exc:
+                    raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+                break
 
         try:
             data = json.loads(content)
