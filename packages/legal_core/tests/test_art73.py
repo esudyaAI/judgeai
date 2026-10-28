@@ -1,1 +1,75 @@
-IyBEb21haW4gdGVzdCDigJQg0L8uIMKr0LLCuyDRhy4gMSDRgdGCLiA3MyDQo9CaINCg0KQgKNC30LDQv9GA0LXRgiDRg9GB0LvQvtCy0L3QvtCz0L4g0L7RgdGD0LbQtNC10L3QuNGPINC/0YDQuCDQvtC/0LDRgdC90L7QvCDQuCDQvtGB0L7QsdC+CiMg0L7Qv9Cw0YHQvdC+0Lwg0YDQtdGG0LjQtNC40LLQtSkuCmltcG9ydCBweXRlc3QKCmZyb20gbGVnYWxfY29yZS5jaGVja3MgaW1wb3J0IENoZWNrU3RhdHVzCmZyb20gbGVnYWxfY29yZS5ydWxlcy5hcnQxOCBpbXBvcnQgUmVjaWRpdmlzbQpmcm9tIGxlZ2FsX2NvcmUucnVsZXMuYXJ0NzMgaW1wb3J0ICgKICAgIE5FRURTX0xFR0FMX1JFVklFVywKICAgIE5PUk0sCiAgICBTT1VSQ0UsCiAgICBjaGVja19jb25kaXRpb25hbF9zZW50ZW5jZV9yZWNpZGl2aXNtX2JhciwKKQoKQkFSUkVEID0gW1JlY2lkaXZpc20uREFOR0VST1VTLCBSZWNpZGl2aXNtLkVTUEVDSUFMTFlfREFOR0VST1VTXQpOT1RfQkFSUkVEID0gW1JlY2lkaXZpc20uTk9ORSwgUmVjaWRpdmlzbS5TSU1QTEVdCgoKZGVmIF9jaGVjaygqKm92ZXJyaWRlcyk6CiAgICBwYXJhbXMgPSB7InJlY2lkaXZpc20iOiBSZWNpZGl2aXNtLlNJTVBMRSwgImNvbmRpdGlvbmFsX2luX2RyYWZ0IjogVHJ1ZX0KICAgIHBhcmFtcy51cGRhdGUob3ZlcnJpZGVzKQogICAgcmV0dXJuIGNoZWNrX2NvbmRpdGlvbmFsX3NlbnRlbmNlX3JlY2lkaXZpc21fYmFyKCoqcGFyYW1zKQoKCmRlZiB0ZXN0X3Jlc3VsdF9pc19tYXJrZWRfZm9yX2xlZ2FsX3Jldmlld193aXRoX3NvdXJjZSgpOgogICAgcmVzdWx0ID0gX2NoZWNrKCkKICAgIGFzc2VydCBORUVEU19MRUdBTF9SRVZJRVcgaXMgVHJ1ZQogICAgYXNzZXJ0IHJlc3VsdC5uZWVkc19sZWdhbF9yZXZpZXcgaXMgVHJ1ZQogICAgYXNzZXJ0IHJlc3VsdC5ub3JtID09IE5PUk0KICAgIGFzc2VydCByZXN1bHQuc291cmNlID09IFNPVVJDRQogICAgYXNzZXJ0ICLQvy4gwqvQssK7INGHLiAxINGB0YIuIDczIiBpbiBOT1JNCiAgICBhc3NlcnQgInByYXZvLmdvdi5ydSIgaW4gU09VUkNFIGFuZCAiMTcyLdCk0JciIGluIFNPVVJDRQogICAgYXNzZXJ0ICJOIDU4IiBpbiBTT1VSQ0UgYW5kICLQvy4gNjIiIGluIFNPVVJDRQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgia2luZCIsIEJBUlJFRCkKZGVmIHRlc3RfY29uZGl0aW9uYWxfc2VudGVuY2Vfd2l0aF9kYW5nZXJvdXNfcmVjaWRpdmlzbV9pc19mbGFnZ2VkKGtpbmQpOgogICAgcmVzdWx0ID0gX2NoZWNrKHJlY2lkaXZpc209a2luZCwgY29uZGl0aW9uYWxfaW5fZHJhZnQ9VHJ1ZSkKICAgIGFzc2VydCByZXN1bHQuc3RhdHVzIGlzIENoZWNrU3RhdHVzLlBPU1NJQkxFX1ZJT0xBVElPTgogICAgYXNzZXJ0ICLQvy4gwqvQssK7INGHLiAxINGB0YIuIDczIiBpbiByZXN1bHQuZXhwbGFuYXRpb24KICAgIGFzc2VydCAi0L7Qv9Cw0YHQvSIgaW4gcmVzdWx0LmV4cGxhbmF0aW9uCgoKZGVmIHRlc3RfZmxhZ19uYW1lc190aGVfa2luZF9vZl9yZWNpZGl2aXNtKCk6CiAgICBlc3BlY2lhbGx5ID0gX2NoZWNrKHJlY2lkaXZpc209UmVjaWRpdmlzbS5FU1BFQ0lBTExZX0RBTkdFUk9VUykKICAgIGRhbmdlcm91cyA9IF9jaGVjayhyZWNpZGl2aXNtPVJlY2lkaXZpc20uREFOR0VST1VTKQogICAgYXNzZXJ0ICLQvtGB0YPQttC00ZHQvdC90L7Qs9C+INC+0YHQvtCx0L4g0L7Qv9Cw0YHQvdGL0Lkg0YDQtdGG0LjQtNC40LIiIGluIGVzcGVjaWFsbHkuZXhwbGFuYXRpb24KICAgIGFzc2VydCAi0L7RgdGD0LbQtNGR0L3QvdC+0LPQviDQvtC/0LDRgdC90YvQuSDRgNC10YbQuNC00LjQsiIgaW4gZGFuZ2Vyb3VzLmV4cGxhbmF0aW9uCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJraW5kIiwgTk9UX0JBUlJFRCkKZGVmIHRlc3RfY29uZGl0aW9uYWxfc2VudGVuY2Vfd2l0aG91dF9kYW5nZXJvdXNfcmVjaWRpdmlzbV9pc19vayhraW5kKToKICAgIHJlc3VsdCA9IF9jaGVjayhyZWNpZGl2aXNtPWtpbmQsIGNvbmRpdGlvbmFsX2luX2RyYWZ0PVRydWUpCiAgICBhc3NlcnQgcmVzdWx0LnN0YXR1cyBpcyBDaGVja1N0YXR1cy5PSwogICAgIyBPbmx5INC/LiDCq9CywrsgaXMgY2hlY2tlZDsgdGhlIG90aGVyIGJhcnMgb2Yg0YcuIDEgYXJlIGxlZnQgdG8gdGhlIGp1ZGdlIGFuZCBzYWlkIHNvLgogICAgYXNzZXJ0ICLCq9CwwrsiIGluIHJlc3VsdC5leHBsYW5hdGlvbiBhbmQgIsKr0LHCuyIgaW4gcmVzdWx0LmV4cGxhbmF0aW9uCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJraW5kIiwgWypCQVJSRUQsICpOT1RfQkFSUkVELCBSZWNpZGl2aXNtLlVOS05PV05dKQpkZWYgdGVzdF9yZWFsX3B1bmlzaG1lbnRfaXNfbmV2ZXJfZmxhZ2dlZChraW5kKToKICAgIHJlc3VsdCA9IF9jaGVjayhyZWNpZGl2aXNtPWtpbmQsIGNvbmRpdGlvbmFsX2luX2RyYWZ0PUZhbHNlKQogICAgYXNzZXJ0IHJlc3VsdC5zdGF0dXMgaXMgQ2hlY2tTdGF0dXMuT0sKICAgIGFzc2VydCAi0L3QtSDQvdCw0LfQvdCw0YfQtdC90L4iIGluIHJlc3VsdC5leHBsYW5hdGlvbgoKCmRlZiB0ZXN0X3Vua25vd25fcmVjaWRpdmlzbV93aXRoX2NvbmRpdGlvbmFsX3NlbnRlbmNlX2lzX2luc3VmZmljaWVudF9kYXRhKCk6CiAgICByZXN1bHQgPSBfY2hlY2socmVjaWRpdmlzbT1SZWNpZGl2aXNtLlVOS05PV04sIGNvbmRpdGlvbmFsX2luX2RyYWZ0PVRydWUpCiAgICBhc3NlcnQgcmVzdWx0LnN0YXR1cyBpcyBDaGVja1N0YXR1cy5JTlNVRkZJQ0lFTlRfREFUQQogICAgYXNzZXJ0ICLQktC40LQg0YDQtdGG0LjQtNC40LLQsCIgaW4gcmVzdWx0LmV4cGxhbmF0aW9uCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJraW5kIiwgWypCQVJSRUQsICpOT1RfQkFSUkVELCBSZWNpZGl2aXNtLlVOS05PV05dKQpkZWYgdGVzdF9ub3RfZXh0cmFjdGVkX2RyYWZ0X3Bvc2l0aW9uX2lzX2luc3VmZmljaWVudF9kYXRhKGtpbmQpOgogICAgcmVzdWx0ID0gX2NoZWNrKHJlY2lkaXZpc209a2luZCwgY29uZGl0aW9uYWxfaW5fZHJhZnQ9Tm9uZSkKICAgIGFzc2VydCByZXN1bHQuc3RhdHVzIGlzIENoZWNrU3RhdHVzLklOU1VGRklDSUVOVF9EQVRBCiAgICBhc3NlcnQgItGD0YHQu9C+0LLQvSIgaW4gcmVzdWx0LmV4cGxhbmF0aW9uCg==
+# Domain test — п. «в» ч. 1 ст. 73 УК РФ (запрет условного осуждения при опасном и особо
+# опасном рецидиве).
+import pytest
+
+from legal_core.checks import CheckStatus
+from legal_core.rules.art18 import Recidivism
+from legal_core.rules.art73 import (
+    NEEDS_LEGAL_REVIEW,
+    NORM,
+    SOURCE,
+    check_conditional_sentence_recidivism_bar,
+)
+
+BARRED = [Recidivism.DANGEROUS, Recidivism.ESPECIALLY_DANGEROUS]
+NOT_BARRED = [Recidivism.NONE, Recidivism.SIMPLE]
+
+
+def _check(**overrides):
+    params = {"recidivism": Recidivism.SIMPLE, "conditional_in_draft": True}
+    params.update(overrides)
+    return check_conditional_sentence_recidivism_bar(**params)
+
+
+def test_result_is_marked_for_legal_review_with_source():
+    result = _check()
+    assert NEEDS_LEGAL_REVIEW is True
+    assert result.needs_legal_review is True
+    assert result.norm == NORM
+    assert result.source == SOURCE
+    assert "п. «в» ч. 1 ст. 73" in NORM
+    assert "pravo.gov.ru" in SOURCE and "172-ФЗ" in SOURCE
+    assert "N 58" in SOURCE and "п. 62" in SOURCE
+
+
+@pytest.mark.parametrize("kind", BARRED)
+def test_conditional_sentence_with_dangerous_recidivism_is_flagged(kind):
+    result = _check(recidivism=kind, conditional_in_draft=True)
+    assert result.status is CheckStatus.POSSIBLE_VIOLATION
+    assert "п. «в» ч. 1 ст. 73" in result.explanation
+    assert "опасн" in result.explanation
+
+
+def test_flag_names_the_kind_of_recidivism():
+    especially = _check(recidivism=Recidivism.ESPECIALLY_DANGEROUS)
+    dangerous = _check(recidivism=Recidivism.DANGEROUS)
+    assert "осуждённого особо опасный рецидив" in especially.explanation
+    assert "осуждённого опасный рецидив" in dangerous.explanation
+
+
+@pytest.mark.parametrize("kind", NOT_BARRED)
+def test_conditional_sentence_without_dangerous_recidivism_is_ok(kind):
+    result = _check(recidivism=kind, conditional_in_draft=True)
+    assert result.status is CheckStatus.OK
+    # Only п. «в» is checked; the other bars of ч. 1 are left to the judge and said so.
+    assert "«а»" in result.explanation and "«б»" in result.explanation
+
+
+@pytest.mark.parametrize("kind", [*BARRED, *NOT_BARRED, Recidivism.UNKNOWN])
+def test_real_punishment_is_never_flagged(kind):
+    result = _check(recidivism=kind, conditional_in_draft=False)
+    assert result.status is CheckStatus.OK
+    assert "не назначено" in result.explanation
+
+
+def test_unknown_recidivism_with_conditional_sentence_is_insufficient_data():
+    result = _check(recidivism=Recidivism.UNKNOWN, conditional_in_draft=True)
+    assert result.status is CheckStatus.INSUFFICIENT_DATA
+    assert "Вид рецидива" in result.explanation
+
+
+@pytest.mark.parametrize("kind", [*BARRED, *NOT_BARRED, Recidivism.UNKNOWN])
+def test_not_extracted_draft_position_is_insufficient_data(kind):
+    result = _check(recidivism=kind, conditional_in_draft=None)
+    assert result.status is CheckStatus.INSUFFICIENT_DATA
+    assert "условн" in result.explanation

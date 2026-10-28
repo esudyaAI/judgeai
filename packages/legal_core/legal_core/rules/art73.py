@@ -1,1 +1,77 @@
-IyBEb21haW4gTGF5ZXIg4oCUINC/LiDCq9Cywrsg0YcuIDEg0YHRgi4gNzMg0KPQmiDQoNCkIMKr0KPRgdC70L7QstC90L7QtSDQvtGB0YPQttC00LXQvdC40LXCuy4KIyDRhy4gMTogwqsuLi4g0KPRgdC70L7QstC90L7QtSDQvtGB0YPQttC00LXQvdC40LUg0L3QtSDQvdCw0LfQvdCw0YfQsNC10YLRgdGPOiAuLi4g0LIpINC/0YDQuCDQvtC/0LDRgdC90L7QvCDQuNC70Lgg0L7RgdC+0LHQviDQvtC/0LDRgdC90L7QvCDRgNC10YbQuNC00LjQstC1LsK7CiMgKNGH0LDRgdGC0Ywg0LIg0YDQtdC0LiDQpNCXINC+0YIgMTYuMTAuMjAxMiBOIDE3Mi3QpNCXKS4gVGhlIGJhciBpcyBhYnNvbHV0ZTogbm8gY2lyY3Vtc3RhbmNlIG9mIHRoZSBjYXNlCiMgbGlmdHMgaXQuINCf0LvQtdC90YPQvCDQktChINCg0KQg4oSWIDU4INC+0YIgMjIuMTIuMjAxNSwg0L8uIDYyOiBmb3Igc2V2ZXJhbCBvZmZlbmNlcyB0aGUgY29uZGl0aW9uYWwKIyBkZWNpc2lvbiBpcyB0YWtlbiBvbmNlLCBmb3IgdGhlIGZpbmFsIHB1bmlzaG1lbnQsIHNvIHRoZSBjYWxsZXIgcGFzc2VzIHRoZSBmaW5hbCBkZWNpc2lvbi4KIyBUaGUga2luZCBvZiByZWNpZGl2aXNtIGNvbWVzIGZyb20gYXJ0MTggKHRoZSBjYWxsZXIgY2xhc3NpZmllcyBpdCBvbiB0aGUgb2ZmZW5jZSBkYXRlKS4KIyBUT0RPKFQ0L1QyMyk6INC/0L8uIMKr0LDCuywgwqvQsDHCuywgwqvQscK7INGHLiAxIChvZmZlbmNlIGxpc3QsIG9mZmVuY2UgZHVyaW5nIHByb2JhdGlvbiAvIHBhcm9sZSkgYW5kCiMgdGhlIGdlbmVyYWwgbGltaXRzIG9mINGHLiAxIChwdW5pc2htZW50IGtpbmRzLCBpbXByaXNvbm1lbnQgdXAgdG8gZWlnaHQgeWVhcnMpIGFyZSBub3QKIyBtb2RlbGxlZCBoZXJlOyB0aGUgZXhwbGFuYXRpb24gc2F5cyBzbyBpbnN0ZWFkIG9mIHNpbGVudGx5IHBhc3NpbmcgdGhlbS4KZnJvbSBsZWdhbF9jb3JlLmNoZWNrcyBpbXBvcnQgQ2hlY2tSZXN1bHQsIENoZWNrU3RhdHVzCmZyb20gbGVnYWxfY29yZS5ydWxlcy5hcnQxOCBpbXBvcnQgUmVjaWRpdmlzbQoKTkVFRFNfTEVHQUxfUkVWSUVXID0gVHJ1ZQoKTk9STSA9ICLQl9Cw0L/RgNC10YIg0YPRgdC70L7QstC90L7Qs9C+INC+0YHRg9C20LTQtdC90LjRjyDQv9GA0Lgg0L7Qv9Cw0YHQvdC+0Lwg0Lgg0L7RgdC+0LHQviDQvtC/0LDRgdC90L7QvCDRgNC10YbQuNC00LjQstC1OiDQvy4gwqvQssK7INGHLiAxINGB0YIuIDczINCj0Jog0KDQpCIKU09VUkNFID0gKAogICAgItCj0Jog0KDQpCDRgdGCLiA3MyDRhy4gMSAo0YDQtdC0LiDQpNCXINC+0YIgMTYuMTAuMjAxMiBOIDE3Mi3QpNCXKSDigJQg0L7RhNC40YbQuNCw0LvRjNC90LDRjyDQstGL0LPRgNGD0LfQutCwICIKICAgICJodHRwOi8vcHJhdm8uZ292LnJ1L3Byb3h5L2lwcy8/c2F2ZXJ0Zj0mbmQ9MTAyMDQxODkxJnBhZ2U9YWxsLCDQv9C+0LvRg9GH0LXQvdCwIDI3LjEwLjIwMjYsICIKICAgICJzaGEyNTYgMDI0MzQ4MWM1MGQ5OTZhM2JkZGQwNDE4NTRmNDkwNzdiZDM0ZmRlMTc3MzRlNjM3MzViODdlMTZmNGEzNGQ3YiAo0LrQsNGA0YLQvtGH0LrQsDogIgogICAgItC40LfQvNC10L3QtdC90LjQtSDQvtGCIDA0LjA4LjIwMjYgTiAzMDAt0KTQlzsg0YHRgtCw0YLRg9GBIHVucmV2aWV3ZWQsINC/0LXRgNC40L7QtNGLINC00LXQudGB0YLQstC40Y8g0YHQstC10YDQuNGC0Ywg0LIgVDIzKTsgIgogICAgItCf0LvQtdC90YPQvCDQktChINCg0KQg0L7RgiAyMi4xMi4yMDE1IE4gNTggKNGA0LXQtC4g0L7RgiAyMy4xMi4yMDI1KSwg0L8uIDYyIOKAlCDQvtGE0LjRhtC40LDQu9GM0L3Ri9C5INGE0LDQudC7IHZzcmYucnUsICIKICAgICJzaGEyNTYgM2UyNDRmZjU5NmIyYTc3OWZjMzJkNWY2MWFhNjU2NzY4MGY3YTUyNTQwYjlhYjNjN2YwYmU3Mzc1M2I3N2M3YiIKKQoKX0JBUlJFRCA9IHsKICAgIFJlY2lkaXZpc20uREFOR0VST1VTOiAi0L7Qv9Cw0YHQvdGL0LkiLAogICAgUmVjaWRpdmlzbS5FU1BFQ0lBTExZX0RBTkdFUk9VUzogItC+0YHQvtCx0L4g0L7Qv9Cw0YHQvdGL0LkiLAp9Cl9OT1RfQ0hFQ0tFRCA9ICgKICAgICLQn9GD0L3QutGC0YsgwqvQsMK7LCDCq9CwMcK7LCDCq9Cxwrsg0YcuIDEg0YHRgi4gNzMg0KPQmiDQoNCkINC4INC/0YDQtdC00LXQu9GLINGHLiAxICjQstC40LQg0L3QsNC60LDQt9Cw0L3QuNGPLCDQu9C40YjQtdC90LjQtSDRgdCy0L7QsdC+0LTRiyAiCiAgICAi0LTQviDQstC+0YHRjNC80Lgg0LvQtdGCKSDRjdGC0L7QuSDQv9GA0L7QstC10YDQutC+0Lkg0L3QtSDQvtGG0LXQvdC40LLQsNC70LjRgdGMLiIKKQoKCmRlZiBjaGVja19jb25kaXRpb25hbF9zZW50ZW5jZV9yZWNpZGl2aXNtX2JhcigKICAgICosCiAgICByZWNpZGl2aXNtOiBSZWNpZGl2aXNtLAogICAgY29uZGl0aW9uYWxfaW5fZHJhZnQ6IGJvb2wgfCBOb25lLAopIC0+IENoZWNrUmVzdWx0OgogICAgIiIiQ2FuZGlkYXRlIGNoZWNrOiBhIGNvbmRpdGlvbmFsIHNlbnRlbmNlIGlzIG5vdCBpbXBvc2VkIHdpdGggZGFuZ2Vyb3VzIHJlY2lkaXZpc20uCgogICAgYGByZWNpZGl2aXNtYGAg4oCUIHRoZSBraW5kIGNsYXNzaWZpZWQgYnkg0YHRgi4gMTggKGBgYXJ0MTguY2xhc3NpZnlfcmVjaWRpdmlzbWBgKS4KICAgIGBgY29uZGl0aW9uYWxfaW5fZHJhZnRgYCDigJQgd2hldGhlciB0aGUgZHJhZnQgbWFrZXMgdGhlIGZpbmFsIHB1bmlzaG1lbnQgY29uZGl0aW9uYWwKICAgICjRgdGCLiA3MyksIGBgTm9uZWBgIOKAlCB0aGUgZHJhZnQgcG9zaXRpb24gd2FzIG5vdCBleHRyYWN0ZWQuCiAgICAiIiIKCiAgICBkZWYgcmVzdWx0KHN0YXR1czogQ2hlY2tTdGF0dXMsIHdoeTogc3RyKSAtPiBDaGVja1Jlc3VsdDoKICAgICAgICByZXR1cm4gQ2hlY2tSZXN1bHQoTk9STSwgc3RhdHVzLCB3aHksIFNPVVJDRSwgTkVFRFNfTEVHQUxfUkVWSUVXKQoKICAgIGlmIGNvbmRpdGlvbmFsX2luX2RyYWZ0IGlzIE5vbmU6CiAgICAgICAgcmV0dXJuIHJlc3VsdCgKICAgICAgICAgICAgQ2hlY2tTdGF0dXMuSU5TVUZGSUNJRU5UX0RBVEEsCiAgICAgICAgICAgICLQndC1INGD0YHRgtCw0L3QvtCy0LvQtdC90L4sINC90LDQt9C90LDRh9C10L3QviDQu9C4INCyINC/0YDQvtC10LrRgtC1INC90LDQutCw0LfQsNC90LjQtSDRg9GB0LvQvtCy0L3QviAo0YHRgi4gNzMg0KPQmiDQoNCkKS4iLAogICAgICAgICkKICAgIGlmIG5vdCBjb25kaXRpb25hbF9pbl9kcmFmdDoKICAgICAgICByZXR1cm4gcmVzdWx0KAogICAgICAgICAgICBDaGVja1N0YXR1cy5PSywKICAgICAgICAgICAgItCj0YHQu9C+0LLQvdC+0LUg0L7RgdGD0LbQtNC10L3QuNC1INC90LUg0L3QsNC30L3QsNGH0LXQvdC+IOKAlCDQvy4gwqvQssK7INGHLiAxINGB0YIuIDczINCj0Jog0KDQpCDQvdC1INC30LDRgtGA0LDQs9C40LLQsNC10YLRgdGPLiIsCiAgICAgICAgKQogICAgaWYgcmVjaWRpdmlzbSBpcyBSZWNpZGl2aXNtLlVOS05PV046CiAgICAgICAgcmV0dXJuIHJlc3VsdCgKICAgICAgICAgICAgQ2hlY2tTdGF0dXMuSU5TVUZGSUNJRU5UX0RBVEEsCiAgICAgICAgICAgICLQktC40LQg0YDQtdGG0LjQtNC40LLQsCDQvdC1INGD0YHRgtCw0L3QvtCy0LvQtdC9IOKAlCDQt9Cw0L/RgNC10YIg0L8uIMKr0LLCuyDRhy4gMSDRgdGCLiA3MyDQo9CaINCg0KQg0L3QtSDQv9GA0L7QstC10YDQtdC9LiIsCiAgICAgICAgKQogICAgaWYgcmVjaWRpdmlzbSBpbiBfQkFSUkVEOgogICAgICAgIHJldHVybiByZXN1bHQoCiAgICAgICAgICAgIENoZWNrU3RhdHVzLlBPU1NJQkxFX1ZJT0xBVElPTiwKICAgICAgICAgICAgZiLQndCw0LfQvdCw0YfQtdC90L4g0YPRgdC70L7QstC90L7QtSDQvtGB0YPQttC00LXQvdC40LUsINC90L4g0LIg0LTQtdC50YHRgtCy0LjRj9GFINC+0YHRg9C20LTRkdC90L3QvtCz0L4ge19CQVJSRURbcmVjaWRpdmlzbV19ICIKICAgICAgICAgICAgItGA0LXRhtC40LTQuNCyICjRgdGCLiAxOCDQo9CaINCg0KQpOiDRg9GB0LvQvtCy0L3QvtC1INC+0YHRg9C20LTQtdC90LjQtSDQv9GA0Lgg0L7Qv9Cw0YHQvdC+0Lwg0LjQu9C4INC+0YHQvtCx0L4g0L7Qv9Cw0YHQvdC+0LwgIgogICAgICAgICAgICAi0YDQtdGG0LjQtNC40LLQtSDQvdC1INC90LDQt9C90LDRh9Cw0LXRgtGB0Y8gKNC/LiDCq9Cywrsg0YcuIDEg0YHRgi4gNzMg0KPQmiDQoNCkKS4iLAogICAgICAgICkKICAgIGZvdW5kID0gItGA0LXRhtC40LTQuNCy0LAg0L3QtdGCIiBpZiByZWNpZGl2aXNtIGlzIFJlY2lkaXZpc20uTk9ORSBlbHNlICLRgNC10YbQuNC00LjQsiDQv9GA0L7RgdGC0L7QuSIKICAgIHJldHVybiByZXN1bHQoCiAgICAgICAgQ2hlY2tTdGF0dXMuT0ssCiAgICAgICAgZiLQo9GB0LvQvtCy0L3QvtC1INC+0YHRg9C20LTQtdC90LjQtSDQvdCw0LfQvdCw0YfQtdC90L47IHtmb3VuZH0g4oCUINC30LDQv9GA0LXRgiDQvy4gwqvQssK7INGHLiAxINGB0YIuIDczINCj0Jog0KDQpCDQvdC1ICIKICAgICAgICBmItC/0YDQuNC80LXQvdGP0LXRgtGB0Y8uIHtfTk9UX0NIRUNLRUR9IiwKICAgICkK
+# Domain Layer — п. «в» ч. 1 ст. 73 УК РФ «Условное осуждение».
+# ч. 1: «... Условное осуждение не назначается: ... в) при опасном или особо опасном рецидиве.»
+# (часть в ред. ФЗ от 16.10.2012 N 172-ФЗ). The bar is absolute: no circumstance of the case
+# lifts it. Пленум ВС РФ № 58 от 22.12.2015, п. 62: for several offences the conditional
+# decision is taken once, for the final punishment, so the caller passes the final decision.
+# The kind of recidivism comes from art18 (the caller classifies it on the offence date).
+# TODO(T4/T23): пп. «а», «а1», «б» ч. 1 (offence list, offence during probation / parole) and
+# the general limits of ч. 1 (punishment kinds, imprisonment up to eight years) are not
+# modelled here; the explanation says so instead of silently passing them.
+from legal_core.checks import CheckResult, CheckStatus
+from legal_core.rules.art18 import Recidivism
+
+NEEDS_LEGAL_REVIEW = True
+
+NORM = "Запрет условного осуждения при опасном и особо опасном рецидиве: п. «в» ч. 1 ст. 73 УК РФ"
+SOURCE = (
+    "УК РФ ст. 73 ч. 1 (ред. ФЗ от 16.10.2012 N 172-ФЗ) — официальная выгрузка "
+    "http://pravo.gov.ru/proxy/ips/?savertf=&nd=102041891&page=all, получена 27.10.2026, "
+    "sha256 0243481c50d996a3bddd041854f49077bd34fde17734e63735b87e16f4a34d7b (карточка: "
+    "изменение от 04.08.2026 N 300-ФЗ; статус unreviewed, периоды действия сверить в T23); "
+    "Пленум ВС РФ от 22.12.2015 N 58 (ред. от 23.12.2025), п. 62 — официальный файл vsrf.ru, "
+    "sha256 3e244ff596b2a779fc32d5f61aa6567680f7a52540b9ab3c7f0be73753b77c7b"
+)
+
+_BARRED = {
+    Recidivism.DANGEROUS: "опасный",
+    Recidivism.ESPECIALLY_DANGEROUS: "особо опасный",
+}
+_NOT_CHECKED = (
+    "Пункты «а», «а1», «б» ч. 1 ст. 73 УК РФ и пределы ч. 1 (вид наказания, лишение свободы "
+    "до восьми лет) этой проверкой не оценивались."
+)
+
+
+def check_conditional_sentence_recidivism_bar(
+    *,
+    recidivism: Recidivism,
+    conditional_in_draft: bool | None,
+) -> CheckResult:
+    """Candidate check: a conditional sentence is not imposed with dangerous recidivism.
+
+    ``recidivism`` — the kind classified by ст. 18 (``art18.classify_recidivism``).
+    ``conditional_in_draft`` — whether the draft makes the final punishment conditional
+    (ст. 73), ``None`` — the draft position was not extracted.
+    """
+
+    def result(status: CheckStatus, why: str) -> CheckResult:
+        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW)
+
+    if conditional_in_draft is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, назначено ли в проекте наказание условно (ст. 73 УК РФ).",
+        )
+    if not conditional_in_draft:
+        return result(
+            CheckStatus.OK,
+            "Условное осуждение не назначено — п. «в» ч. 1 ст. 73 УК РФ не затрагивается.",
+        )
+    if recidivism is Recidivism.UNKNOWN:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Вид рецидива не установлен — запрет п. «в» ч. 1 ст. 73 УК РФ не проверен.",
+        )
+    if recidivism in _BARRED:
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            f"Назначено условное осуждение, но в действиях осуждённого {_BARRED[recidivism]} "
+            "рецидив (ст. 18 УК РФ): условное осуждение при опасном или особо опасном "
+            "рецидиве не назначается (п. «в» ч. 1 ст. 73 УК РФ).",
+        )
+    found = "рецидива нет" if recidivism is Recidivism.NONE else "рецидив простой"
+    return result(
+        CheckStatus.OK,
+        f"Условное осуждение назначено; {found} — запрет п. «в» ч. 1 ст. 73 УК РФ не "
+        f"применяется. {_NOT_CHECKED}",
+    )
