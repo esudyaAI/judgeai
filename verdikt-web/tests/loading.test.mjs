@@ -30,3 +30,18 @@ test('session check has an accessible loading status', () => {
   assert.match(html, /class="auth-status shimmer" role="status" aria-busy="true"/);
   assert.match(html, /Проверяем сеанс/);
 });
+
+
+test('thinking uses text shimmer and a seconds timer', () => {
+  const busy = render('ThreadScreen', {thinking:true, files:[], steps:[{label:'Анализируем',done:false,active:true}], analysis:null});
+  assert.match(busy, /steps-title text-shimmer/);
+  assert.match(busy, /role="timer"[^>]*>0 с/);
+  assert.match(busy, /step-active text-shimmer/);
+});
+
+
+test('finished answer has no disabled followup suggestions', () => {
+ const html = render('ThreadScreen', {thinking:false,files:[],steps:[],analysis:{variants:[],mitigating:[],similar:[],stats:{documents:0,pages:0,seconds:2},fabula:'Ответ готов'}});
+ assert.doesNotMatch(html, /followups|Сравнить с практикой региона|Позиция защиты|Подробнее об обстоятельствах/);
+ assert.doesNotMatch(html, /role="timer"|text-shimmer/);
+});

@@ -1,5 +1,9 @@
 // 24x24 stroke icons used across the design (paths copied from the canvas).
 export const ICONS = {
+  dots: 'M5 12h.01M12 12h.01M19 12h.01',
+  sidebar: 'M3 4h18v16H3zM9 4v16',
+  pin: 'M9 3h6l-1 6 4 4v2H6v-2l4-4zM12 15v6',
+  logout: 'M9 4H4v16h5M10 12h11M17 8l4 4-4 4',
   trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
   doc: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5',
   scales: 'M12 3v18M7 21h10M4 7h16M4 7l-2.5 6a3 3 0 0 0 5 0zM20 7l-2.5 6a3 3 0 0 0 5 0z',

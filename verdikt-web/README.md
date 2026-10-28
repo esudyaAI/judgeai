@@ -10,7 +10,7 @@ npm run dev        # http://localhost:5173
 npm run build      # tsc -b && vite build → dist/
 ```
 
-Node: `^20.19.0 || >=22.12.0` (требование Vite 7).
+Node: `>=22.13.0` (PDF.js); для `npm test` используйте Node22.18+ или24.
 
 ## Маршруты
 

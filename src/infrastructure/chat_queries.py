@@ -23,4 +23,4 @@ def owned_chat_query(user_id: int, query: str):
         statement = statement.where(
             or_(Chat.title.ilike(pattern, escape="\\"), matches_message, matches_file)
         )
-    return statement.order_by(Chat.updated_at.desc(), Chat.id.desc())
+    return statement.order_by(Chat.is_pinned.desc(), Chat.updated_at.desc(), Chat.id.desc())
