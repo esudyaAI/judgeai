@@ -16,12 +16,16 @@ interface Props {
   /** Mobile only: drawer state (on desktop the sidebar is always visible). */
   open: boolean;
   onClose: () => void;
+  onDelete: (chat: CaseSummary) => void;
+  deletingId: string | null;
+  deleteError: string;
+  deleteNotice: string;
   onNew: () => void;
   onPick: (c: CaseSummary) => void;
   onSettings: () => void;
 }
 
-export function Sidebar({ username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
+export function Sidebar({ onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
   const {query, setQuery, results, searching, searchError, retry: retrySearch} = useChatSearch(cases);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -59,6 +63,8 @@ export function Sidebar({ username, profile, cases, activeId, thinking, settings
         </label>
 
         {query && <button type="button" className="btn btn-soft btn-xs" onClick={() => setQuery('')}>Сбросить поиск</button>}
+        {deleteError && <p className="cab-search-status" role="alert">{deleteError}</p>}
+        {deleteNotice && <p className="cab-search-status" role="status">{deleteNotice}</p>}
         <nav className="cab-list" aria-label="Список дел" aria-busy={searching}>
           {searching && <p className="cab-search-status shimmer" role="status">Ищем по названию, сообщениям и файлам…</p>}
           {searchError && <div className="cab-search-status" role="alert">{searchError}<button type="button" onClick={retrySearch}>Повторить</button></div>}
@@ -70,13 +76,21 @@ export function Sidebar({ username, profile, cases, activeId, thinking, settings
                 const on = c.id === activeId;
                 const status = on && thinking ? 'busy' : c.status;
                 return (
-                  <button key={c.id} type="button" data-loading={status === 'busy' || undefined} className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
+                  <div key={c.id} className={`cab-chat-row ${on ? 'on' : ''}`}>
+                  <button type="button" data-loading={status === 'busy' || undefined} className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
                     <span className={`cab-dot ${status}`} aria-hidden="true" />
                     <span className="cab-row-text">
                       <span className="cab-row-title">{c.title}</span>
                       <span className="cab-row-meta">{on && thinking ? 'Идёт анализ' : c.meta}</span>
                     </span>
                   </button>
+                  <button type="button" className="cab-delete" aria-label={`Удалить чат «${c.title}»`}
+                    title={status === 'busy' ? 'Дождитесь завершения анализа' : 'Удалить чат'}
+                    disabled={deletingId !== null || status === 'busy'}
+                    aria-busy={deletingId === c.id || undefined} onClick={() => onDelete(c)}>
+                    <Icon name="trash" size={17} />
+                  </button>
+                  </div>
                 );
               })}
             </div>

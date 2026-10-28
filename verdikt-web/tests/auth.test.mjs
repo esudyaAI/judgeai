@@ -106,3 +106,23 @@ test('chat search encodes literal user input and forwards cancellation', async (
     assert.equal(sent.url, '/api/chats');
   } finally { globalThis.fetch = original; }
 });
+
+
+test('single chat deletion sends DELETE with CSRF and reports server errors', async () => {
+  const original = globalThis.fetch;
+  let sent;
+  globalThis.fetch = async (url, options) => {
+    sent = {url, ...options};
+    if (url === '/api/auth/me') return new Response(JSON.stringify({id:1, username:'test', csrf_token:'delete-csrf'}));
+    return new Response(JSON.stringify({deleted:1, files_pending:0}));
+  };
+  try {
+    await auth.me();
+    assert.deepEqual(await api.deleteCase('12/34'), {deleted:1, files_pending:0});
+    assert.equal(sent.url, '/api/chats/12%2F34');
+    assert.equal(sent.method, 'DELETE');
+    assert.equal(sent.headers.get('X-CSRF-Token'), 'delete-csrf');
+    globalThis.fetch = async () => new Response(JSON.stringify({detail:'Дождитесь завершения анализа'}), {status:409});
+    await assert.rejects(api.deleteCase('12'), /Дождитесь завершения анализа/);
+  } finally { globalThis.fetch = original; }
+});

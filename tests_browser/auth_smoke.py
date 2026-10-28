@@ -141,6 +141,70 @@ class BrowserAuthAcceptance(unittest.TestCase):
         page.get_by_role("button", name="Войти", exact=True).click()
         expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
 
+    def test_delete_chat_from_sidebar_cancel_error_confirm_and_reload(self):
+        for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+            with self.subTest(viewport=label):
+                context = self.browser.new_context(viewport={"width": width, "height": height})
+                self.addCleanup(context.close)
+                page = context.new_page()
+                page.goto(URL + "/app")
+                self.sign_in(page)
+                session = context.request.get(URL + "/api/auth/me").json()
+                title = f"Удалить тестовый чат {label}"
+                response = context.request.post(
+                    URL + "/api/chats",
+                    data={"title": title},
+                    headers={"X-CSRF-Token": session["csrf_token"]},
+                )
+                self.assertEqual(response.status, 201)
+                chat_id = response.json()["id"]
+                page.reload()
+                if label == "mobile":
+                    page.get_by_role("button", name="Открыть список дел").click()
+                page.get_by_label("Список дел").get_by_role("button", name=title).click()
+                expect(page).to_have_url(URL + f"/app/case/{chat_id}/result")
+                if label == "mobile":
+                    page.get_by_role("button", name="Открыть список дел").click()
+                page.get_by_placeholder("Поиск по чатам").fill(title)
+                remove = page.get_by_role("button", name=f"Удалить чат «{title}»", exact=True)
+                expect(remove).to_be_enabled()
+                self.assertEqual(remove.locator("button").count(), 0)
+                self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
+                page.screenshot(
+                    path=str(ROOT / "acceptance-screenshots" / f"{label}-delete-chat.png"),
+                    full_page=True,
+                )
+                page.once("dialog", lambda dialog: dialog.dismiss())
+                remove.click()
+                expect(remove).to_be_visible()
+                self.assertEqual(context.request.get(URL + f"/api/chats/{chat_id}").status, 200)
+                endpoint = "**/api/chats/" + str(chat_id)
+                page.route(
+                    endpoint,
+                    lambda route: (
+                        route.fulfill(status=409, json={"detail": "Тестовая ошибка удаления"})
+                        if route.request.method == "DELETE"
+                        else route.continue_()
+                    ),
+                )
+                page.once("dialog", lambda dialog: dialog.accept())
+                remove.click()
+                expect(page.get_by_role("alert")).to_contain_text("Тестовая ошибка удаления")
+                expect(remove).to_be_enabled()
+                page.unroute(endpoint)
+                page.once("dialog", lambda dialog: dialog.accept())
+                remove.click()
+                expect(page).to_have_url(URL + "/app")
+                expect(remove).to_have_count(0)
+                self.assertEqual(context.request.get(URL + f"/api/chats/{chat_id}").status, 404)
+                page.reload()
+                if label == "mobile":
+                    page.get_by_role("button", name="Открыть список дел").click()
+                expect(
+                    page.get_by_role("button", name=f"Удалить чат «{title}»", exact=True)
+                ).to_have_count(0)
+                context.close()
+
     def test_account_profile_search_and_settings_at_both_widths(self):
         for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
             with self.subTest(viewport=label):

@@ -56,13 +56,12 @@ async def export_cases(db, user_id, profile):
     }
 
 
-async def delete_cases(db, user_id):
+async def delete_cases(db, user_id, *, chat_id: int | None = None):
     # The send endpoint takes the same chat locks before adding messages.
-    chats = (
-        await db.scalars(
-            select(Chat).where(Chat.owner_id == user_id).order_by(Chat.id).with_for_update()
-        )
-    ).all()
+    selection = select(Chat).where(Chat.owner_id == user_id)
+    if chat_id is not None:
+        selection = selection.where(Chat.id == chat_id)
+    chats = (await db.scalars(selection.order_by(Chat.id).with_for_update())).all()
     ids = [c.id for c in chats]
     if not ids:
         return {"deleted": 0, "files_pending": 0}

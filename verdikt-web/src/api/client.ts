@@ -66,6 +66,9 @@ export const api = {
     return chats.map(c => ({id: String(c.id), title: c.title || 'Дело без названия',
       group: 'Ранее', status: c.status, meta: labels[c.status]}));
   },
+  deleteCase(id: string): Promise<{deleted: number; files_pending: number}> {
+    return request(`/chats/${encodeURIComponent(id)}`, {method: 'DELETE'});
+  },
   createCase(): Promise<Chat> {
     return request('/chats', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:null})});
   },
