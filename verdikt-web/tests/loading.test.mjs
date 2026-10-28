@@ -36,7 +36,7 @@ test('session check has an accessible loading status', () => {
 test('thinking uses text shimmer and a seconds timer', () => {
   const busy = render('ThreadScreen', {thinking:true, files:[], steps:[{label:'Анализируем',done:false,active:true}], analysis:null});
   assert.match(busy, /steps-title text-shimmer/);
-  assert.match(busy, /analysis-timer text-shimmer" role="timer"[^>]*>0 с/);
+  assert.match(busy, /analysis-timer text-shimmer" role="timer"[^>]*>0 сек/);
   assert.match(busy, /class="step-active"/);
   assert.doesNotMatch(busy, /step-active text-shimmer/);
 });
@@ -46,4 +46,12 @@ test('finished answer has no disabled followup suggestions', () => {
  const html = render('ThreadScreen', {thinking:false,files:[],steps:[],analysis:{variants:[],mitigating:[],similar:[],stats:{documents:0,pages:0,seconds:2},fabula:'Ответ готов'}});
  assert.doesNotMatch(html, /followups|Сравнить с практикой региона|Позиция защиты|Подробнее об обстоятельствах/);
  assert.doesNotMatch(html, /role="timer"|text-shimmer/);
+});
+
+test('elapsed time reads as minutes and seconds', () => {
+  const started = new Date(Date.now() - 90_200).toISOString();
+  const messages = [{id:1, role:'assistant', status:'running', stage:'reading', content:'', error:null, result:null, attachments:[], created_at:started}];
+  const html = render('ChatTimeline', {messages, onOpen() {}});
+  assert.match(html, /role="timer"[^>]*>1 мин 3[01] сек</);
+  assert.doesNotMatch(html, />9[01] с/);
 });

@@ -7,7 +7,7 @@ import { SentenceScale } from '../components/SentenceScale';
 import { plural } from '../lib/format';
 import { fileReadingLabel, fileReadingWarning } from './fileReadingPresentation';
 import { ACCEPT } from './Composer';
-import { useElapsedSeconds } from './useElapsedSeconds';
+import { formatElapsed, useElapsedSeconds } from './useElapsedSeconds';
 import { legalCheckSourceUrl, legalCheckStatusLabel } from './legalCheckPresentation';
 import { practiceSummary, precedentSourceNote, shareLabel } from './practicePresentation';
 
@@ -137,7 +137,7 @@ export function Thinking({ steps, startedAt }: { steps: Step[]; startedAt?: stri
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
       <div className="steps" aria-busy="true">
-        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{seconds} с</span></div>
+        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{formatElapsed(seconds)}</span></div>
         {steps.map((s) => (
           <div key={s.label} className="step-row">
             {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
