@@ -602,9 +602,11 @@
 - Объём: frontend presentation/shared timer hook; API/бизнес/БД без изменений. Сравнение с базой остаётся включённым как прежде по умолчанию; убирается только переключатель. Риски: сброс таймера при poll/stage, утечки interval, reduced motion, устаревшие browser selectors.
 - DoD: shimmer только на активных текстах, секундомер не сбрасывается при обновлении стадии и удаляется после завершения; interval cleanup, reduced-motion fallback; frontend tests/typecheck/build и desktop/mobile visual acceptance.
 - [x] Тесты и реализация текста/таймера/удаления контролов.
-- [~] Desktop/mobile и проверки завершены; публикация/CI ниже.
+- [x] Desktop/mobile и проверки завершены; публикация/CI ниже.
 
 - [x] RED→GREEN: новый SSR test сначала выявил отсутствие text shimmer/timer;40 frontend tests прошли после реализации (дополнительный тест результата проверяет отсутствие followups/timer). Typecheck/build,ruff browser test,diff --check — успешно.
 - [x] useElapsedSeconds вынесен из представления, start берётся из уже имеющегося message.created_at; poll/stage/reload не сбрасывают время, invalid/missing timestamp использует время монтирования; interval очищается на unmount. API schema/БД не менялись.
 - [x] Browser1440×1000 и390×844: секунды увеличиваются, стадия/reload сохраняют elapsed, завершение удаляет timer, reduced-motion отключает shimmer, overflow нет. Оба screenshots просмотрены. Первоначальная ошибка тестового runner URL global исправлена regex-разбором; продуктовых ошибок в сценарии не выявлено. Новых зависимостей нет.
 - [~] Публикация в существующую ветку PR13 и обязательный GitHub CI; main/production не менялись. Ограничение: до получения assistant message при отправке файлов секундомер ещё не отображается; таймер показывает ожидание с момента создания ответа, включая очередь.
+
+- [x]0495f9b опубликован в PR13; CI https://github.com/esudyaAI/judgeai/actions/runs/40776222487: все4 обязательных checks success (inventory,api-tests,browser-auth,document-preview). Build/deploy штатно skipped для feature PR. Реализация и проверка закончены; merge/deploy не выполнялись.
