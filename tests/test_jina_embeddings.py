@@ -49,11 +49,11 @@ async def test_passages_use_retrieval_passage_task_and_keep_input_order():
 
 async def test_http_error_is_reported_without_the_key():
     client = JinaEmbeddings(
-        api_key="secret-key", model="m", dimensions=8, transport=_transport([], status=429)
+        api_key="secret-key", model="m", dimensions=8, transport=_transport([], status=401)
     )
     with pytest.raises(EmbeddingError) as error:
         await client.embed(["x"], task="retrieval.query")
-    assert "429" in str(error.value)
+    assert "401" in str(error.value)
     assert "secret-key" not in str(error.value)
 
 

@@ -16,6 +16,26 @@ _failed_until = 0.0
 _lock = asyncio.Lock()
 
 
+# Jina rate limits (429) and outages (5xx, network) are retried with a growing pause; a
+# Retry-After header is honoured up to a cap. Other errors fail at once.
+JINA_ATTEMPTS = 5
+JINA_PAUSES_SECONDS = (2.0, 4.0, 8.0, 16.0)
+JINA_MAX_PAUSE_SECONDS = 60.0
+JINA_RETRYABLE = {429, 500, 502, 503, 504}
+_sleep = asyncio.sleep
+
+
+def _jina_pause(attempt: int, response: httpx.Response | None) -> float:
+    if response is not None:
+        try:
+            requested = float(response.headers.get("Retry-After", ""))
+        except ValueError:
+            requested = None
+        if requested is not None and requested >= 0:
+            return min(requested, JINA_MAX_PAUSE_SECONDS)
+    return JINA_PAUSES_SECONDS[min(attempt, len(JINA_PAUSES_SECONDS) - 1)]
+
+
 class EmbeddingError(RuntimeError):
     """The embedding service could not be reached or returned something unusable."""
 
@@ -55,17 +75,33 @@ class JinaEmbeddings:
             "input": texts,
         }
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout, transport=self.transport) as client:
-                response = await client.post(
-                    f"{self.base}/embeddings", json=payload, headers=headers
-                )
-                response.raise_for_status()
-                rows = response.json()["data"]
-        except httpx.HTTPStatusError as exc:
-            raise EmbeddingError(f"Jina ответила {exc.response.status_code}") from exc
-        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
-            raise EmbeddingError(f"Ошибка обращения к Jina: {type(exc).__name__}") from exc
+        async with httpx.AsyncClient(timeout=self.timeout, transport=self.transport) as client:
+            for attempt in range(JINA_ATTEMPTS):
+                last = attempt == JINA_ATTEMPTS - 1
+                try:
+                    response = await client.post(
+                        f"{self.base}/embeddings", json=payload, headers=headers
+                    )
+                except httpx.TransportError as exc:  # connection refused, timeout, reset
+                    if last:
+                        raise EmbeddingError(
+                            f"Ошибка обращения к Jina: {type(exc).__name__}"
+                        ) from exc
+                    await _sleep(_jina_pause(attempt, None))
+                    continue
+                status = response.status_code
+                if status in JINA_RETRYABLE and not last:
+                    await _sleep(_jina_pause(attempt, response))
+                    continue
+                if status == 429:
+                    raise EmbeddingError("Jina ответила 429: превышен лимит запросов или токенов")
+                if status >= 400:
+                    raise EmbeddingError(f"Jina ответила {status}")
+                try:
+                    rows = response.json()["data"]
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise EmbeddingError("Jina вернула ответ неожиданного вида") from exc
+                break
         try:
             ordered = sorted(rows, key=lambda row: row["index"])
             vectors = [[float(x) for x in row["embedding"]] for row in ordered]
