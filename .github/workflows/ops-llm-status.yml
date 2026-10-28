@@ -1,7 +1,8 @@
 # Read-only check of how the language model is wired on the production server.
 # Prints container names/images, docker networks of a DeepSeek proxy if one runs, and the
 # non-secret LLM_* settings from /opt/judgeai/.env. LLM_API_KEY is never printed: only
-# whether it is set. Runs by hand (Actions -> ops-llm-status -> Run workflow).
+# whether it is set. Makes one tiny test call to the model through the api's own client
+# (prints only the answer keys or the error). Runs by hand (Actions -> ops-llm-status -> Run workflow).
 name: ops-llm-status
 
 on:
@@ -49,4 +50,23 @@ jobs:
           if grep -q -E '^LLM_API_KEY=.+' .env; then echo "LLM_API_KEY: set"; else echo "LLM_API_KEY: empty"; fi
           echo "== api container view"
           docker exec judgeai_api python -c "from src.config import settings as s; print('provider', s.LLM_PROVIDER, 'base_host', s.LLM_API_BASE.split('/')[2] if '//' in s.LLM_API_BASE else s.LLM_API_BASE, 'model', s.LLM_MODEL)"
+          echo "== smoke call through the api's own client (prints only keys or the error text)"
+          docker exec -i judgeai_api python - <<'PY'
+          import asyncio, time
+          from src.services.llm_client import LLMError, get_llm_client
+
+          async def main():
+              started = time.monotonic()
+              try:
+                  data = await get_llm_client().complete_json(
+                      'Верни JSON-объект {"ok": true, "answer": <число>}.', "Сколько будет 2+2?"
+                  )
+              except LLMError as exc:
+                  print("LLM ERROR:", exc)
+                  return
+              print("LLM OK in", round(time.monotonic() - started, 1), "s; keys:", sorted(data))
+              print("answer:", data.get("answer"))
+
+          asyncio.run(main())
+          PY
           REMOTE
