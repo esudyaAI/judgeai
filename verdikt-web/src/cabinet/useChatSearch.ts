@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { CaseSummary } from '../api/types';
 
 export function useChatSearch(cases: CaseSummary[]) {
   const [query, setQuery] = useState('');
+  const previousQuery = useRef('');
   const [results, setResults] = useState<CaseSummary[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [searchRetry, setSearchRetry] = useState(0);
   useEffect(() => {
-    if (!query.trim()) { setResults([]); setSearching(false); setSearchError(''); return; }
+    if (!query.trim()) { previousQuery.current = ''; setResults([]); setSearching(false); setSearchError(''); return; }
     const controller = new AbortController();
-    setSearching(true); setSearchError(''); setResults([]);
+    setSearching(true); setSearchError('');
+    if (previousQuery.current !== query) setResults([]);
+    previousQuery.current = query;
     const timer = setTimeout(() => {
       void api.listCases(query, controller.signal).then(next => {
         if (!controller.signal.aborted) setResults(next);

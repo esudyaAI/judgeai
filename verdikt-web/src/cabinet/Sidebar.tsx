@@ -4,6 +4,7 @@ import { useChatSearch } from './useChatSearch';
 import type { CaseSummary } from '../api/types';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
+import { ActionMenu } from './ActionMenu';
 import { Link } from '../router';
 
 interface Props {
@@ -17,6 +18,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onDelete: (chat: CaseSummary) => void;
+  onPin: (chat: CaseSummary) => void;
+  pinningId: string | null;
+  pinError: string;
+  collapsed: boolean;
+  onSignOut: () => void;
   deletingId: string | null;
   deleteError: string;
   deleteNotice: string;
@@ -25,7 +31,7 @@ interface Props {
   onSettings: () => void;
 }
 
-export function Sidebar({ onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
+export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
   const {query, setQuery, results, searching, searchError, retry: retrySearch} = useChatSearch(cases);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -37,21 +43,21 @@ export function Sidebar({ onDelete, deletingId, deleteError, deleteNotice, usern
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const groups: { title: string; items: CaseSummary[] }[] = [];
-  for (const c of query.trim() ? results : cases) {
-    const last = groups[groups.length - 1];
-    if (last && last.title === c.group) last.items.push(c);
-    else groups.push({ title: c.group, items: [c] });
-  }
+  const currentCases = new Map(cases.map(chat => [chat.id,chat]));
+  const visibleCases = query.trim() ? results.filter(chat => currentCases.has(chat.id)).map(chat => currentCases.get(chat.id)!) : cases;
+  const groups = [
+    {title:'Закреплённые',items:visibleCases.filter(chat => chat.pinned)},
+    {title:'Недавние',items:visibleCases.filter(chat => !chat.pinned)},
+  ].filter(group => group.items.length > 0);
 
   return (
     <>
       {open && <div className="cab-scrim" onClick={onClose} aria-hidden="true" />}
-      <aside ref={asideRef} className={`cab-side ${open ? 'open' : ''}`} aria-label="Дела">
-        <Link href="/" className="cab-brand">
+      <aside ref={asideRef} className={`cab-side ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`} aria-label="Дела">
+        <div className="cab-side-head"><Link href="/" className="cab-brand">
           <LogoMark size={30} color="#141414" />
           <span>Цифровой судья</span>
-        </Link>
+        </Link><button type="button" className="btn btn-soft btn-icon" aria-label="Свернуть боковое меню" onClick={onClose}><Icon name="sidebar" size={18} /></button></div>
         <button type="button" className="btn btn-ink btn-md" onClick={onNew}>
           <Icon name="plus" size={18} strokeWidth={2} />
           Новое дело
@@ -63,16 +69,16 @@ export function Sidebar({ onDelete, deletingId, deleteError, deleteNotice, usern
         </label>
 
         {query && <button type="button" className="btn btn-soft btn-xs" onClick={() => setQuery('')}>Сбросить поиск</button>}
+        {pinError && <p className="cab-search-status" role="alert">{pinError}</p>}
         {deleteError && <p className="cab-search-status" role="alert">{deleteError}</p>}
         {deleteNotice && <p className="cab-search-status" role="status">{deleteNotice}</p>}
         <nav className="cab-list" aria-label="Список дел" aria-busy={searching}>
           {searching && <p className="cab-search-status shimmer" role="status">Ищем по названию, сообщениям и файлам…</p>}
           {searchError && <div className="cab-search-status" role="alert">{searchError}<button type="button" onClick={retrySearch}>Повторить</button></div>}
           {query.trim() && !searching && !searchError && !results.length && <p className="cab-search-status" role="status">Ничего не найдено. Попробуйте другой запрос.</p>}
-          {groups.map((g) => (
-            <div key={g.title} className="cab-group">
-              <span className="cab-group-title">{g.title}</span>
-              {g.items.map((c) => {
+          {groups.flatMap((g) => [
+              <span key={`group:${g.title}`} className="cab-group-title">{g.title}</span>,
+              ...g.items.map((c) => {
                 const on = c.id === activeId;
                 const status = on && thinking ? 'busy' : c.status;
                 return (
@@ -84,20 +90,20 @@ export function Sidebar({ onDelete, deletingId, deleteError, deleteNotice, usern
                       <span className="cab-row-meta">{on && thinking ? 'Идёт анализ' : c.meta}</span>
                     </span>
                   </button>
-                  <button type="button" className="cab-delete" aria-label={`Удалить чат «${c.title}»`}
-                    title={status === 'busy' ? 'Дождитесь завершения анализа' : 'Удалить чат'}
-                    disabled={deletingId !== null || status === 'busy'}
-                    aria-busy={deletingId === c.id || undefined} onClick={() => onDelete(c)}>
-                    <Icon name="trash" size={17} />
-                  </button>
+                  <ActionMenu label={`Действия чата «${c.title}»`} className="cab-chat-actions" actions={[
+                    {label:c.pinned ? 'Открепить' : 'Закрепить',icon:<Icon name="pin" size={16} />,disabled:pinningId !== null,run:() => onPin(c)},
+                    {label:'Удалить чат',icon:<Icon name="trash" size={16} />,danger:true,disabled:deletingId !== null || status === 'busy',run:() => onDelete(c)},
+                  ]}><Icon name="dots" size={19} strokeWidth={3} /></ActionMenu>
                   </div>
                 );
-              })}
-            </div>
-          ))}
+              })
+          ])}
         </nav>
 
-        <button type="button" className={`cab-row cab-profile ${settingsActive ? 'on' : ''}`} onClick={onSettings} aria-label="Настройки аккаунта">
+        <ActionMenu className={`cab-row cab-profile ${settingsActive ? 'on' : ''}`} label="Аккаунт" actions={[
+            {label:'Настройки аккаунта',icon:<Icon name="gear" size={17} />,run:onSettings},
+            {label:'Выйти',icon:<Icon name="logout" size={17} />,run:onSignOut},
+          ]}>
           <span className="avatar" aria-hidden="true">
             {profile?.avatar ? <img src={profile.avatar} alt="" /> : (profile?.firstName || username).slice(0, 2).toUpperCase()}
           </span>
@@ -106,7 +112,7 @@ export function Sidebar({ onDelete, deletingId, deleteError, deleteNotice, usern
             <span className="cab-row-meta">Личный кабинет</span>
           </span>
           <Icon name="gear" size={18} color="#707070" />
-        </button>
+        </ActionMenu>
       </aside>
     </>
   );

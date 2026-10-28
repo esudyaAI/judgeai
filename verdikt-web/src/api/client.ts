@@ -16,7 +16,7 @@ export interface Message {
   attachments: { id: number; filename: string; page_count: number | null;
     extraction_status: CaseFile['recognition'] }[];
 }
-interface Chat { id: number; title: string | null; status: CaseSummary['status']; updated_at: string }
+interface Chat { is_pinned?: boolean; id: number; title: string | null; status: CaseSummary['status']; updated_at: string }
 
 export interface AuthUser { id: number; username: string; is_admin: boolean; csrf_token: string }
 let csrfToken = '';
@@ -80,7 +80,10 @@ export const api = {
     const chats = await request<Chat[]>(`/chats${suffix}`, {signal});
     const labels = {draft: 'Черновик', busy: 'Идёт анализ', ready: 'Анализ готов', failed: 'Ошибка анализа'};
     return chats.map(c => ({id: String(c.id), title: c.title || 'Дело без названия',
-      group: 'Ранее', status: c.status, meta: labels[c.status]}));
+      group: 'Ранее', pinned: c.is_pinned ?? false, status: c.status, meta: labels[c.status]}));
+  },
+  pinCase(id: string, pinned: boolean): Promise<Chat> {
+    return request(`/chats/${encodeURIComponent(id)}/pin`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pinned})});
   },
   deleteCase(id: string): Promise<{deleted: number; files_pending: number}> {
     return request(`/chats/${encodeURIComponent(id)}`, {method: 'DELETE'});

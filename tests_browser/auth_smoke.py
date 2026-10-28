@@ -139,7 +139,68 @@ class BrowserAuthAcceptance(unittest.TestCase):
         page.get_by_label("Имя пользователя", exact=True).fill(username)
         page.get_by_label("Пароль", exact=True).fill(self.password)
         page.get_by_role("button", name="Войти", exact=True).click()
-        expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
+        expect(page.locator(".cab")).to_be_visible()
+
+    def account_action(self, page, label):
+        if not page.get_by_role("button", name="Аккаунт", exact=True).is_visible():
+            page.get_by_role("button", name="Открыть боковое меню", exact=True).click()
+        page.get_by_role("button", name="Аккаунт", exact=True).click()
+        page.get_by_role("menuitem", name=label, exact=True).click()
+
+    def test_chat_navigation_pin_and_account_menu(self):
+        for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+            with self.subTest(viewport=label):
+                context = self.browser.new_context(viewport={"width": width, "height": height})
+                self.addCleanup(context.close)
+                page = context.new_page()
+                page.goto(URL + "/app")
+                self.sign_in(page)
+                session = context.request.get(URL + "/api/auth/me").json()
+                title = f"Закрепить тест {label}"
+                response = context.request.post(
+                    URL + "/api/chats",
+                    data={"title": title},
+                    headers={"X-CSRF-Token": session["csrf_token"]},
+                )
+                self.assertEqual(response.status, 201)
+                page.reload()
+                expect(page.locator(".cab-header").get_by_text("Выйти", exact=True)).to_have_count(
+                    0
+                )
+                expect(
+                    page.locator(".cab-header").get_by_text("Экспорт в DOCX", exact=False)
+                ).to_have_count(0)
+                if label == "mobile":
+                    page.get_by_role("button", name="Открыть боковое меню", exact=True).click()
+                page.get_by_role("button", name="Свернуть боковое меню", exact=True).click()
+                expect(page.get_by_label("Дела", exact=True)).not_to_be_visible()
+                page.get_by_role("button", name="Открыть боковое меню", exact=True).click()
+                expect(page.get_by_label("Дела", exact=True)).to_be_visible()
+                trigger = page.get_by_role("button", name=f"Действия чата «{title}»", exact=True)
+                trigger.click()
+                expect(page.get_by_role("menuitem", name="Закрепить", exact=True)).to_be_focused()
+                page.keyboard.press("Escape")
+                expect(trigger).to_be_focused()
+                trigger.click()
+                page.get_by_role("menuitem", name="Закрепить", exact=True).click()
+                expect(page.get_by_text("Закреплённые", exact=True)).to_be_visible()
+                expect(trigger).to_be_focused()
+                page.reload()
+                if label == "mobile":
+                    page.get_by_role("button", name="Открыть боковое меню", exact=True).click()
+                expect(page.get_by_text("Закреплённые", exact=True)).to_be_visible()
+                page.get_by_role("button", name=f"Действия чата «{title}»", exact=True).click()
+                page.get_by_role("menuitem", name="Открепить", exact=True).click()
+                expect(page.get_by_text("Закреплённые", exact=True)).to_have_count(0)
+                page.screenshot(
+                    path=str(ROOT / "acceptance-screenshots" / f"{label}-chat-navigation.png"),
+                    full_page=True,
+                )
+                self.account_action(page, "Настройки аккаунта")
+                expect(
+                    page.get_by_role("heading", name="Настройки аккаунта", exact=True)
+                ).to_be_visible()
+                context.close()
 
     def test_document_panel_and_full_conversation(self):
         from tests_pdf.fixtures import pdf
@@ -266,13 +327,13 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 chat_id = response.json()["id"]
                 page.reload()
                 if label == "mobile":
-                    page.get_by_role("button", name="Открыть список дел").click()
+                    page.get_by_role("button", name="Открыть боковое меню").click()
                 page.get_by_label("Список дел").locator(".cab-row").filter(has_text=title).click()
                 expect(page).to_have_url(URL + f"/app/case/{chat_id}/result")
                 if label == "mobile":
-                    page.get_by_role("button", name="Открыть список дел").click()
+                    page.get_by_role("button", name="Открыть боковое меню").click()
                 page.get_by_placeholder("Поиск по чатам").fill(title)
-                remove = page.get_by_role("button", name=f"Удалить чат «{title}»", exact=True)
+                remove = page.get_by_role("button", name=f"Действия чата «{title}»", exact=True)
                 expect(remove).to_be_enabled()
                 self.assertEqual(remove.locator("button").count(), 0)
                 self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
@@ -282,6 +343,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 )
                 modal = page.get_by_role("dialog", name="Удалить чат?")
                 remove.click()
+                page.get_by_role("menuitem", name="Удалить чат", exact=True).click()
                 expect(modal).to_be_visible()
                 expect(modal.get_by_role("button", name="Отмена", exact=True)).to_be_focused()
                 page.keyboard.press("Shift+Tab")
@@ -293,10 +355,12 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 expect(modal).to_have_count(0)
                 expect(remove).to_be_focused()
                 remove.click()
+                page.get_by_role("menuitem", name="Удалить чат", exact=True).click()
                 modal.get_by_role("button", name="Отмена", exact=True).click()
                 expect(modal).to_have_count(0)
                 self.assertEqual(context.request.get(URL + f"/api/chats/{chat_id}").status, 200)
                 remove.click()
+                page.get_by_role("menuitem", name="Удалить чат", exact=True).click()
                 expect(modal.get_by_text(title, exact=True)).to_be_visible()
                 self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
                 page.screenshot(
@@ -343,9 +407,9 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 self.assertEqual(context.request.get(URL + f"/api/chats/{chat_id}").status, 404)
                 page.reload()
                 if label == "mobile":
-                    page.get_by_role("button", name="Открыть список дел").click()
+                    page.get_by_role("button", name="Открыть боковое меню").click()
                 expect(
-                    page.get_by_role("button", name=f"Удалить чат «{title}»", exact=True)
+                    page.get_by_role("button", name=f"Действия чата «{title}»", exact=True)
                 ).to_have_count(0)
                 context.close()
 
@@ -358,13 +422,13 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.goto(URL + "/app")
                 self.sign_in(page)
                 if label == "mobile":
-                    page.get_by_role("button", name="Открыть список дел").click()
+                    page.get_by_role("button", name="Открыть боковое меню").click()
                 page.get_by_placeholder("Поиск по чатам").fill("synthetic-no-match-42")
                 expect(
                     page.get_by_text("Ничего не найдено. Попробуйте другой запрос.")
                 ).to_be_visible()
                 page.get_by_role("button", name="Сбросить поиск").click()
-                page.get_by_role("button", name="Настройки аккаунта", exact=True).click()
+                self.account_action(page, "Настройки аккаунта")
                 expect(page.get_by_role("heading", name="Настройки аккаунта")).to_be_visible()
                 page.get_by_label("Имя", exact=True).fill("Тест")
                 page.get_by_label("Фамилия", exact=True).fill("Профиль")
@@ -439,7 +503,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                     full_page=True,
                 )
                 page.reload()
-                expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
+                expect(page.locator(".cab")).to_be_visible()
                 session = context.request.get(URL + "/api/auth/me").json()
                 self.assertEqual(
                     context.request.post(
@@ -462,7 +526,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 self.assertEqual(
                     other.request.get(URL + f"/api/chats/{chat_id}/messages").status, 404
                 )
-                page.get_by_role("button", name="Выйти", exact=True).click()
+                self.account_action(page, "Выйти")
                 expect(page.get_by_label("Имя пользователя", exact=True)).to_be_visible()
                 self.assertEqual(context.request.get(URL + "/api/chats").status, 401)
                 self.sign_in(page)
@@ -512,9 +576,9 @@ class BrowserAuthAcceptance(unittest.TestCase):
                     full_page=True,
                 )
                 page.locator("form").get_by_role("button", name="Зарегистрироваться").click()
-                expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
+                expect(page.locator(".cab")).to_be_visible()
                 self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), width)
-                page.get_by_role("button", name="Выйти", exact=True).click()
+                self.account_action(page, "Выйти")
                 expect(page.get_by_label("Имя пользователя", exact=True)).to_be_visible()
                 self.sign_in(page, username)
                 context.close()

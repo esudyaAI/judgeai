@@ -9,6 +9,7 @@ import { Composer } from './Composer';
 import { AttachScreen, NewCaseScreen } from './screens';
 import { SettingsScreen } from './Settings';
 import { Sidebar } from './Sidebar';
+import { useChatPin } from './useChatPin';
 import { useDeleteChat } from './useDeleteChat';
 import { DeleteChatDialog } from './DeleteChatDialog';
 import './cabinet.css';
@@ -49,9 +50,13 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [loading, setLoading] = useState(false);
   // Practice comparison is on by default: the shared base is open to every user.
   const [useKnowledge, setUseKnowledge] = useState(true);
-  const [retry, setПовторить] = useState(0);
+  const [retry, setRetry] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+    if (!window.matchMedia('(max-width: 760px)').matches) setSidebarCollapsed(true);
+  }, []);
   const draftId = useRef<string | null>(null);
   const sendingRef = useRef(false);
   const operation = useRef(0);
@@ -67,6 +72,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     catch (e) { setListError(e instanceof Error ? e.message : 'Не удалось загрузить список дел'); }
   }, []);
   useEffect(() => { void refreshCases(); }, [refreshCases]);
+  const pin = useChatPin(refreshCases);
 
   useEffect(() => {
     setMessages([]); setAnalysis(null); setError('');
@@ -131,7 +137,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
       await api.sendCase(id, prompt, selectedFiles, useKnowledge);
       void refreshCases();
       if (!isCurrent()) return;
-      setSelectedFiles([]); setPrompt(''); setПовторить(n => n + 1);
+      setSelectedFiles([]); setPrompt(''); setRetry(n => n + 1);
       go(`/app/case/${id}/analysis`);
       void refreshCases();
     } catch (e) { if (isCurrent()) setError(e instanceof Error ? e.message : 'Не удалось отправить запрос'); }
@@ -139,10 +145,13 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   };
 
   return (
-    <div className={`cab ${documentPanel.state ? 'cab-with-document' : ''}`}>
+    <div className={`cab ${documentPanel.state ? 'cab-with-document' : ''} ${sidebarCollapsed ? 'cab-sidebar-collapsed' : ''}`}>
       {deletion.pendingChat && <DeleteChatDialog chat={deletion.pendingChat} busy={deletion.deletingId !== null}
         error={deletion.deleteError} onCancel={deletion.cancel} onConfirm={() => { void deletion.confirm(); }} />}
-      <Sidebar deletingId={deletion.deletingId} deleteError="" deleteNotice={deletion.deleteNotice}
+      <Sidebar collapsed={sidebarCollapsed} pinningId={pin.pendingId} pinError={pin.error}
+        onPin={chat => { void pin.toggle(chat); }}
+        onSignOut={() => { void onSignOut().catch(() => setError('Не удалось выйти. Попробуйте ещё раз.')); }}
+        deletingId={deletion.deletingId} deleteError="" deleteNotice={deletion.deleteNotice}
         onDelete={deletion.remove} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
         open={sidebarOpen} onClose={closeSidebar} onNew={startNew}
         onPick={c => { setSelectedFiles([]); setPrompt(''); go(`/app/case/${c.id}/result`); }}
@@ -150,22 +159,20 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
       <main className="cab-main">
         <header className="cab-header">
           <div className="cab-header-title">
-            <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть список дел"
-              aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Icon name="menu" size={18} /></button>
+            <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть боковое меню"
+              aria-expanded={sidebarOpen} onClick={() => { setSidebarCollapsed(false); setSidebarOpen(true); }}><Icon name="menu" size={18} /></button>
             <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
             {busy && <span className="badge shimmer" role="status"><span className="spin" />Идёт анализ</span>}
             {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>
-          <button type="button" className="btn btn-line btn-sm" onClick={() => { void onSignOut().catch(() => setError("Не удалось выйти. Попробуйте ещё раз.")); }}>Выйти</button>
-          {analysis && <button type="button" className="btn btn-line btn-sm hide-sm" disabled title="Экспорт в DOCX пока не реализован">Экспорт в DOCX · скоро</button>}
         </header>
         <div ref={scroll} className="cab-scroll">
           {listError && <div className="warn-box" role="alert">{listError}<button type="button" onClick={() => void refreshCases()}>Повторить</button></div>}
-          {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setПовторить(n => n + 1)}>Обновить</button></div>}
+          {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
           {loading && <p className="shimmer" role="status" aria-busy="true">Загружаем дело…</p>}
           {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={onSignOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
-              {messages.length > 0 ? <ChatTimeline messages={messages} onOpen={attachment => documentPanel.open({name:attachment.filename,chatId:caseId,attachmentId:attachment.id})} /> :
+              {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={attachment => documentPanel.open({name:attachment.filename,chatId:caseId,attachmentId:attachment.id})} /> :
                 !loading && !error && <p>Задайте вопрос или прикрепите материалы дела.</p>}
               {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} />}
             </>

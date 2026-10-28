@@ -12,6 +12,10 @@ class ChatCreate(BaseModel):
     title: str | None = None
 
 
+class ChatPin(BaseModel):
+    pinned: bool
+
+
 class ChatRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -20,3 +24,4 @@ class ChatRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     status: ChatStatus = "draft"
+    is_pinned: bool = False

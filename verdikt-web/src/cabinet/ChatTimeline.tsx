@@ -1,4 +1,4 @@
-import { fileExt, mapAnalysis, type Message } from '../api/client';
+import { api, fileExt, mapAnalysis, type Message } from '../api/client';
 import { FileChip } from '../components/FileTile';
 import { fileReadingLabel } from './fileReadingPresentation';
 import { Result, Thinking } from './screens';
@@ -7,7 +7,7 @@ const STAGES = ['reading', 'searching', 'qualifying', 'checking'];
 const LABELS = ['Читаем документы', 'Ищем похожие дела', 'Извлекаем факты', 'Проверяем нормы закона'];
 export type ChatAttachment = Message['attachments'][number];
 
-export function ChatTimeline({messages, onOpen}: {messages: Message[]; onOpen: (attachment: ChatAttachment) => void}) {
+export function ChatTimeline({messages, onOpen, chatId}: {chatId?: string; messages: Message[]; onOpen: (attachment: ChatAttachment) => void}) {
   return <div className="thread chat-timeline" aria-label="История переписки">
     {messages.map(message => {
       const busy = message.status === 'pending' || message.status === 'running';
@@ -18,6 +18,7 @@ export function ChatTimeline({messages, onOpen}: {messages: Message[]; onOpen: (
           <div className="chips">{message.attachments.map(a => <div key={a.id}>
             <button type="button" className="document-chip" aria-label={`Открыть ${a.filename}`} onClick={() => onOpen(a)}><FileChip name={a.filename} ext={fileExt(a.filename)} /></button>
             <div className="file-meta">{fileReadingLabel({pages:a.page_count || 0, recognition:a.extraction_status})}</div>
+            {chatId && <a className="chat-file-download" href={api.attachmentUrl(chatId,a.id,true)} download={a.filename} aria-label={`Скачать «${a.filename}»`}>Скачать</a>}
           </div>)}</div>
         </div></div> : busy ? <div aria-busy="true"><Thinking steps={LABELS.map((label,i) => ({label,done:stage > i,active:stage === i}))} /></div> : message.status === 'failed' ?
           <div className="warn-box" role="alert">{message.error || 'Анализ не выполнен. Отправьте уточнение, чтобы повторить попытку.'}</div> :

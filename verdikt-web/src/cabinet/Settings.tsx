@@ -6,7 +6,7 @@ import { downloadAccountData, readAvatar, useAccount } from './useAccount';
 type Tab = 'profile' | 'security' | 'data';
 const TABS: [Tab, string][] = [['profile', 'Профиль'], ['security', 'Безопасность'], ['data', 'Данные']];
 const FIELDS: [keyof Omit<Profile, 'avatar'>, string, string][] = [
-  ['firstName', 'Имя', 'Имя'], ['lastName', 'Фамилия', 'Фамилия'], ['email', 'Email', 'name@example.ru'],
+  ['firstName', 'Имя', 'Имя'], ['lastName', 'Фамилия', 'Фамилия'], ['email', 'Электронная почта', 'name@example.ru'],
   ['position', 'Должность', 'Например, помощник судьи'], ['org', 'Суд или организация', 'Название'], ['region', 'Регион', 'Регион'],
 ];
 const LIMITS = {firstName:100, lastName:100, email:254, position:200, org:200, region:100};
@@ -52,7 +52,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
           <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => photo.current?.click()}>Изменить фото</button>
           {profile.avatar && <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => { setProfile(p => ({...p, avatar:''})); setStatus('Фото убрано. Нажмите «Сохранить профиль».'); }}>Убрать фото</button>}
         </div>
-        <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Email — контактное поле, уведомления на него не отправляются.</p>
+        <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Электронная почта — контактное поле, уведомления на него не отправляются.</p>
         <div className="set-fields">{FIELDS.map(([name, label, placeholder]) => <label key={name} className="set-field"><span>{label}</span>
           <input type={name === 'email' ? 'email' : 'text'} name={name} maxLength={LIMITS[name]} placeholder={placeholder} value={profile[name]} disabled={busy}
             onChange={e => { setProfile(p => ({...p, [name]: e.target.value})); setStatus(''); }} />

@@ -6,10 +6,12 @@ from sqlalchemy.orm import selectinload
 from src.api.deps import CurrentUser, DbSession
 from src.application.account import AnalysisInProgress
 from src.application.chat_deletion import ChatNotFound, delete_chat
+from src.application.chat_pinning import pin_chat
 from src.db.models import Attachment, Chat, Message
 from src.infrastructure.chat_deletion import SqlChatDeletionRepository
+from src.infrastructure.chat_pinning import SqlChatPinRepository
 from src.infrastructure.chat_queries import owned_chat_query
-from src.schemas.chat import ChatCreate, ChatRead, ChatStatus
+from src.schemas.chat import ChatCreate, ChatPin, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
 from src.services.analysis_runner import run_analysis
 from src.services.file_reader import save_upload_file, validate_extension
@@ -196,3 +198,12 @@ async def remove_chat(chat_id: int, db: DbSession, user: CurrentUser):
         raise HTTPException(404, "Чат не найден") from None
     except AnalysisInProgress:
         raise HTTPException(409, "Дождитесь завершения анализа перед удалением чата") from None
+
+
+@router.patch("/{chat_id}/pin", response_model=ChatRead)
+async def set_chat_pin(chat_id: int, payload: ChatPin, db: DbSession, user: CurrentUser):
+    try:
+        await pin_chat(SqlChatPinRepository(db), user.user_id, chat_id, payload.pinned)
+    except ChatNotFound:
+        raise HTTPException(404, "Чат не найден") from None
+    return await get_chat(chat_id, db, user)
