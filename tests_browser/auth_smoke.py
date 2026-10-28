@@ -141,6 +141,50 @@ class BrowserAuthAcceptance(unittest.TestCase):
         page.get_by_role("button", name="Войти", exact=True).click()
         expect(page.get_by_role("button", name="Выйти", exact=True)).to_be_visible()
 
+    def test_account_profile_search_and_settings_at_both_widths(self):
+        for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+            with self.subTest(viewport=label):
+                context = self.browser.new_context(viewport={"width": width, "height": height})
+                self.addCleanup(context.close)
+                page = context.new_page()
+                page.goto(URL + "/app")
+                self.sign_in(page)
+                if label == "mobile":
+                    page.get_by_role("button", name="Открыть список дел").click()
+                page.get_by_placeholder("Поиск по чатам").fill("synthetic-no-match-42")
+                expect(
+                    page.get_by_text("Ничего не найдено. Попробуйте другой запрос.")
+                ).to_be_visible()
+                page.get_by_role("button", name="Сбросить поиск").click()
+                page.get_by_role("button", name="Настройки аккаунта", exact=True).click()
+                expect(page.get_by_role("heading", name="Настройки аккаунта")).to_be_visible()
+                page.get_by_label("Имя", exact=True).fill("Тест")
+                page.get_by_label("Фамилия", exact=True).fill("Профиль")
+                page.get_by_role("button", name="Сохранить профиль").click()
+                expect(page.get_by_role("status")).to_contain_text("Профиль сохранён")
+                page.reload()
+                expect(page.get_by_label("Имя", exact=True)).to_have_value("Тест")
+                for tab, suffix in [
+                    ("Профиль", "profile"),
+                    ("Безопасность", "security"),
+                    ("Данные", "data"),
+                ]:
+                    page.get_by_role("tab", name=tab, exact=True).click()
+                    self.assertLessEqual(
+                        page.evaluate("document.documentElement.scrollWidth"), width
+                    )
+                    if suffix == "security":
+                        expect(page.get_by_text("Этот сеанс", exact=True)).to_be_visible()
+                    if suffix == "data":
+                        with page.expect_download() as download:
+                            page.get_by_role("button", name="Скачать данные").click()
+                        self.assertEqual(download.value.suggested_filename, "judgeai-data.json")
+                    page.screenshot(
+                        path=str(ROOT / "acceptance-screenshots" / f"{label}-{suffix}.png"),
+                        full_page=True,
+                    )
+                context.close()
+
     def test_real_login_errors_reload_logout_expiry_and_private_access(self):
         for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
             with self.subTest(viewport=label):
