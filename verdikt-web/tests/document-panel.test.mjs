@@ -39,3 +39,15 @@ test('document controls and status messages use Russian', () => {
   assert.match(html,/Подготавливаем документ/);
   assert.doesNotMatch(html,/Next|Previous|Download|Preparing|Retry|Preview/);
 });
+
+test('similar verdicts with a practice id open as buttons; others stay plain rows', () => {
+  const result = {variants:[], mitigating:[], stats:{documents:1,pages:1,seconds:1}, fabula:'Кража',
+    similar:[{verdict_id:7, punishment:'2 года условно', court:'Суд · 2024-01-01', match:'158/2/в', score:80},
+             {verdict_id:null, punishment:'Без текста', court:'Суд', match:'', score:50}]};
+  const messages = [{id:1, role:'assistant', status:'completed', stage:null, content:'', error:null, result, attachments:[], created_at:'2026-10-28T10:00:00Z'}];
+  const html = render('ChatTimeline', {messages, onOpen() {}, onOpenVerdict() {}});
+  assert.match(html, /<button[^>]*class="similar-row similar-open"[^>]*aria-label="Открыть приговор: 2 года условно, Суд · 2024-01-01"/);
+  assert.equal((html.match(/similar-open/g) ?? []).length, 1);
+  const withoutHandler = render('ChatTimeline', {messages, onOpen() {}});
+  assert.doesNotMatch(withoutHandler, /similar-open/);
+});

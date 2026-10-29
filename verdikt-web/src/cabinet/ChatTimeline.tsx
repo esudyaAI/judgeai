@@ -1,4 +1,5 @@
 import { api, fileExt, mapAnalysis, type Message } from '../api/client';
+import type { SimilarVerdict } from '../api/types';
 import { FileChip } from '../components/FileTile';
 import { fileReadingLabel } from './fileReadingPresentation';
 import { Result, Thinking } from './screens';
@@ -7,7 +8,7 @@ const STAGES = ['reading', 'searching', 'qualifying', 'checking'];
 const LABELS = ['Читаем документы', 'Ищем похожие дела', 'Извлекаем факты', 'Проверяем нормы закона'];
 export type ChatAttachment = Message['attachments'][number];
 
-export function ChatTimeline({messages, onOpen, chatId}: {chatId?: string; messages: Message[]; onOpen: (attachment: ChatAttachment) => void}) {
+export function ChatTimeline({messages, onOpen, onOpenVerdict, chatId}: {chatId?: string; messages: Message[]; onOpen: (attachment: ChatAttachment) => void; onOpenVerdict?: (verdict: SimilarVerdict) => void}) {
   return <div className="thread chat-timeline" aria-label="История переписки">
     {messages.map(message => {
       const busy = message.status === 'pending' || message.status === 'running';
@@ -22,7 +23,7 @@ export function ChatTimeline({messages, onOpen, chatId}: {chatId?: string; messa
           </div>)}</div>
         </div></div> : busy ? <div aria-busy="true"><Thinking startedAt={message.created_at} steps={LABELS.map((label,i) => ({label,done:stage > i,active:stage === i}))} /></div> : message.status === 'failed' ?
           <div className="warn-box" role="alert">{message.error || 'Анализ не выполнен. Отправьте уточнение, чтобы повторить попытку.'}</div> :
-          message.result ? <Result a={mapAnalysis(message.result)} /> : <div className="thread-ai chat-message-text">{message.content}</div>}
+          message.result ? <Result a={mapAnalysis(message.result)} onOpenVerdict={onOpenVerdict} /> : <div className="thread-ai chat-message-text">{message.content}</div>}
       </section>;
     })}
   </div>;

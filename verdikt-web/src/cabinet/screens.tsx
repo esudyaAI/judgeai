@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react';
-import type { CaseAnalysis, CaseFile, PracticeComparison } from '../api/types';
+import type { CaseAnalysis, CaseFile, PracticeComparison, SimilarVerdict } from '../api/types';
 import { FileChip, FileTile } from '../components/FileTile';
 import { Icon, IconTile, type IconName } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
@@ -7,7 +7,7 @@ import { SentenceScale } from '../components/SentenceScale';
 import { plural } from '../lib/format';
 import { fileReadingLabel, fileReadingWarning } from './fileReadingPresentation';
 import { ACCEPT } from './Composer';
-import { useElapsedSeconds } from './useElapsedSeconds';
+import { formatElapsed, useElapsedSeconds } from './useElapsedSeconds';
 import { legalCheckSourceUrl, legalCheckStatusLabel } from './legalCheckPresentation';
 import { practiceSummary, precedentSourceNote, shareLabel } from './practicePresentation';
 
@@ -137,7 +137,7 @@ export function Thinking({ steps, startedAt }: { steps: Step[]; startedAt?: stri
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
       <div className="steps" aria-busy="true">
-        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{seconds} с</span></div>
+        <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{formatElapsed(seconds)}</span></div>
         {steps.map((s) => (
           <div key={s.label} className="step-row">
             {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
@@ -177,7 +177,7 @@ function Practice({ p }: { p: PracticeComparison }) {
   );
 }
 
-export function Result({ a }: { a: CaseAnalysis }) {
+export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: (verdict: SimilarVerdict) => void }) {
   const [variant, setVariant] = useState(0);
   const current = a.variants[variant];
   const { documents, pages, seconds } = a.stats;
@@ -264,8 +264,8 @@ export function Result({ a }: { a: CaseAnalysis }) {
               Показать все
             </a>
           </div>
-          {a.similar.map((s, i) => (
-            <div key={`${i}-${s.punishment}`} className="similar-row">
+          {a.similar.map((s, i) => {
+            const body = <>
               <div className="similar-text">
                 <span className="similar-title">{s.punishment}</span>
                 <span className="similar-meta">
@@ -276,8 +276,13 @@ export function Result({ a }: { a: CaseAnalysis }) {
                 <span style={{ width: `${s.score}%` }} />
               </span>
               <span className="similar-score">{s.score}%</span>
-            </div>
-          ))}
+            </>;
+            const verdictId = s.verdict_id;
+            return verdictId != null && onOpenVerdict
+              ? <button key={`${i}-${s.punishment}`} type="button" className="similar-row similar-open"
+                  aria-label={`Открыть приговор: ${s.punishment}, ${s.court}`} onClick={() => onOpenVerdict(s)}>{body}</button>
+              : <div key={`${i}-${s.punishment}`} className="similar-row">{body}</div>;
+          })}
         </div>
 
         }
