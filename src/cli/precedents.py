@@ -12,6 +12,7 @@ import json
 from dataclasses import asdict
 
 from src.application.precedent_cards import CARD_EXTRACTOR_VERSION
+from src.application.precedent_refresh import refresh_precedents
 from src.application.similar_precedents import IndexPrecedents
 from src.db.session import async_session_factory
 from src.infrastructure.fastembed_embedder import FastembedEmbedder
@@ -42,6 +43,14 @@ async def _reembed_chunks() -> int | str:
         return done
 
 
+async def run_refresh(apply: bool = False) -> dict:
+    async with async_session_factory() as db:
+        report = await refresh_precedents(
+            SqlPrecedentStore(db), PracticeReader(), CARD_EXTRACTOR_VERSION, apply=apply
+        )
+        return asdict(report)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -51,8 +60,19 @@ def main() -> None:
         action="store_true",
         help="also re-embed knowledge-base chunks (used only by the fallback search)",
     )
+    refresh = commands.add_parser(
+        "refresh-cards", help="review/rebuild stale derived cards without vector API calls"
+    )
+    refresh.add_argument(
+        "--apply", action="store_true", help="explicitly apply the refresh; default is dry-run"
+    )
     args = parser.parse_args()
-    print(json.dumps(asyncio.run(run_index(chunks=args.chunks)), ensure_ascii=False))
+    report = (
+        asyncio.run(run_refresh(args.apply))
+        if args.command == "refresh-cards"
+        else asyncio.run(run_index(chunks=args.chunks))
+    )
+    print(json.dumps(report, ensure_ascii=False))
 
 
 if __name__ == "__main__":

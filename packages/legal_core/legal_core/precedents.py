@@ -60,34 +60,58 @@ class Qualification:
         return f"{point}{part}ст. {self.article} УК РФ"
 
 
+# The same spans feed both card qualification and punishment attribution.
 _QUALIFICATION = re.compile(
-    r"(?:(?:п\.\s*(?:п\.\s*)?|пункт\w*\s+)«(?P<points>[а-яё,\s]{1,20})»\s*)?"
-    r"(?:(?:ч\.|част\w*)\s*(?P<part>\d{1,2})\s+)?(?:ст\.|стать\w*)\s*"
-    r"(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)",
+    r'(?:(?:п(?:\.\s*п)?\.|пункт\w*)\s*[«"“]?'
+    r'(?P<points>[а-яё](?:\s*,\s*[а-яё])*)[»"”)]?\s*)?'
+    r"(?:(?:ч\.|част\w*)\s*(?P<part>\d{1,2})\s*)?(?:ст\.|стать\w*)\s*"
+    r"(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)"
+    r"(?:\s*(?:ч\.|част\w*)\s*(?P<part_after>\d{1,2}))?",
     re.IGNORECASE,
 )
-_OTHER_CODE = re.compile(r"\b(?:УПК|КоАП|ГК|ГПК|АПК)\b")
+_CITATION_CODE = re.compile(
+    r"\s*(?:(?:,|и|[-–—])\s*(?:(?:ч\.|част\w*)\s*\d{1,2}\s*)?"
+    r"(?:(?:ст\.|стать\w*)\s*)?\d{1,3}(?:\.\d{1,2})?\s*)*\s*"
+    r"(?P<code>УПК|КоАП|ГПК|АПК|ГК|НК|СК|ТК|УК)\b",
+    re.I,
+)
 
 
-def parse_qualifications(text: str) -> tuple[Qualification, ...]:
-    """All Special Part qualifications in a text, in order, without duplicates.
+@dataclass(frozen=True)
+class QualificationCitation:
+    start: int
+    end: int
+    qualifications: tuple[Qualification, ...]
 
-    'п.п. «в, г» ч. 2 ст. 158' expands to two qualifications. Texts citing another code are
-    ignored as a whole, so 'ст. 307 УПК РФ' is never read as an article of УК РФ.
-    """
-    if not text or _OTHER_CODE.search(text):
-        return ()
-    found: list[Qualification] = []
+
+def qualification_citations(text: str) -> tuple[QualificationCitation, ...]:
+    """Criminal references with their exact spans; another code affects only its own citation."""
+    found = []
     for match in _QUALIFICATION.finditer(text):
         if int(match["article"].split(".")[0]) < FIRST_SPECIAL_PART_ARTICLE:
             continue
-        part = int(match["part"]) if match["part"] else None
+        code = _CITATION_CODE.match(text, match.end())
+        if code and code["code"].upper() != "УК":
+            continue
+        part_text = match["part"] or match["part_after"]
+        if match["part"] and match["part_after"] and match["part"] != match["part_after"]:
+            continue
+        part = int(part_text) if part_text else None
+        if part is not None and part <= 0:
+            continue
         points = re.findall(r"[а-яё]", (match["points"] or "").lower()) or [None]
-        for point in points:
-            qualification = Qualification(match["article"], part, point)
-            if qualification not in found:
-                found.append(qualification)
+        qualifications = tuple(Qualification(match["article"], part, point) for point in points)
+        found.append(QualificationCitation(match.start(), match.end(), qualifications))
     return tuple(found)
+
+
+def parse_qualifications(text: str) -> tuple[Qualification, ...]:
+    """All distinct Special Part qualifications in source order, including multiple points."""
+    return tuple(
+        dict.fromkeys(
+            q for citation in qualification_citations(text) for q in citation.qualifications
+        )
+    )
 
 
 @dataclass(frozen=True)

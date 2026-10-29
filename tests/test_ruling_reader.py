@@ -119,3 +119,39 @@ def test_practice_reader_builds_one_card_per_convicted_person():
     [single] = build_cards(reader, PRACTICE_THEFT)
     assert single.defendant_no == 0 and single.outcome is None
     assert all(f.name != "ruling_outcome" for f in single.fields)
+
+
+def test_circumstances_are_not_copied_between_convicted_people():
+    from legal_core.precedents import Recidivism
+
+    text = OLD_CASSATION_TWO.replace(
+        "Рябинин и Дорохов признаны виновными",
+        "Суд признал наличие малолетнего ребёнка Рябинина смягчающим обстоятельством. "
+        "Суд установил опасный рецидив в действиях Дорохова. "
+        "Рябинин и Дорохов признаны виновными",
+    )
+    first, second = READER.read_all(text)
+    assert "61.1.г" in first.mitigating
+    assert "61.1.г" not in second.mitigating
+    assert first.recidivism is None
+    assert second.recidivism is Recidivism.DANGEROUS
+
+
+def test_unattributed_ruling_circumstances_remain_unknown_for_each_person():
+    text = OLD_CASSATION_TWO.replace(
+        "Рябинин и Дорохов признаны виновными",
+        "Смягчающим обстоятельством признано наличие малолетнего ребёнка. "
+        "Рябинин и Дорохов признаны виновными",
+    )
+    first, second = READER.read_all(text)
+    assert not first.mitigating and not second.mitigating
+
+
+def test_ruling_can_explicitly_apply_a_fact_to_both_people():
+    text = OLD_CASSATION_TWO.replace(
+        "Рябинин и Дорохов признаны виновными",
+        "Обоим осужденным суд признал смягчающим обстоятельством явку с повинной. "
+        "Рябинин и Дорохов признаны виновными",
+    )
+    first, second = READER.read_all(text)
+    assert "61.1.и" in first.mitigating and "61.1.и" in second.mitigating

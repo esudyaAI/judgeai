@@ -183,3 +183,65 @@ async def test_api_without_embedding_model_still_answers(client):
     )
     body = (await client.get(f"/api/chats/{chat_id}/precedents")).json()
     assert body["vector_used"] is False and len(body["items"]) == 1
+
+
+async def test_explicit_refresh_preserves_ids_vectors_raw_text_and_old_field_evidence():
+    from src.application.precedent_refresh import refresh_precedents
+    from src.infrastructure.verdict_reader import PracticeReader
+
+    await _add_verdicts(PRACTICE_THEFT)
+    await _index()
+    async with async_session_factory() as db:
+        row = await db.scalar(select(PrecedentCardRow))
+        card_id = row.id
+        row.extractor_version = "precedent-card/2"
+        row.mitigating = []
+        fields = list(await db.scalars(select(PrecedentCardField)))
+        for field in fields:
+            field.extractor_version = "precedent-card/2"
+        await db.commit()
+        store = SqlPrecedentStore(db)
+        dry = await refresh_precedents(store, PracticeReader(), CARD_EXTRACTOR_VERSION)
+        assert dry.sources == 1 and dry.updated_cards == 0
+        assert (await db.get(PrecedentCardRow, card_id)).mitigating == []
+        result = await refresh_precedents(
+            store, PracticeReader(), CARD_EXTRACTOR_VERSION, apply=True
+        )
+        assert result.updated_cards == 1
+        await db.refresh(row)
+        assert row.id == card_id and "61.1.и" in row.mitigating
+        assert row.extractor_version == CARD_EXTRACTOR_VERSION
+        assert await db.scalar(select(func.count()).select_from(PrecedentCardField)) == 18
+        assert (await db.scalar(select(KnowledgeVerdict))).raw_text == PRACTICE_THEFT
+        assert await db.scalar(select(func.count()).select_from(PrecedentEmbedding)) == 1
+        again = await refresh_precedents(
+            store, PracticeReader(), CARD_EXTRACTOR_VERSION, apply=True
+        )
+        assert again.sources == 0
+
+
+async def test_refresh_inspection_rejects_shape_change_and_never_downgrades_future_version():
+    from src.application.precedent_cards import build_cards
+    from src.application.precedent_refresh import refresh_precedents
+    from src.infrastructure.verdict_reader import PracticeReader
+
+    await _add_verdicts(PRACTICE_THEFT)
+    await _index()
+    async with async_session_factory() as db:
+        row = await db.scalar(select(PrecedentCardRow))
+        row.extractor_version = "precedent-card/2"
+        await db.commit()
+        store = SqlPrecedentStore(db)
+        source = (await store.stale_sources(CARD_EXTRACTOR_VERSION))[0]
+        assert await store.can_refresh(source, []) is False
+        assert await store.refresh_cards(source, []) is None
+        await db.refresh(row)
+        assert row.extractor_version == "precedent-card/2"
+        row.extractor_version = "precedent-card/999"
+        await db.commit()
+        assert await store.stale_sources(CARD_EXTRACTOR_VERSION) == []
+        assert await store.can_refresh(source, build_cards(PracticeReader(), source.text)) is False
+        result = await refresh_precedents(
+            store, PracticeReader(), CARD_EXTRACTOR_VERSION, apply=True
+        )
+        assert result.updated_cards == 0
