@@ -4,6 +4,8 @@ Exact quote matching establishes provenance, not semantic correctness or law edi
 Every candidate therefore requires human review; no inference from absent history.
 """
 
+import re
+
 from legal_core.entities import Category, Guilt, SanctionCeiling
 from legal_core.precedents import Recidivism
 from legal_core.rules.art15 import SOURCE as ART15_SOURCE
@@ -21,6 +23,21 @@ _CATEGORIES = {
 }
 
 
+_INTENT = re.compile(r"[^.\n]{0,160}\bумышленн\w*[^.\n]{0,160}", re.IGNORECASE)
+_NEGLIGENCE = re.compile(r"[^.\n]{0,160}\bпо\s+неосторожности[^.\n]{0,160}", re.IGNORECASE)
+
+
+def guilt_from_text(text: str) -> CitedFact | None:
+    """Form of guilt quoted from the verdict itself when the model cited none; nothing when the
+    text names both forms (several offences may differ) or neither."""
+    intent, negligence = _INTENT.search(text or ""), _NEGLIGENCE.search(text or "")
+    if bool(intent) == bool(negligence):
+        return None
+    match = intent or negligence
+    value = Guilt.INTENTIONAL if intent else Guilt.NEGLIGENT
+    return CitedFact(value=value.value, quote=match.group(0).strip())
+
+
 def _value(fact: CitedFact | None, text: str, kind: type):
     if fact is None or fact.quote not in text or type(fact.value) is not kind:
         raise ValueError("missing, unsupported or mistyped fact")
@@ -34,8 +51,11 @@ def build_legal_checks(
     extracted_recidivism: Recidivism | None = None,
     recidivism_quote: str = "",
     extracted_source_text: str | None = None,
+    text_guilt: CitedFact | None = None,
 ) -> list[LegalCheck]:
-    """statutory_ceiling comes from the imported УК РФ text; it replaces model-cited sanctions."""
+    """statutory_ceiling comes from the imported УК РФ text; it replaces model-cited sanctions.
+    text_guilt (quoted from extracted_source_text) is used when the model cited no guilt."""
+    full_text = extracted_source_text if extracted_source_text is not None else source_text
     results = []
     for norm, source in [("ст. 15 УК РФ", ART15_SOURCE), ("ст. 18 УК РФ", ART18_SOURCE)]:
         check = LegalCheck(
@@ -45,14 +65,21 @@ def build_legal_checks(
             explanation="Недостаточно подтверждённых фактов; правовой вывод не сделан.",
         )
         try:
-            if facts is None:
-                raise ValueError("no legal facts")
-            guilt = Guilt(_value(facts.guilt, source_text, str))
-            evidence = [facts.guilt.quote]
+            cited = facts.guilt if facts is not None else None
+            if cited is not None:
+                guilt = Guilt(_value(cited, source_text, str))
+            elif norm == "ст. 15 УК РФ" and statutory_ceiling is not None and text_guilt:
+                cited = text_guilt
+                guilt = Guilt(_value(cited, full_text, str))
+            else:
+                raise ValueError("no cited guilt")
+            evidence = [cited.quote]
             if norm == "ст. 15 УК РФ":
                 if statutory_ceiling is not None:
                     ceiling = statutory_ceiling
                 else:
+                    if facts is None:
+                        raise ValueError("no legal facts")
                     months = _value(facts.sanction_max_months, source_text, int)
                     harsher = _value(facts.harsher_than_imprisonment, source_text, bool)
                     ceiling = SanctionCeiling(months, harsher)
@@ -66,7 +93,11 @@ def build_legal_checks(
                     "Предварительная категория по процитированным данным. Проверьте санкцию "
                     "статьи, дату преступления и применимую редакцию закона."
                 )
+                if cited is text_guilt:
+                    check.explanation += " Форма вины взята из текста приговора."
             else:
+                if facts is None:
+                    raise ValueError("no legal facts")
                 category = _CATEGORIES[_value(facts.category, source_text, str)]
                 real = _value(facts.real_imprisonment, source_text, bool)
                 complete = _value(facts.history_complete, source_text, bool)

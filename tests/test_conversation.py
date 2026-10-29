@@ -102,3 +102,32 @@ async def test_old_attachment_survives_long_chat_and_answer_details_are_context(
         assert "Second option marker" in context.question
         assert "42" in context.question
         assert "Synthetic warning marker" in context.question
+
+
+async def test_new_files_are_analysed_without_documents_of_earlier_messages(client, monkeypatch):
+    from src.services.case_analyzer import extract_facts as original
+
+    calls = []
+
+    async def record(llm, question, texts, items):
+        calls.append(texts)
+        return await original(llm, question, texts, items)
+
+    monkeypatch.setattr("src.services.analysis_runner.extract_facts", record)
+    chat = (await client.post("/api/chats", json={"title": "two cases"})).json()["id"]
+    await client.post(
+        f"/api/chats/{chat}/messages",
+        data={"content": "First case"},
+        files={"files": ("first.txt", b"First case marker")},
+    )
+    await client.post(
+        f"/api/chats/{chat}/messages",
+        data={"content": "Second case"},
+        files={"files": ("second.txt", b"Second case marker")},
+    )
+    last = (await client.get(f"/api/chats/{chat}/messages")).json()[-1]
+    assert last["status"] == "completed", last["error"]
+    assert last["result"]["stats"]["documents"] == 1
+    assert any("Second case marker" in text for text in calls[-1])
+    assert not any("First case marker" in text for text in calls[-1])
+    assert any("прежних сообщений" in warning for warning in last["result"]["warnings"])

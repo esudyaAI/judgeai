@@ -200,9 +200,18 @@ async def run_analysis(
                 time.monotonic() - t_conv,
                 len(context.documents),
             )
-            texts.extend(document.text for document in context.documents)
-            pages += sum(document.pages for document in context.documents)
-            documents += len(context.documents)
+            # Files attached to this message are the case being analysed; documents left in the
+            # chat by earlier messages may belong to another case and are not mixed in.
+            prior = [] if user_message.attachments else context.documents
+            if user_message.attachments and context.documents:
+                warnings.append(
+                    "Документы из прежних сообщений этого чата не учитывались: анализ построен по "
+                    "файлам из этого сообщения. Чтобы разобрать документы вместе, прикрепите их "
+                    "в одном сообщении."
+                )
+            texts.extend(document.text for document in prior)
+            pages += sum(document.pages for document in prior)
+            documents += len(prior)
             warnings.extend(context.warnings)
             await db.commit()
 

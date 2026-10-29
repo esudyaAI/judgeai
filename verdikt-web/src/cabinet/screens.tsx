@@ -189,8 +189,9 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
       <LogoMark size={36} color="#141414" />
       <div className="result">
         <span className="result-stats">
-          Проанализировано {documents} {plural(documents, ['документ', 'документа', 'документов'])} · {pages} {plural(pages, ['страница', 'страницы', 'страниц'])} · {seconds}{' '}
-          {plural(seconds, ['секунда', 'секунды', 'секунд'])}
+          {/* Word files have no page count: 0 pages would read as an empty document. */}
+          Проанализировано {documents} {plural(documents, ['документ', 'документа', 'документов'])}
+          {pages > 0 && <> · {pages} {plural(pages, ['страница', 'страницы', 'страниц'])}</>} · {formatElapsed(seconds)}
         </span>
         {(a.warnings ?? []).map(w => <div key={w} className="warn-box" role="note">{w}</div>)}
         <h2>Разбор</h2>

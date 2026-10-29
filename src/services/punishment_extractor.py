@@ -6,7 +6,7 @@ cannot be read is not guessed: its text window is returned for a separate LLM st
 
 import re
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from legal_core.entities import (
     ArticleReference,
@@ -15,6 +15,7 @@ from legal_core.entities import (
     MeasureUnit,
     PunishmentKind,
     PunishmentTerm,
+    Unfinished,
 )
 from legal_core.precedents import QualificationCitation, qualification_citations
 
@@ -66,8 +67,23 @@ _RUBLES = re.compile(
 
 # A dot ends a sentence unless it follows an initial ("К.") and the next word is capitalised.
 _SENTENCE_END = re.compile(r"(?<![\s(][А-ЯЁ])\.\s+(?=[А-ЯЁ])|\n\s*\n")
-# the aggregate sentence: "окончательно назначить", or "по совокупности … назначить"
-_FINAL = re.compile(r"окончательн|по\s+совокупности", re.IGNORECASE)
+# The aggregate sentence. "окончательно назначить" outranks an earlier "по совокупности …
+# назначить": an aggregate by ч. 3 ст. 69 may be followed by the final one by ст. 70.
+_FINALLY = re.compile(r"окончательн", re.IGNORECASE)
+_AGGREGATE = re.compile(r"по\s+совокупности", re.IGNORECASE)
+# A punishment named but not imposed here: restrictions of ч. 1 ст. 53 "на период назначенного
+# ему наказания в виде …", its supervision and execution, an unserved term joined under ст. 70.
+_NOT_IMPOSED_BEFORE = re.compile(
+    r"(?:назначенного\s+(?:ему\s+|ей\s+)?наказани|надзор|неотбыт|срок\w*\s+отбывани|исчисл"
+    r"|зачесть|зачет)[^.;]*$",
+    re.IGNORECASE,
+)
+_NOT_IMPOSED_AFTER = re.compile(r"^[^.;]{0,20}?присоедин", re.IGNORECASE)
+# ч. 1 ст. 30 (preparation) or ч. 3 ст. 30 (attempt) right before the count's article.
+_UNFINISHED = re.compile(
+    r"(?:ч\.?\s*|част\w*\s+)(?P<part>[13])\s*,?\s*(?:ст\.?|стать\w*)\s*30(?![\d.])",
+    re.IGNORECASE,
+)
 _AGGREGATION = re.compile(
     r"(?:ч\.\s*(?P<part>\d)\s*)?ст\.\s*(?P<article>69|70)(?!\d)", re.IGNORECASE
 )
@@ -89,7 +105,7 @@ class _Imposition:
     start: int
     end: int
     additional: bool
-    final: bool
+    final: int  # 0 — a count, 1 — an aggregate "по совокупности", 2 — "окончательно"
     kind_end: int
 
 
@@ -200,6 +216,10 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
     for match in _KIND_REGEX.finditer(text):
         kind = _kind_of(match)
         before = text[max(0, match.start() - 80) : match.start()]
+        if _NOT_IMPOSED_BEFORE.search(text[max(0, match.start() - 90) : match.start()]) or (
+            _NOT_IMPOSED_AFTER.match(text, match.end(), match.end() + 40)
+        ):
+            continue
         after_match = _TERM_AFTER.match(text, match.end())
         if after_match is None and kind is PunishmentKind.FINE:
             after_match = _FINE_AFTER.match(text, match.end())
@@ -224,7 +244,8 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
                 windows.append(text[start : match.end() + WINDOW_RADIUS].strip())
             continue
         sentence_start, sentence_end = _sentence_bounds(text, match.start())
-        final = bool(_FINAL.search(text[sentence_start : match.start()]))
+        prefix = text[sentence_start : match.start()]
+        final = 2 if _FINALLY.search(prefix) else 1 if _AGGREGATE.search(prefix) else 0
         found.append(
             _Imposition(term, match.start(), min(end, sentence_end), additional, final, match.end())
         )
@@ -249,34 +270,36 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
     impositions, windows = _impositions(operative)
     citations = qualification_citations(operative)
     counts: list[CountSentence] = []
-    final_term, final_quote, extra_final = None, "", []
+    final_term, final_quote, extra_final, final_rank = None, "", [], 0
     floor = 0
     for item in impositions:
         if item.final:
             if item.additional and final_term is not None:
-                extra_final.append(item.term)
-            elif final_term is None:
-                final_term = item.term
+                if item.final == final_rank:
+                    extra_final.append(item.term)
+            elif final_term is None or item.final > final_rank:
+                final_term, final_rank, extra_final = item.term, item.final, []
                 start, end = _sentence_bounds(operative, item.start)
                 final_quote = operative[start:end].strip()
             continue
         if item.additional and counts:
-            last = counts[-1]
-            counts[-1] = CountSentence(
-                last.qualification,
-                last.reference,
-                last.main,
-                last.additional + (item.term,),
-                last.quote,
-            )
+            counts[-1] = replace(counts[-1], additional=counts[-1].additional + (item.term,))
             continue
         found = _reference_before(citations, item.start, floor)
-        reference, qualification, quote_start = None, "", item.start
+        reference, qualification, quote_start, unfinished = None, "", item.start, None
         if found is not None:
             first = found.qualifications[0]
             reference = ArticleReference(first.article, first.part)
             qualification = operative[found.start : found.end].strip() + " УК РФ"
             quote_start = found.start
+            last = deque(
+                _UNFINISHED.finditer(operative, max(floor, found.start - 30), found.start),
+                maxlen=1,
+            )
+            stage = last[0] if last else None
+            if stage is not None:
+                unfinished = Unfinished.ATTEMPT if stage["part"] == "3" else Unfinished.PREPARATION
+                qualification = f"ч. {stage['part']} ст. 30, {qualification}"
         counts.append(
             CountSentence(
                 qualification,
@@ -284,6 +307,7 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
                 item.term,
                 (),
                 operative[quote_start : item.end].strip(),
+                unfinished,
             )
         )
         # The next count's reference may start right after this term; the quote end (item.end)

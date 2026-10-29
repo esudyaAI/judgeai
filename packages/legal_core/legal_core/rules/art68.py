@@ -24,7 +24,7 @@ SOURCE = (
 )
 
 
-def part2_minimum_months(sanction_max_months: int) -> int:
+def part2_minimum_months(sanction_max_months: float) -> int:
     """One third of the maximum, in whole months, rounded up.
 
     Rounded up: a whole-month term equal to the rounded-down value would already be below one
@@ -39,7 +39,7 @@ def check_recidivism_term(
     *,
     recidivism: Recidivism,
     imposed_months: int | None,
-    most_severe_max_months: int | None,
+    most_severe_max_months: float | None,
     imposed_most_severe_kind: bool,
     art61_mitigating_established: bool,
     art64_applied: bool,

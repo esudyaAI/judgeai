@@ -1,7 +1,8 @@
 # Domain Layer — is the imposed punishment within the statutory limits of the sanction?
-# Limits: kind and bounds of the sanction of the article part, ч. 1 ст. 62 УК РФ (two thirds of
+# Limits: kind and bounds of the sanction of the article part, ч. 2–3 ст. 66 УК РФ (one half or
+# three quarters of the maximum for an unfinished offence), ч. 1 ст. 62 УК РФ (two thirds of
 # the most severe punishment) and ст. 64 УК РФ (below the minimum or a milder kind).
-# Not checked here: ч. 5 ст. 62, ст. 65, 66, 68.
+# Not checked here: ч. 5 ст. 62, ст. 65; ч. 2 ст. 68 is a separate check (rules/art68).
 from legal_core.checks import CheckResult, CheckStatus
 from legal_core.entities import (
     ImposedPunishment,
@@ -10,10 +11,27 @@ from legal_core.entities import (
     PunishmentTerm,
     SanctionRole,
     StatutorySanction,
+    Unfinished,
 )
+from legal_core.rules.art66 import NORMS as ART66_NORMS
+from legal_core.rules.art66 import SHARE_WORDS, reduced_maximum
 
 NORM = "Назначенное наказание: пределы санкции и ч. 1 ст. 62 УК РФ"
-NOT_COVERED = "Не проверены ч. 5 ст. 62, ст. 65, 66, 68 УК РФ."
+NOT_COVERED = "Не проверены ч. 5 ст. 62 и ст. 65 УК РФ; ч. 2 ст. 68 — отдельной проверкой."
+
+
+def norm_of(unfinished: Unfinished | None, art62_applies: bool) -> str:
+    """Only the limits that were actually applied are named."""
+    limits = [ART66_NORMS[unfinished].removesuffix(" УК РФ")] if unfinished else []
+    if art62_applies:
+        limits.append("ч. 1 ст. 62")
+    if not limits:
+        return "Назначенное наказание: пределы санкции статьи УК РФ"
+    named = limits[0] if len(limits) == 1 else f"{limits[0]} и {limits[1]}"
+    joiner = " и " if len(limits) == 1 else ", "
+    return f"Назначенное наказание: пределы санкции{joiner}{named} УК РФ"
+
+
 _UNIT_NAMES = {MeasureUnit.MONTHS: "мес.", MeasureUnit.HOURS: "ч.", MeasureUnit.RUBLES: "руб."}
 
 
@@ -42,11 +60,17 @@ def check_imposed_punishment(
     source: str,
     art62_limit_months: int | None = None,
     art64_applied: bool = False,
+    unfinished: Unfinished | None = None,
 ) -> CheckResult:
-    """Candidate check of one imposed main punishment against the sanction of its part."""
+    """Candidate check of one imposed main punishment against the sanction of its part.
+
+    For an unfinished offence the caller passes art62_limit_months already taken of the reduced
+    maximum (п. 49 Пленума ВС РФ № 58); the reduction itself is applied here to imprisonment.
+    """
+    norm = norm_of(unfinished, art62_limit_months is not None)
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, f"{why} {NOT_COVERED}", source)
+        return CheckResult(norm, status, f"{why} {NOT_COVERED}", source)
 
     alternative = main_alternative(sanctions, imposed.kind)
     if alternative is None:
@@ -74,6 +98,14 @@ def check_imposed_punishment(
             f"{_amount(alternative.min_value, unit)} без применения ст. 64 УК РФ.",
         )
     months = imposed.imprisonment_months
+    if months is not None and unfinished is not None and alternative.max_value is not None:
+        reduced = reduced_maximum(alternative.max_value, unfinished)
+        if months > reduced:
+            return result(
+                CheckStatus.POSSIBLE_VIOLATION,
+                f"Назначено {months} мес. при пределе {reduced} мес. ({SHARE_WORDS[unfinished]} "
+                f"максимума, {ART66_NORMS[unfinished]}).",
+            )
     if months is not None and art62_limit_months is not None and months > art62_limit_months:
         return result(
             CheckStatus.POSSIBLE_VIOLATION,

@@ -191,3 +191,55 @@ def test_term_written_before_the_kind():
         "ДВА года ШЕСТЬ месяцев лишения свободы."
     ).sentence.final
     assert final.imprisonment_months == 30
+
+
+# Built like the operative part of a real verdict on an attempt and a second offence, with an
+# aggregate by ч. 3 ст. 69, then ст. 70 and the restrictions of ч. 1 ст. 53 (synthetic text).
+TWO_COUNTS_AND_ART70 = (
+    "ИВАНОВА Ивана Ивановича признать виновным в совершении преступлений, предусмотренных "
+    "ч.3 ст.30, ч.1 ст.161 УК РФ и пп. «а, з» ч.2 ст.111 УК РФ, на основании которых назначить "
+    "ему наказание:\n"
+    "- по ч.3 ст.30, ч.1 ст.161 УК РФ – в виде лишения свободы сроком на один год шесть месяцев;\n"
+    "- по пп. «а,з» ч.2 ст.111 УК РФ – в виде лишения свободы сроком на четыре года с "
+    "ограничением свободы сроком на один год. На основании ч.1 ст.53 УК РФ установить Иванову "
+    "И.И. на период назначенного ему наказания в виде ограничения свободы следующие "
+    "ограничения: не изменять места жительства, являться для регистрации в орган, "
+    "осуществляющий надзор за отбыванием осужденными наказания в виде ограничения свободы.\n"
+    "По совокупности совершённых преступлений, согласно ч.3 ст.69 УК РФ, назначить ИВАНОВУ "
+    "Ивану Ивановичу наказание путём частичного сложения назначенных наказаний - в виде лишения "
+    "свободы сроком на четыре года шесть месяцев с ограничением свободы сроком на один год.\n"
+    "В соответствии со ст. 70 и ч.1 ст.71 УК РФ, по совокупности приговоров, к назначенному "
+    "Иванову И.И. наказанию частично, в виде трех месяцев лишения свободы, присоединить "
+    "неотбытое наказание в виде ограничения свободы по приговору районного суда от 20.08.2015, "
+    "и окончательное наказание назначить ИВАНОВУ Ивану Ивановичу путём частичного сложения "
+    "назначенных наказаний - в виде лишения свободы сроком на четыре года девять месяцев с "
+    "отбыванием наказания в исправительной колонии особого режима, с ограничением свободы "
+    "сроком на один год.\n"
+    "Срок отбывания наказания в виде лишения свободы Иванову И.И. исчислять со дня вступления "
+    "приговора в законную силу."
+)
+
+
+def test_final_sentence_is_the_one_imposed_finally_under_art70():
+    sentence = extract_imposed_sentence(TWO_COUNTS_AND_ART70).sentence
+    assert sentence.final.imprisonment_months == 57
+    assert sentence.aggregation_rule == "ст. 70 УК РФ"
+    assert "окончательное наказание назначить" in sentence.final_quote
+
+
+def test_restrictions_execution_and_unserved_terms_are_not_counts_or_windows():
+    extraction = extract_imposed_sentence(TWO_COUNTS_AND_ART70)
+    counts = extraction.sentence.counts
+    assert [c.main.imprisonment_months for c in counts] == [18, 48]
+    assert [len(c.additional) for c in counts] == [0, 1]
+    assert extraction.ambiguous_windows == ()
+
+
+def test_attempt_is_read_from_the_count_qualification():
+    from legal_core.entities import Unfinished
+
+    attempt, completed = extract_imposed_sentence(TWO_COUNTS_AND_ART70).sentence.counts
+    assert attempt.unfinished is Unfinished.ATTEMPT
+    assert attempt.reference == ArticleReference("161", 1)
+    assert attempt.qualification.startswith("ч. 3 ст. 30, ")
+    assert completed.unfinished is None
