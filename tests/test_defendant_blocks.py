@@ -48,3 +48,32 @@ def test_practice_verdict_on_two_people_gives_each_a_card_with_own_punishment():
 
 def test_verdict_on_one_person_keeps_one_card():
     assert len(build_cards(PracticeReader(), PRACTICE_THEFT)) == 1
+
+
+def test_conviction_before_name_keeps_people_and_sentences_separate():
+    from src.services.defendant_blocks import defendant_names
+
+    operative = (
+        "Признать виновным ФИО1 в совершении преступления по ч. 1 ст. 158 УК РФ.\n"
+        "Назначить наказание в виде лишения свободы сроком на 1 год.\n"
+        "Признать виновным ФИО2 виновным в совершении преступления по ч. 1 ст. 159 УК РФ.\n"
+        "Назначить наказание в виде лишения свободы сроком на 3 года."
+    )
+    assert defendant_names(operative) == ["фио1", "фио2"]
+    cards = build_cards(
+        PracticeReader(), "УСТАНОВИЛА:\nОбстоятельства.\nПРИГОВОРИЛА:\n" + operative
+    )
+    assert [c.card.imprisonment_months for c in cards] == [12, 36]
+    assert [c.card.main_qualification.article for c in cards] == ["158", "159"]
+
+
+def test_wrapped_identity_does_not_become_a_previous_punishment_paragraph():
+    from src.services.defendant_blocks import defendant_names
+
+    operative = (
+        "ФИО1\nпризнать виновным в краже.\n"
+        "Назначить наказание в виде лишения свободы сроком на 1 год.\n"
+        "ФИО2\nпризнать виновным в грабеже."
+    )
+    assert defendant_names(operative) == ["фио1", "фио2"]
+    assert len(split_defendants(operative)) == 2

@@ -243,3 +243,60 @@ def test_attempt_is_read_from_the_count_qualification():
     assert attempt.reference == ArticleReference("161", 1)
     assert attempt.qualification.startswith("ч. 3 ст. 30, ")
     assert completed.unfinished is None
+
+
+def test_comma_between_punishment_and_term_preserves_count():
+    result = extract_imposed_sentence(
+        "ФИО1 признать виновным по ч. 2 ст. 162 УК РФ и назначить наказание "
+        "в виде лишения свободы, сроком на 6 лет."
+    )
+    assert len(result.sentence.counts) == 1
+    assert result.sentence.counts[0].main.imprisonment_months == 72
+    assert result.ambiguous_windows == ()
+
+
+def test_fine_with_explicit_article64_bridge():
+    for bridge in (
+        ", с применением ст. 64 УК РФ,",
+        " с применением ст.64 УК РФ",
+        " (с применением ст. 64 УК РФ, т.е. ниже нижнего предела санкции ч. 3 ст. 327 УК РФ)",
+    ):
+        result = extract_imposed_sentence(
+            "ФИО1 признать виновным по ч. 3 ст. 327 УК РФ и назначить наказание в виде штрафа"
+            + bridge
+            + " в размере 40 000 рублей."
+        )
+        assert len(result.sentence.counts) == 1
+        assert result.sentence.counts[0].main.kind is PunishmentKind.FINE
+        assert result.sentence.counts[0].main.amount == 40000
+
+
+def test_hidden_fine_cannot_borrow_costs_from_next_sentence():
+    for hidden in ("сумма", "<данные изъяты>", "№", "."):
+        result = extract_imposed_sentence(
+            "ФИО1 признать виновным по ч. 1 ст. 158 УК РФ и назначить наказание "
+            f"в виде штрафа в размере {hidden}. Взыскать издержки 2300 рублей."
+        )
+        assert all(c.main.amount is None for c in result.sentence.counts)
+
+
+def test_fine_amount_does_not_skip_an_unrecognized_clause():
+    result = extract_imposed_sentence(
+        "ФИО1 признать виновным по ч. 1 ст. 158 УК РФ и назначить наказание "
+        "в виде штрафа в размере не указанном в публикации, издержки 2500 рублей."
+    )
+    assert all(c.main.amount is None for c in result.sentence.counts)
+
+
+def test_preposed_terms_and_aggregate_by_citation_keep_each_count():
+    result = extract_imposed_sentence(
+        "ФИО1 признать виновным и назначить наказание:\n"
+        "по ч. 1 ст. 158 УК РФ (эпизод 1) 2 года лишения свободы;\n"
+        "по ч. 1 ст. 159 УК РФ (эпизод 2) 3 года лишения свободы.\n"
+        "В соответствии с ч. 2 ст. 69 УК РФ путем частичного сложения назначить "
+        "наказание 4 года лишения свободы."
+    )
+    assert [c.reference.article for c in result.sentence.counts] == ["158", "159"]
+    assert [c.main.imprisonment_months for c in result.sentence.counts] == [24, 36]
+    assert result.sentence.final.imprisonment_months == 48
+    assert result.sentence.aggregation_rule == "ч. 2 ст. 69 УК РФ"

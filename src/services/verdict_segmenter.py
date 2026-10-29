@@ -13,7 +13,7 @@ TRIM_MARK = "\n[…]\n"
 
 def _heading(word: str) -> re.Pattern:
     spaced = r"[ \t]*".join(word)
-    return re.compile(rf"(?<![а-яё]){spaced}(?![а-яё])[ \t]*:?", re.IGNORECASE)
+    return re.compile(rf"(?<![а-яё]){spaced}(?:[ \t]*а)?(?![а-яё])[ \t]*:?", re.IGNORECASE)
 
 
 _ESTABLISHED = _heading("установил")

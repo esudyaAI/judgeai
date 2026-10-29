@@ -40,12 +40,19 @@ _KIND_REGEX = re.compile(
     re.IGNORECASE,
 )
 # "на срок", "сроком на", and the typo "срок 8 лет" without the preposition
-_TERM_AFTER = re.compile(r"\s*(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|в\s+размере)\s+", re.IGNORECASE)
+_TERM_AFTER = re.compile(r"[\s,]*(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|в\s+размере)\s+", re.IGNORECASE)
 # "с лишением права заниматься деятельностью …, сроком на 2 года": the term trails the right
 _TERM_AHEAD = re.compile(r"(?:на\s+срок|сроком(?:\s+на)?)\s+", re.IGNORECASE)
 _TERM_AHEAD_REACH = 200
+# The article-64 clause can interrupt the amount; never skip arbitrary prose or numbers.
+_FINE_RULE_BRIDGE = (
+    r"(?:с\s+применением\s+(?:ст\.|статьи)\s*64\b(?:\s+УК\s*РФ)?"
+    r"|\(с\s+применением\s+(?:ст\.|статьи)\s*64\b[^()\n]{0,180}\))"
+)
 _FINE_AFTER = re.compile(
-    r"[\s,]*(?:(?:в\s+доход\s+государства|в\s+определ\w*\s+денежн\w*\s+сумм\w*)[\s,]*)?"
+    r"[\s,]*(?:"
+    + _FINE_RULE_BRIDGE
+    + r"[\s,]*)?(?:(?:в\s+доход\s+государства|в\s+определ\w*\s+денежн\w*\s+сумм\w*)[\s,]*)?"
     r"в\s+(?:размере|сумме)\s+",
     re.IGNORECASE,
 )
@@ -54,6 +61,11 @@ _HIDDEN_AMOUNT = re.compile(r"\s*(?:сумма(?![а-яё])|<[^>]{0,20}>|№(?!\
 # "наказание - 220 часов обязательных работ", "назначить ДВА года ШЕСТЬ месяцев лишения свободы"
 _TERM_BEFORE_PREFIX = re.compile(
     r"(?:в\s+виде|(?<![а-яё])к|наказани\w*\s*[-–—:]|назначить)\s+", re.IGNORECASE
+)
+_DIRECT_TERM_BEFORE = re.compile(
+    r"(?<![\w.])(?P<term>(?:\d+(?:[.,]\d+)?(?:\s*\([^()]{1,40}\))?\s+"
+    r"(?:лет|год[а-яё]*|месяц[а-яё]*|час(?:а|ов)?|день|дня|дней)\s*){1,3})$",
+    re.IGNORECASE,
 )
 _TERM_STOP = re.compile(r"[,;.]|\s(?:с|со|условно|без|и|в)\s", re.IGNORECASE)
 _EXPLICIT_IMPOSITION = re.compile(r"в\s+виде\s*$", re.IGNORECASE)
@@ -74,7 +86,11 @@ _SENTENCE_END = re.compile(r"(?<![\s(][А-ЯЁ])\.\s+(?=[А-ЯЁ])|\n\s*\n")
 # The aggregate sentence. "окончательно назначить" outranks an earlier "по совокупности …
 # назначить": an aggregate by ч. 3 ст. 69 may be followed by the final one by ст. 70.
 _FINALLY = re.compile(r"окончательн", re.IGNORECASE)
-_AGGREGATE = re.compile(r"по\s+совокупности", re.IGNORECASE)
+_AGGREGATE = re.compile(
+    r"по\s+совокупности|(?:на\s+основании|в\s+соответствии\s+с|с\s+применением)\s+"
+    r"(?:ч\.\s*\d\s*)?ст\.\s*(?:69|70)(?!\d)",
+    re.IGNORECASE,
+)
 # A punishment named but not imposed here: restrictions of ч. 1 ст. 53 "на период назначенного
 # ему наказания в виде …", its supervision and execution, an unserved term joined under ст. 70.
 _NOT_IMPOSED_BEFORE = re.compile(
@@ -158,17 +174,15 @@ def _parse_rubles(text: str) -> float | None:
     match = _RUBLES.search(text[:80])
     if not match:
         return None
+    if (match["num"] or match["words"]) and text[: match.start()].strip():
+        return None
     if match["num"]:
         value = int(re.sub(r"[\s.]", "", match["num"]))
     elif match["words"]:
         value = parse_russian_number(match["words"])
     else:
         words = re.findall(r"[а-яё]+", text[: match.start("thousand") or match.end()].lower())
-        value = None
-        for size in range(min(4, len(words)), 0, -1):
-            value = parse_russian_number(" ".join(words[-size:]))
-            if value is not None:
-                break
+        value = parse_russian_number(" ".join(words))
     if value is None:
         return None
     return value * 1000 if match["thousand"] else value
@@ -189,6 +203,9 @@ def _sentence_bounds(text: str, position: int) -> tuple[int, int]:
 
 
 def _read_term(kind: PunishmentKind, after: str) -> PunishmentTerm | None:
+    # A publication placeholder is authoritative: later monetary amounts are not this term.
+    if _HIDDEN_AMOUNT.match(after):
+        return PunishmentTerm(kind)
     if kind is PunishmentKind.FINE:
         rubles = _parse_rubles(after)
         if rubles:
@@ -204,6 +221,9 @@ def _read_term(kind: PunishmentKind, after: str) -> PunishmentTerm | None:
 
 def _term_before(before: str) -> tuple[float | None, MeasureUnit | None]:
     """The term written ahead of the kind, after the nearest "в виде", "к", "наказание -"."""
+    direct = _DIRECT_TERM_BEFORE.search(before)
+    if direct:
+        return parse_term(direct["term"])
     prefixes = deque(_TERM_BEFORE_PREFIX.finditer(before), maxlen=1)
     if not prefixes:
         return None, None

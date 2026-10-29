@@ -7,17 +7,26 @@ name again) stay in that person's block.
 
 import re
 
+_WRAPPED_IDENTITY = (
+    r"(?:ФИО\d+(?:-[А-ЯЁ.]+)?|[А-ЯЁ]\.[ \t]*[А-ЯЁ]\.[ \t]*[А-ЯЁ]\."
+    r"|[А-ЯЁ][а-яё-]+[ \t]+[А-ЯЁ]\.[ \t]*[А-ЯЁ]\."
+    r"|[А-ЯЁ][а-яё-]+[ \t]+[А-ЯЁ][а-яё-]+[ \t]+[А-ЯЁ][а-яё-]+)"
+)
 # A paragraph that convicts someone; "невиновным" never matches (no space before "виновн").
 _CONVICTION = re.compile(
-    r"^[ \t]*(?:(?P<before>[^\n]{1,80}?)\s+признать\s+виновн"
-    r"|признать\s+(?P<after>[^\n]{1,80}?)\s+виновн)",
+    r"^[ \t]*(?:признать[ \t]+виновн[а-яё]*[ \t]+"
+    r"(?P<after_verdict>[^\n]{1,80}?)(?=[ \t]+(?:в[ \t]+совершении|виновн))"
+    r"|(?P<wrapped>" + _WRAPPED_IDENTITY + r")[ \t]*\n[ \t]*признать[ \t]+виновн"
+    r"|(?P<before>[^\n]{1,80}?)[ \t]+признать[ \t]+виновн"
+    r"|признать[ \t]+(?P<after>[^\n]{1,80}?)[ \t]+виновн)",
     re.IGNORECASE | re.MULTILINE,
 )
+
 _SAME_PERSON = re.compile(r"^(?:его|е[её])\s+же$", re.IGNORECASE)
 
 
 def _person(match: re.Match) -> str:
-    raw = match["before"] or match["after"] or ""
+    raw = match["after_verdict"] or match["wrapped"] or match["before"] or match["after"] or ""
     return re.sub(r"[\s,]+", " ", raw).strip(" ,.").lower()
 
 
