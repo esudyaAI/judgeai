@@ -15,8 +15,8 @@ from legal_core.entities import (
     PunishmentKind,
     PunishmentTerm,
 )
+from legal_core.precedents import QualificationCitation, qualification_citations
 
-from src.services.qualification_reference import FIRST_SPECIAL_PART_ARTICLE
 from src.services.russian_numerals import parse_russian_number
 
 WINDOW_RADIUS = 200
@@ -45,11 +45,6 @@ _PARENS = re.compile(r"\([^)]*\)")
 _DIGITS = re.compile(r"\d[\d\s]*\d|\d")
 _RUBLES = re.compile(
     r"(?P<num>\d[\d\s]*\d|\d)?\s*(?:\((?P<words>[^)]*)\))?\s*(?P<thousand>тыс\w*\.?)?\s*рубл",
-    re.IGNORECASE,
-)
-_REFERENCE = re.compile(
-    r"(?:п(?:\.\s*п)?\.\s*«[^»]{1,20}»\s*)?(?:ч\.\s*(?P<part>\d{1,2})\s+)?ст\.\s*"
-    r"(?P<article>\d{1,3}(?:\.\d{1,2})?)",
     re.IGNORECASE,
 )
 # A dot ends a sentence unless it follows an initial ("К.") and the next word is capitalised.
@@ -190,17 +185,23 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
     return found, windows
 
 
-def _reference_before(text: str, start: int, floor: int) -> re.Match | None:
-    """Nearest Special Part reference between the previous count and this punishment."""
-    best = None
-    for match in _REFERENCE.finditer(text, floor, start):
-        if int(match["article"].split(".")[0]) >= FIRST_SPECIAL_PART_ARTICLE:
-            best = match
-    return best
+def _reference_before(
+    citations: tuple[QualificationCitation, ...], start: int, floor: int
+) -> QualificationCitation | None:
+    """Nearest criminal citation, sharing the card reader's code/part interpretation."""
+    return next(
+        (
+            citation
+            for citation in reversed(citations)
+            if citation.start >= floor and citation.end <= start
+        ),
+        None,
+    )
 
 
 def extract_imposed_sentence(operative: str) -> SentenceExtraction:
     impositions, windows = _impositions(operative)
+    citations = qualification_citations(operative)
     counts: list[CountSentence] = []
     final_term, final_quote, extra_final = None, "", []
     floor = 0
@@ -223,13 +224,13 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
                 last.quote,
             )
             continue
-        found = _reference_before(operative, item.start, floor)
+        found = _reference_before(citations, item.start, floor)
         reference, qualification, quote_start = None, "", item.start
         if found is not None:
-            part = int(found["part"]) if found["part"] else None
-            reference = ArticleReference(found["article"], part)
-            qualification = f"{found.group(0).strip()} УК РФ"
-            quote_start = found.start()
+            first = found.qualifications[0]
+            reference = ArticleReference(first.article, first.part)
+            qualification = operative[found.start : found.end].strip() + " УК РФ"
+            quote_start = found.start
         counts.append(
             CountSentence(
                 qualification,
