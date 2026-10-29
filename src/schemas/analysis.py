@@ -125,6 +125,16 @@ class ImposedCountRead(ApiModel):
     quote: str
 
 
+class FineCreditRead(ApiModel):
+    scope: Literal["count", "final", "unassigned"]
+    count_index: int | None = None
+    original_amount: float | None = None
+    reduced_amount: float | None = None
+    released: bool = False
+    status: Literal["stated", "requires_review"]
+    quote: str
+
+
 class ImposedSentenceRead(ApiModel):
     """Punishment read from the operative part of the uploaded draft (regex, windows via LLM)."""
 
@@ -141,6 +151,7 @@ class ImposedSentenceRead(ApiModel):
     final_additional: list[str] = Field(default_factory=list)
     prior_judgment_date: str | None = None
     credited: str | None = None
+    fine_credits: list[FineCreditRead] = Field(default_factory=list)
 
 
 class DefendantAnalysisRead(ApiModel):

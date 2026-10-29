@@ -168,6 +168,19 @@ class CountSentence:
 
 
 @dataclass(frozen=True)
+class FineCredit:
+    """Explicit judicial decision under art.72; no monetary conversion is inferred."""
+
+    scope: str
+    count_index: int | None
+    original_amount: float | None
+    reduced_amount: float | None
+    released: bool
+    status: str
+    quote: str
+
+
+@dataclass(frozen=True)
 class ImposedSentence:
     """Everything the operative part imposes: per count, the final aggregate and probation."""
 
@@ -189,7 +202,8 @@ class ImposedSentence:
     prior_judgment_quote: str = ""
     credited: PunishmentTerm | None = None
     credited_quote: str = ""
+    fine_credits: tuple[FineCredit, ...] = ()
 
     @property
     def is_empty(self) -> bool:
-        return not self.counts and self.final is None
+        return not self.counts and self.final is None and not self.fine_credits

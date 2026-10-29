@@ -317,3 +317,26 @@ async def test_multicount_report_reuses_vector_with_real_store():
     assert len(report.episodes) >= 2
     assert all(episode.shown and episode.vector_used for episode in report.episodes)
     assert embedder.requests == 1
+
+
+async def test_fine_credit_registry_roundtrip_and_legacy_default():
+    text = (
+        "ПРИГОВОР\nУСТАНОВИЛ:\nФИО1 совершил кражу.\nПРИГОВОРИЛ:\n"
+        "Признать ФИО1 виновным по ч. 1 ст. 158 УК РФ и назначить штраф в размере 30000 рублей.\n"
+        "На основании ч. 5 ст. 72 УК РФ штраф смягчить до 20000 рублей."
+    )
+    await _add_verdicts(text, PRACTICE_THEFT)
+    await _index()
+    async with async_session_factory() as db:
+        rows = list(await db.scalars(select(PrecedentCardRow).order_by(PrecedentCardRow.id)))
+        store = SqlPrecedentStore(db)
+        loaded = await store.load([r.id for r in rows])
+        (credit,) = loaded[rows[0].id].card.fine_credits
+        assert (credit.original_amount, credit.reduced_amount) == (30000, 20000)
+        assert loaded[rows[1].id].card.fine_credits == ()
+        by_verdict = await store.cards_for_verdicts([r.knowledge_verdict_id for r in rows])
+        assert by_verdict[rows[0].knowledge_verdict_id].card.fine_credits == (credit,)
+        field = await db.scalar(
+            select(PrecedentCardField).where(PrecedentCardField.name == "fine_credits")
+        )
+        assert credit.quote in text and field.input_hash == rows[0].text_sha256

@@ -116,6 +116,9 @@ export interface ImposedSentence {
   final: string | null; aggregation_rule: string | null;
   unserved?: string | null; joined?: string | null; final_additional?: string[];
   prior_judgment_date?: string | null; credited?: string | null;
+  fine_credits?: {scope: 'count' | 'final' | 'unassigned'; count_index: number | null;
+    original_amount: number | null; reduced_amount: number | null; released: boolean;
+    status: 'stated' | 'requires_review'; quote: string}[];
 }
 
 export interface DefendantAnalysis {

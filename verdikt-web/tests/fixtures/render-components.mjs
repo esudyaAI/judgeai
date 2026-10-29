@@ -20,7 +20,7 @@ import { TextDocument } from './src/cabinet/TextDocument';
         import { ChatTimeline } from './src/cabinet/ChatTimeline';
         import { DocumentPanel } from './src/cabinet/DocumentPanel';
         import { Composer } from './src/cabinet/Composer';
-        import { NewCaseScreen, ThreadScreen } from './src/cabinet/screens';
+        import { NewCaseScreen, ThreadScreen, SentenceDetails } from './src/cabinet/screens';
         import { CaseSkeleton } from './src/cabinet/CaseSkeleton';
         import { AuthGate } from './src/auth/AuthGate';
         import { InfoPage } from './src/info/InfoPage';
@@ -28,7 +28,7 @@ import { TextDocument } from './src/cabinet/TextDocument';
         import { DeleteChatDialog } from './src/cabinet/DeleteChatDialog';
         import { Sidebar } from './src/cabinet/Sidebar';
         import { Footer } from './src/landing/Sections';
-        export const render = (name, props) => renderToStaticMarkup(createElement({BusyButton, TextDocument, ChatTimeline, DocumentPanel, Composer, NewCaseScreen, ThreadScreen, CaseSkeleton, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar, DeleteChatDialog}[name], props));
+        export const render = (name, props) => renderToStaticMarkup(createElement({SentenceDetails, BusyButton, TextDocument, ChatTimeline, DocumentPanel, Composer, NewCaseScreen, ThreadScreen, CaseSkeleton, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar, DeleteChatDialog}[name], props));
       `,
       resolveDir: fileURLToPath(new URL('../..', import.meta.url)), loader: 'tsx',
     },
