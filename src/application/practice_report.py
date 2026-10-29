@@ -6,7 +6,6 @@ distribution is not limited to the first screen of results.
 """
 
 from dataclasses import dataclass, field, replace
-from itertools import zip_longest
 
 from legal_core.precedents import PrecedentCard
 from legal_core.rules.practice_comparison import PracticeComparison, compare_with_practice
@@ -69,9 +68,10 @@ async def compare_draft_with_practice(
             )
         )
     shown = {}
-    for row in zip_longest(*(r.shown for r in reports)):
-        for item in row:
-            if item is not None:
+    for rank in range(SHOWN):
+        for report in reports:
+            if rank < len(report.shown):
+                item = report.shown[rank]
                 shown.setdefault(item.stored.id, item)
     # No aggregate comparison for a multi-count draft. The legacy field stays readable.
     comparison = reports[0].comparison if len(reports) == 1 else compare_with_practice([], None)
