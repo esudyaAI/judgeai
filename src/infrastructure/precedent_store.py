@@ -238,7 +238,8 @@ class SqlPrecedentStore:
             .execution_options(populate_existing=True)
         )
         rows = list(await self.db.scalars(statement.with_for_update() if lock else statement))
-        if {row.defendant_no for row in rows} != {card.defendant_no for card in cards}:
+        # A newer extractor may tell apart people an older one merged; it never drops a person.
+        if not rows or not {r.defendant_no for r in rows} <= {c.defendant_no for c in cards}:
             return None
         version = cards[0].fields[0].extractor_version
         allowed = {*prior_versions(version), version}
@@ -258,12 +259,17 @@ class SqlPrecedentStore:
                 return None
             by_person = {row.defendant_no: row for row in rows}
             for extraction in cards:
-                row = by_person[extraction.defendant_no]
                 values = _card_values(
                     source, extraction, build_embedding_text(extraction.card.fabula)
                 )
-                for name, value in values.items():
-                    setattr(row, name, value)
+                row = by_person.get(extraction.defendant_no)
+                if row is None:  # a person the older extractor merged into another one
+                    row = PrecedentCardRow(**values)
+                    self.db.add(row)
+                    await self.db.flush()
+                else:
+                    for name, value in values.items():
+                        setattr(row, name, value)
                 await self._save_fields(row.id, extraction.fields)
             # Each source is atomic; preserve originals, ids, prior evidence and vectors.
             await self.db.commit()

@@ -245,3 +245,34 @@ async def test_refresh_inspection_rejects_shape_change_and_never_downgrades_futu
             store, PracticeReader(), CARD_EXTRACTOR_VERSION, apply=True
         )
         assert result.updated_cards == 0
+
+
+async def test_refresh_adds_cards_for_people_an_older_extractor_merged(monkeypatch):
+    from src.application.precedent_refresh import refresh_precedents
+    from src.infrastructure.verdict_reader import PracticeReader
+    from tests.fixtures.synthetic_verdicts import PRACTICE_TWO_DEFENDANTS
+
+    await _add_verdicts(PRACTICE_TWO_DEFENDANTS)
+    # the older extractor read the whole operative part as one person
+    monkeypatch.setattr(
+        "src.infrastructure.verdict_reader.split_defendants", lambda operative: [operative]
+    )
+    async with async_session_factory() as db:
+        index = IndexPrecedents(SqlPrecedentStore(db), PracticeReader(), HashingEmbedder())
+        await index.execute(CARD_EXTRACTOR_VERSION)
+        row = await db.scalar(select(PrecedentCardRow))
+        card_id = row.id
+        row.extractor_version = "precedent-card/2"
+        await db.commit()
+    monkeypatch.undo()
+    async with async_session_factory() as db:
+        result = await refresh_precedents(
+            SqlPrecedentStore(db), PracticeReader(), CARD_EXTRACTOR_VERSION, apply=True
+        )
+        rows = list(
+            await db.scalars(select(PrecedentCardRow).order_by(PrecedentCardRow.defendant_no))
+        )
+    assert (result.updated_cards, result.needs_review) == (2, 0)
+    assert [r.defendant_no for r in rows] == [0, 1]
+    assert rows[0].id == card_id
+    assert [r.conditional for r in rows] == [False, True]
