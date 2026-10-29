@@ -171,7 +171,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
         <header className="cab-header">
           <div className="cab-header-title">
             <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть боковое меню"
-              aria-expanded={sidebarOpen} onClick={() => { setSidebarCollapsed(false); setSidebarOpen(true); }}><Icon name="menu" size={18} /></button>
+              aria-expanded={sidebarOpen} onClick={() => { setSidebarCollapsed(false); setSidebarOpen(true); }}><Icon name="sidebar" size={18} /></button>
             <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
             {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>

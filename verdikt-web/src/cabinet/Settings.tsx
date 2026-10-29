@@ -53,7 +53,6 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
       {tab === 'profile' && <form className="set-profile" onSubmit={e => {
         e.preventDefault(); void run(async () => { const saved = await accountApi.saveProfile(profile); setProfile(saved); onProfileSaved(saved); setStatus('Профиль сохранён'); }, 'profile');
       }}>
-        <p className="muted-14">Имя пользователя: <strong>{user.username}</strong>. Данные профиля видны только вам.</p>
         <div className="set-avatar-row">
           <span className="avatar avatar-lg" aria-hidden="true">{profile.avatar ? <img src={profile.avatar} alt="" /> : (profile.firstName || user.username).slice(0, 2).toUpperCase()}</span>
           <input ref={photo} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => {
@@ -63,7 +62,7 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
           <BusyButton type="button" className="btn btn-soft btn-sm" disabled={busy} pending={state.pendingAction === 'avatar'} pendingLabel="Читаем фото…" onClick={() => photo.current?.click()}>Изменить фото</BusyButton>
           {profile.avatar && <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => { setProfile(p => ({...p, avatar:''})); setStatus('Фото убрано. Нажмите «Сохранить профиль».'); }}>Убрать фото</button>}
         </div>
-        <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Электронная почта — контактное поле, уведомления на него не отправляются.</p>
+        <p className="muted-14">PNG, JPEG или WebP, до 10 МБ. Фото уменьшим автоматически.</p>
         <div className="set-fields">{FIELDS.map(([name, label, placeholder]) => <label key={name} className="set-field"><span>{label}</span>
           <input type={name === 'email' ? 'email' : 'text'} name={name} maxLength={LIMITS[name]} placeholder={placeholder} value={profile[name]} disabled={busy}
             onChange={e => { setProfile(p => ({...p, [name]: e.target.value})); setStatus(''); }} />

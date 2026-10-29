@@ -34,17 +34,7 @@ export function useAccount() {
     run, reload: () => setRetry(n => n + 1)};
 }
 
-export async function readAvatar(file: File): Promise<string> {
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 256 * 1024) {
-    throw new Error('Выберите PNG, JPEG или WebP не более 256 КБ');
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Не удалось прочитать фото'));
-    reader.readAsDataURL(file);
-  });
-}
+export {prepareAvatar as readAvatar} from './avatarImage';
 
 export function downloadAccountData(data: unknown) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}));

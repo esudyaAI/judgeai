@@ -362,3 +362,5 @@
 @media (min-width: 901px) {
   .document-panel[inert] { position: absolute; right: 0; top: 0; }
 }
+
+.settings .avatar-lg { width: 96px; height: 96px; font-size: 30px; }
