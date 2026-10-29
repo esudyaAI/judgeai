@@ -11,8 +11,10 @@ Sources checked 2026-10-28 (needs_legal_review=True, sign-off pending in T3):
   from 00:00 of the day following the birthday;
 - Civil Code art.192 part 3: a term ending in a month without that day ends on the
   last day of the month (applied to a 29 February birthday).
-Whether a record was expunged or removed (art.86) is supplied by the caller
-(``active_at_offence``) until the art.86 rule is implemented in T4.
+Whether the record still existed on the day of the new offence (art.86) is computed by
+``legal_core.rules.art86.record_active_on`` when the caller passes the sentence facts
+(``Conviction.expungement``, T3.1); otherwise the caller-supplied ``active_at_offence`` is
+used. When both are given and disagree, the result is "cannot decide" (no silent choice).
 """
 
 import calendar
@@ -21,6 +23,7 @@ from datetime import date
 
 from legal_core.entities import Category, Guilt
 from legal_core.rules.art18 import CurrentOffence, PriorConviction, Recidivism, classify_recidivism
+from legal_core.rules.art86 import Disposition, SentenceForExpungement, record_active_on
 
 NEEDS_LEGAL_REVIEW = True
 ADULT_AGE = 18
@@ -53,6 +56,21 @@ class Conviction:
     # Date of the court decision revoking suspension and directing imprisonment.
     # None means unknown; physical transfer/start of custody is not decisive (Plenum 58 p.45).
     revocation_decision_date: date | None = None
+    # Facts for ч. 3 ст. 86 / ст. 95; when given, the record on the offence day is computed.
+    expungement: SentenceForExpungement | None = None
+
+    def __post_init__(self) -> None:
+        s = self.expungement
+        if s is None:
+            return
+        if s.category is not self.category:
+            raise ValueError("expungement.category differs from the conviction category")
+        for name in ("legal_force_date", "offence_date"):
+            mine, theirs = getattr(self, name), getattr(s, name)
+            if mine is not None and theirs is not None and mine != theirs:
+                raise ValueError(f"expungement.{name} differs from the conviction")
+        if s.disposition is Disposition.CONDITIONAL and not self.conditional_or_deferred:
+            raise ValueError("a conditional disposition needs conditional_or_deferred=True")
 
 
 @dataclass(frozen=True)
@@ -75,6 +93,7 @@ class CriminalRecord:
             if self.birth_date is None or c.offence_date is None
             else adult_on(self.birth_date, c.offence_date)
         )
+        active = active_at(c, offence_date)
         before = _strictly_before(c.legal_force_date, offence_date)
         if not c.conditional_or_deferred:
             revoked = False
@@ -84,7 +103,7 @@ class CriminalRecord:
             c.guilt == Guilt.INTENTIONAL,
             c.category != Category.SMALL,
             adult,
-            c.active_at_offence,
+            active,
             before,
             True if not c.conditional_or_deferred else revoked,
         ]
@@ -95,12 +114,28 @@ class CriminalRecord:
             guilt=c.guilt,
             category=c.category,
             adult_at_offence=bool(adult),
-            active_at_offence=bool(c.active_at_offence),
+            active_at_offence=bool(active),
             convicted_before_offence=bool(before),
             imprisoned_by_sentence=c.imprisoned_by_sentence,
             conditional_or_deferred=c.conditional_or_deferred,
             revoked_and_sent_before_offence=bool(revoked),
         )
+
+
+def active_at(c: Conviction, offence_date: date) -> bool | None:
+    """Whether the record of ``c`` existed on ``offence_date``; None — cannot decide.
+
+    The caller's value (e.g. from an ИЦ МВД certificate) fills a day the art.86 rule leaves
+    open; a disagreement between the two is never resolved silently.
+    """
+    if c.expungement is None:
+        return c.active_at_offence
+    computed = record_active_on(c.expungement, offence_date)
+    if computed is None:
+        return c.active_at_offence
+    if c.active_at_offence is None or c.active_at_offence == computed:
+        return computed
+    return None
 
 
 def _strictly_before(event: date | None, offence_date: date) -> bool | None:
