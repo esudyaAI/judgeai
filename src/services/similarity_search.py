@@ -1,4 +1,5 @@
 import logging
+import time
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -116,16 +117,27 @@ async def find_similar_verdicts(
 
     query_vector: list[float] | None = None
 
+    t_embed = time.monotonic()
     try:
         query_vector = await embed_query(query)
+        logger.info(
+            "[SEARCH] embed_query completed in %.2fs (dim=%d)",
+            time.monotonic() - t_embed,
+            len(query_vector),
+        )
     except Exception:
         logger.warning("query embedding failed, falling back to keyword search", exc_info=True)
         query_vector = None
 
     if query_vector:
         try:
+            t_vec = time.monotonic()
             items = await _vector_search(db, query_vector, limit)
-
+            logger.info(
+                "[SEARCH] _vector_search completed in %.2fs (items=%d)",
+                time.monotonic() - t_vec,
+                len(items),
+            )
             if items:
                 return items
         except Exception:

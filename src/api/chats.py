@@ -1,3 +1,6 @@
+import logging
+import time
+
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +18,8 @@ from src.schemas.chat import ChatCreate, ChatPin, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
 from src.services.analysis_runner import run_analysis
 from src.services.file_reader import save_upload_file, validate_extension
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -147,6 +152,7 @@ async def create_message(
     await db.flush()
 
     stored_paths = []
+    t_save_start = time.monotonic()
     try:
         for file in files:
             stored_path, size = await save_upload_file(file)
@@ -169,6 +175,15 @@ async def create_message(
         # Chat.updated_at's onupdate only fires on changes to the chat row itself.
         await db.execute(update(Chat).where(Chat.id == chat_id).values(updated_at=func.now()))
         await db.commit()
+        save_sec = time.monotonic() - t_save_start
+        logger.info(
+            "[API] Chat %d: user_message=%d (%d files, %.2fs), dispatched assistant_message=%d",
+            chat_id,
+            user_message.id,
+            len(files),
+            save_sec,
+            assistant_message.id,
+        )
     except BaseException:
         await db.rollback()
         for path in stored_paths:

@@ -632,4 +632,16 @@
 - [x] Написаны тесты в `tests/test_llm_retries.py`: `test_user_prompt_guarantees_json_word_for_json_object_format`, `test_user_prompt_preserves_existing_json_word`, `test_error_status_logs_response_text` (изолированная проверка вызова `logger.warning` через `unittest.mock.patch`, устойчивая к сквозному прогону полного набора тестов).
 - [x] Все проверки пройдены: 39/39 LLM тестов passed, полный набор тестов до test_llm_retries (159 тестов) passed, ruff check clean, ruff format check clean, dependency_inventory clean.
 
+### Дебаг-трассировка анализа приговора и генерации ответа в логи — 29.10.2026
+
+- [x] Запрос пользователя: добавить дебаг-трассировку времени анализа приговора и выдачи ответа чисто в логи (без показа пользователю в UI/API), чтобы видеть причины задержек.
+- [x] Внедрена сквозная трассировка таймингов:
+  1. `src/api/chats.py`: логирование времени приёма и сохранения вложений (`[API] Chat ... saved N files in X.XXs, enqueued assistant_message`).
+  2. `src/services/analysis_runner.py`: детальный замер этапов `reading` (время по каждому файлу, страницам, символам), `searching` (время поиска практики и эмбеддингов), `qualifying` (структурирование приговора, вызов `extract_facts`, разрешение неоднозначных окон), `checking` (поиск санкций и сборка проверок), `saving` (запись в БД) и итоговая сводка `COMPLETED in X.XXs | reading: ... | searching: ... | qualifying: ... | checking: ... | saving: ...`.
+  3. `src/services/case_analyzer.py`: логирование попыток, длительности вызова LLM и валидации схемы Pydantic.
+  4. `src/services/punishment_window_resolver.py`: логирование количества окон, cache hit / miss и времени каждого обращения к LLM.
+  5. `src/services/llm_client.py`: замер длительности каждого HTTP-запроса к OpenAI-шлюзу (`OpenAICompatibleClient`), времени ответов веб-прокси (`DeepSeekWebClient`), пауз при ретраях и переключения на фолбэк (`FallbackLLMClient`).
+  6. `src/services/similarity_search.py`: замер времени вычисления эмбеддингов запроса и векторного поиска.
+- [x] Проверки пройдены: 63 теста passed, `ruff check` passed, `ruff format --check` passed (210 files formatted), `python3 tools/dependency_inventory.py --check` passed.
+
 

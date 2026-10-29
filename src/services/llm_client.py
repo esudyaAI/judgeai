@@ -14,6 +14,7 @@
 import asyncio
 import json
 import logging
+import time
 import uuid
 from typing import Protocol
 
@@ -114,21 +115,58 @@ class OpenAICompatibleClient:
         async with httpx.AsyncClient(timeout=timeout, transport=self._transport) as client:
             for attempt in range(LLM_ATTEMPTS):
                 last = attempt == LLM_ATTEMPTS - 1
+                t_req = time.monotonic()
+                logger.info(
+                    "[LLM] OpenAI request attempt %d/%d: model=%s prompt_chars=%d timeout=%.1fs",
+                    attempt + 1,
+                    LLM_ATTEMPTS,
+                    model,
+                    len(user_content) + len(system),
+                    timeout,
+                )
                 try:
                     response = await client.post(url, json=payload, headers=headers)
                 except httpx.TransportError as exc:  # connection refused, timeout, reset
+                    req_sec = time.monotonic() - t_req
+                    logger.warning(
+                        "[LLM] Transport error in %.2fs (attempt %d/%d): %s",
+                        req_sec,
+                        attempt + 1,
+                        LLM_ATTEMPTS,
+                        exc,
+                    )
                     if last:
                         raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
-                    await _sleep(_retry_pause(attempt, None))
+                    pause = _retry_pause(attempt, None)
+                    logger.info("[LLM] Pausing %.1fs before retry...", pause)
+                    await _sleep(pause)
                     continue
+                req_sec = time.monotonic() - t_req
                 status = response.status_code
                 if status in RETRYABLE_STATUSES and not last:
-                    await _sleep(_retry_pause(attempt, response))
+                    pause = _retry_pause(attempt, response)
+                    logger.info(
+                        "[LLM] Retryable status %d in %.2fs (attempt %d/%d). Pausing %.1fs...",
+                        status,
+                        req_sec,
+                        attempt + 1,
+                        LLM_ATTEMPTS,
+                        pause,
+                    )
+                    await _sleep(pause)
                     continue
                 if status >= 400:
                     logger.warning("LLM API error %d: %s", status, response.text)
                     # Never include request headers in the message: they carry the API key.
                     raise _final_status_error(status)
+                logger.info(
+                    "[LLM] Succeeded in %.2fs (attempt %d/%d, HTTP %d, bytes=%d)",
+                    req_sec,
+                    attempt + 1,
+                    LLM_ATTEMPTS,
+                    status,
+                    len(response.content),
+                )
                 try:
                     content = response.json()["choices"][0]["message"]["content"]
                 except (ValueError, KeyError, IndexError, TypeError) as exc:
@@ -205,16 +243,40 @@ class DeepSeekWebClient:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
+        t_req = time.monotonic()
+        logger.info(
+            "[LLM-WEB] DeepSeek web request: base=%s model=%s prompt_chars=%d timeout=%.1fs",
+            base,
+            model,
+            len(prompt),
+            timeout,
+        )
         async with httpx.AsyncClient(timeout=timeout, transport=self._transport) as client:
             try:
                 response = await client.post(
                     f"{base}/chat/completions", json=payload, headers=headers
                 )
+                req_sec = time.monotonic() - t_req
+                logger.info(
+                    "[LLM-WEB] DeepSeek web response in %.2fs (HTTP %d, bytes=%d)",
+                    req_sec,
+                    response.status_code,
+                    len(response.content),
+                )
                 response.raise_for_status()
                 content = response.json()["choices"][0]["message"]["content"]
             except httpx.HTTPStatusError as exc:
+                req_sec = time.monotonic() - t_req
+                logger.warning(
+                    "[LLM-WEB] HTTP error %d in %.2fs: %s",
+                    exc.response.status_code,
+                    req_sec,
+                    exc.response.text,
+                )
                 raise LLMError(f"LLM ответил {exc.response.status_code}") from exc
             except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+                req_sec = time.monotonic() - t_req
+                logger.warning("[LLM-WEB] Error in %.2fs: %s", req_sec, exc)
                 raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
             finally:
                 await self._reset(client, base, conversation_id, headers)
@@ -240,17 +302,35 @@ class FallbackLLMClient:
         self.fallback = fallback
 
     async def complete_json(self, system: str, user: str) -> dict:
+        t_start = time.monotonic()
         try:
             return await self.primary.complete_json(system, user)
         except LLMError as primary_exc:
+            primary_sec = time.monotonic() - t_start
             logger.warning(
-                "Основной LLM провайдер завершился с ошибкой: %s. Переключение на фолбэк %s.",
+                "Основной LLM провайдер завершился с ошибкой (за %.2fs): %s. "
+                "Переключение на фолбэк %s.",
+                primary_sec,
                 primary_exc,
                 type(self.fallback).__name__,
             )
+            t_fb = time.monotonic()
             try:
-                return await self.fallback.complete_json(system, user)
+                result = await self.fallback.complete_json(system, user)
+                logger.info(
+                    "[LLM-FALLBACK] Fallback %s succeeded in %.2fs (total: %.2fs)",
+                    type(self.fallback).__name__,
+                    time.monotonic() - t_fb,
+                    time.monotonic() - t_start,
+                )
+                return result
             except LLMError as fallback_exc:
+                logger.warning(
+                    "[LLM-FALLBACK] Fallback %s failed in %.2fs: %s",
+                    type(self.fallback).__name__,
+                    time.monotonic() - t_fb,
+                    fallback_exc,
+                )
                 raise LLMError(
                     f"Основной LLM шлюз ({primary_exc}) и фолбэк ({fallback_exc}) "
                     "оба вернули ошибку."

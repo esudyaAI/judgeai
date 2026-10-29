@@ -7,6 +7,7 @@ The LLM only extracts facts (LlmCaseFacts). Everything that is arithmetic over t
 import json
 import logging
 import math
+import time
 
 from legal_core.entities import (
     ArticleReference,
@@ -519,9 +520,23 @@ async def extract_facts(
 
     last_error: Exception | None = None
     for attempt in (1, 2):  # one retry for malformed output
+        t_llm = time.monotonic()
+        logger.info(
+            "[CASE-ANALYZER] Calling LLM extract_facts (attempt %d/2, prompt_chars=%d)...",
+            attempt,
+            len(system) + len(user),
+        )
         data = await llm.complete_json(system, user)
+        llm_sec = time.monotonic() - t_llm
+        logger.info("[CASE-ANALYZER] LLM returned response in %.2fs", llm_sec)
         try:
-            return LlmCaseFacts.model_validate(data)
+            facts = LlmCaseFacts.model_validate(data)
+            logger.info(
+                "[CASE-ANALYZER] Facts validated in %.2fs (qualification=%s)",
+                time.monotonic() - t_llm,
+                facts.qualification.article if facts.qualification else None,
+            )
+            return facts
         except ValidationError as exc:
             last_error = exc
             logger.warning(
