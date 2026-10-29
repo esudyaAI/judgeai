@@ -9,8 +9,9 @@ dist/
 build/
 eggs/
 .eggs/
-lib/
-lib64/
+# Python (корень: venv/build-артефакты; verdikt-web/src/lib — исходники фронтенда)
+/lib/
+/lib64/
 parts/
 sdist/
 var/
