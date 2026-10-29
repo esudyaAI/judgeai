@@ -937,7 +937,7 @@
 
 - [~] Публикация: ветка feat/T43-recalculate, PR и обязательные CI; merge после зелёного. Итог ниже.
 
-- [x] Публикация T43 завершена 29.10: [PR #44](https://github.com/esudyaAI/judgeai/pull/44), head 962204ac (после разрешения конфликтов TASKS.md с параллельными PR #43 и docs-коммитом); обязательные checks 4/4 success; merge 45140f4. Main-ран 40971681407 упал в browser-auth — расследование ниже (не код T43: дерево PR-рана и main-рана идентично, PR-ран был зелёный; причина — сетевой флейк эмбеддера, закрыт отдельным фиксом).
+- [x] Публикация T43 завершена 29.10: [PR #44](https://github.com/esudyaAI/judgeai/pull/44), head 962204ac (после разрешения конфликтов TASKS.md с параллельными PR #43 и docs-коммитом); обязательные checks 4/4 success; merge 45140f4. Main-ран 40971681407 упал в browser-auth — расследование ниже (не код T43: дерево PR-рана и main-рана идентично, PR-ран был зелёный; причина — сетевой флейк эмбеддера, закрыт [PR #45](https://github.com/esudyaAI/judgeai/pull/45), после него main 40974555425 полностью success включая build/deploy; https://esudya.ru/health ok).
 
 ### Флейк browser-auth: первая загрузка модели эмбеддингов в CI — 29.10.2026
 
@@ -946,3 +946,5 @@
 **Причина:** `find_similar_verdicts` всегда вызывает `embed_query` (src/services/similarity_search.py:122) — на свежем CI-раннере fastembed при первом вызове качает модель (~90 МБ с HuggingFace, неудачная попытка ретраится ~40 с). Анализ задерживается за пределы 20-секундного бюджета теста; результат зависит от скорости сети раннера (PR-ран повезло, main-раны нет). Код T43 непричастен — дерево идентично. Ожидаемые FAILED-строки `[ANALYSIS:...] Читаемый текст не найден` в логе — от теста real_login с пустым .txt, это штатное поведение.
 
 **Фикс:** `EMBEDDING_ENABLED` (config, по умолчанию true): при false `embed_query`/`embed_passages` возвращают None/[] немедленно, без загрузки модели; поиск честно падает в keyword-fallback (он уже так делал при сбое эмбеддера). В job browser-auth CI ставится `EMBEDDING_ENABLED=false` — браузерная приёмка проверяет UI-потоки, а не векторный канал; путь эмбеддеров покрыт отдельными тестами. Тест kill-switch добавлен в test_embedding_models. Замечено попутно: `find_similar_verdicts` эмбеддит запрос даже при пустой базе чанков — лишняя работа в проде, кандидат на оптимизацию (не в этом запуске).
+
+- [x] Публикация: [PR #45](https://github.com/esudyaAI/judgeai/pull/45), heads 2264a5e/6d2c291 (SBOM перегенерирован из-за нового хеша CI-конфига); 4/4 checks success (browser-auth прошёл за 3м11с/3м15с); merge — main 40974555425 полностью success (api/browser/inventory/document-preview + build api/web/preview + deploy); https://esudya.ru/health → ok.
