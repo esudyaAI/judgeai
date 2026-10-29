@@ -8,6 +8,7 @@ from src.api.deps import CurrentUser, DbSession
 from src.application.precedent_cards import query_card
 from src.application.similar_precedents import EmbeddingPort, FindSimilarPrecedents
 from src.db.models import Chat, Message
+from src.infrastructure.bounded_embedder import BoundedQueryEmbedder
 from src.infrastructure.fastembed_embedder import FastembedEmbedder
 from src.infrastructure.precedent_store import SqlPrecedentStore
 from src.infrastructure.verdict_reader import RegexVerdictReader
@@ -23,7 +24,7 @@ router = APIRouter()
 
 
 def get_embedder() -> EmbeddingPort:
-    return FastembedEmbedder()
+    return BoundedQueryEmbedder(FastembedEmbedder())
 
 
 async def _draft_texts(db, chat_id: int) -> list[str]:

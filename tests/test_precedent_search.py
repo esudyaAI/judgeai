@@ -274,3 +274,46 @@ async def test_refresh_adds_cards_for_people_an_older_extractor_merged(monkeypat
     assert [r.defendant_no for r in rows] == [0, 1]
     assert rows[0].id == card_id
     assert [r.conditional for r in rows] == [False, True]
+
+
+async def test_search_keeps_matching_second_episode_without_part_penalty():
+    from dataclasses import replace
+
+    from legal_core.rules.precedent_matching import FilterState
+
+    await _add_verdicts(MULTI_COUNT)
+    embedder = HashingEmbedder()
+    await _index(embedder)
+    indexed = build_card(RegexVerdictReader(), MULTI_COUNT).card
+    assert len(indexed.episodes) >= 2
+    query = replace(indexed, episodes=(indexed.episodes[1],), final=None)
+    async with async_session_factory() as db:
+        found = await FindSimilarPrecedents(SqlPrecedentStore(db), embedder).execute(query)
+    assert len(found.items) == 1
+    match = found.items[0]
+    assert match.breakdown["qualification"]["score"] == 1.0
+    assert next(f for f in match.filters if f.name == "same_part").state is FilterState.PASSED
+    assert "vector" in match.channels
+
+
+async def test_multicount_report_reuses_vector_with_real_store():
+    from src.application.practice_report import compare_draft_with_practice
+
+    class Counting(HashingEmbedder):
+        def __init__(self):
+            super().__init__()
+            self.requests = 0
+
+        async def embed_query(self, text):
+            self.requests += 1
+            return await super().embed_query(text)
+
+    await _add_verdicts(MULTI_COUNT)
+    await _index()
+    query = build_card(RegexVerdictReader(), MULTI_COUNT).card
+    embedder = Counting()
+    async with async_session_factory() as db:
+        report = await compare_draft_with_practice(SqlPrecedentStore(db), embedder, query)
+    assert len(report.episodes) >= 2
+    assert all(episode.shown and episode.vector_used for episode in report.episodes)
+    assert embedder.requests == 1

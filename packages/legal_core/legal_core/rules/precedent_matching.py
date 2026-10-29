@@ -10,7 +10,7 @@ from collections.abc import Hashable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from legal_core.precedents import PrecedentCard
+from legal_core.precedents import PrecedentCard, Qualification
 
 
 class FilterState(StrEnum):
@@ -78,13 +78,42 @@ class MatchResult:
     filters: tuple[FilterResult, ...]
 
 
+def _matching_qualifications(
+    query: PrecedentCard, candidate: PrecedentCard
+) -> tuple[Qualification | None, Qualification | None]:
+    """Use the best shared composition, irrespective of source episode order.
+
+    Unknown parts take precedence over a proven mismatch: an unrelated count cannot
+    turn an unparsed part of the matching article into a confirmed different part.
+    Punishment amounts never participate in selecting a comparable composition.
+    """
+    pairs = [
+        (q.qualification, c.qualification)
+        for q in query.episodes
+        for c in candidate.episodes
+        if q.qualification.article == c.qualification.article
+    ]
+    if not pairs:
+        return query.main_qualification, candidate.main_qualification
+    return max(
+        pairs,
+        key=lambda pair: (
+            pair[0] == pair[1],
+            pair[0].part is not None and pair[0].part == pair[1].part,
+            pair[0].part is None or pair[1].part is None,
+            pair[0].key,
+            pair[1].key,
+        ),
+    )
+
+
 def hard_filters(
     query: PrecedentCard, candidate: PrecedentCard, config: MatchConfig
 ) -> tuple[FilterResult, ...]:
     def result(name: str, state: FilterState, reason: str) -> FilterResult:
         return FilterResult(name, state, reason, config.action(name))
 
-    q_main, c_main = query.main_qualification, candidate.main_qualification
+    q_main, c_main = _matching_qualifications(query, candidate)
     out = []
     if q_main is None or c_main is None:
         out.append(result("same_article", FilterState.UNCERTAIN, "квалификация не извлечена"))
@@ -122,7 +151,7 @@ def hard_filters(
 def _qualification_axis(
     query: PrecedentCard, candidate: PrecedentCard, config: MatchConfig
 ) -> float | None:
-    q, c = query.main_qualification, candidate.main_qualification
+    q, c = _matching_qualifications(query, candidate)
     if q is None or c is None:
         return None
     if query.qualification_keys & candidate.qualification_keys:

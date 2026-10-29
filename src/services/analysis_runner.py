@@ -22,6 +22,7 @@ from src.db import session as db_session
 from src.db.auth import User
 from src.db.models import Chat, Message
 from src.domain.documents import UnreadableInput, reading_warnings
+from src.infrastructure.bounded_embedder import BoundedQueryEmbedder
 from src.infrastructure.conversation import load_conversation
 from src.infrastructure.fastembed_embedder import FastembedEmbedder
 from src.infrastructure.precedent_store import SqlPrecedentStore
@@ -57,8 +58,8 @@ async def _set_stage(message_id: int, *, status: str = "running", stage: str | N
         await db.commit()
 
 
-def get_precedent_embedder() -> FastembedEmbedder:
-    return FastembedEmbedder()
+def get_precedent_embedder() -> BoundedQueryEmbedder:
+    return BoundedQueryEmbedder(FastembedEmbedder())
 
 
 async def _search_practice(db, question: str, texts: list[str]):

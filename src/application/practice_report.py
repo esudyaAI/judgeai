@@ -37,9 +37,10 @@ async def compare_draft_with_practice(
 ) -> PracticeReport:
     # Search each count separately: the first article must not hide another composition.
     reports = []
+    search = FindSimilarPrecedents(store, embedder)
     for episode in query.episodes:
         single = replace(query, episodes=(episode,), final=None)
-        found = await FindSimilarPrecedents(store, embedder).execute(single, STATISTICS_POOL)
+        found = await search.execute(single, STATISTICS_POOL)
         comparable = []
         for item in found.items:
             card = item.stored.card

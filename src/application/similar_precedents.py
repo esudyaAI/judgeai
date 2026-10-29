@@ -185,15 +185,24 @@ class FindSimilarPrecedents:
         self.store, self.embedder = store, embedder
         self.config = config or MatchConfig()
         self.channel_limit = channel_limit
+        # This use case belongs to one report, never to a process-wide private-text cache.
+        self._query_vectors: dict[str, list[float] | None] = {}
 
     async def _query_vector(self, text: str) -> list[float] | None:
         if not text:
             return None
+        if text in self._query_vectors:
+            return self._query_vectors[text]
         try:
-            return await self.embedder.embed_query(text)
+            vector = await self.embedder.embed_query(text)
+        except TimeoutError:
+            logger.warning("query embedding timed out; using qualification and fulltext")
+            vector = None
         except Exception:  # search continues on the qualification and full-text channels
             logger.warning("query embedding failed", exc_info=True)
-            return None
+            vector = None
+        self._query_vectors[text] = vector
+        return vector
 
     async def execute(self, query: PrecedentCard, limit: int = 10) -> SimilarPrecedents:
         text = build_embedding_text(query.fabula)
