@@ -39,21 +39,27 @@ _KIND_REGEX = re.compile(
     "|".join(f"(?P<k{i}>(?<![а-яё]){pattern})" for i, (_, pattern) in enumerate(_KINDS)),
     re.IGNORECASE,
 )
-# "на срок", "сроком на", and the typo "срок 8 лет" without the preposition
-_TERM_AFTER = re.compile(r"[\s,]*(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|в\s+размере)\s+", re.IGNORECASE)
+# Explicit amount markers tolerate a duplicated marker and the attested typo "в размер".
+_AMOUNT_MARKER = r"(?:в\s+(?:размере?|сумме)\s+){1,2}"
+# A bare "на" must introduce a numeric value/placeholder, never "на основании".
+_TERM_AFTER = re.compile(
+    r"[\s,]*(?:(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|на(?=\s+(?:\d|№|<)))\s+|" + _AMOUNT_MARKER + r")",
+    re.IGNORECASE,
+)
 # "с лишением права заниматься деятельностью …, сроком на 2 года": the term trails the right
 _TERM_AHEAD = re.compile(r"(?:на\s+срок|сроком(?:\s+на)?)\s+", re.IGNORECASE)
 _TERM_AHEAD_REACH = 200
 # The article-64 clause can interrupt the amount; never skip arbitrary prose or numbers.
 _FINE_RULE_BRIDGE = (
-    r"(?:с\s+применением\s+(?:ст\.|статьи)\s*64\b(?:\s+УК\s*РФ)?"
+    r"(?:с\s+применением\s+(?:ст\.|статьи)\s*64\b"
+    r"(?:\s+(?:УК\s*РФ|Уголовного\s+кодекса\s+(?:Российской\s+Федерации|РФ)))?"
     r"|\(с\s+применением\s+(?:ст\.|статьи)\s*64\b[^()\n]{0,180}\))"
 )
 _FINE_AFTER = re.compile(
     r"[\s,]*(?:"
     + _FINE_RULE_BRIDGE
     + r"[\s,]*)?(?:(?:в\s+доход\s+государства|в\s+определ\w*\s+денежн\w*\s+сумм\w*)[\s,]*)?"
-    r"в\s+(?:размере|сумме)\s+",
+    + _AMOUNT_MARKER,
     re.IGNORECASE,
 )
 # an amount removed when the verdict was published: "в размере сумма", "<данные изъяты> часов"
@@ -262,6 +268,14 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
         elif after_match:
             term = _read_term(kind, text[after_match.end() : after_match.end() + 120])
             end = after_match.end() + 40
+        if (
+            term is None
+            and kind is not PunishmentKind.FINE
+            and _EXPLICIT_IMPOSITION.search(before)
+            and re.match(r"\s*\d", text[match.end() : match.end() + 12])
+        ):
+            term = _read_term(kind, text[match.end() : match.end() + 120])
+            end = match.end() + 40
         if term is None and additional and kind is PunishmentKind.DEPRIVATION_OF_RIGHT:
             term = _trailing_term(kind, text, match.end())
         # The words before an additional punishment are the main one's term, never its own.
