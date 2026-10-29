@@ -630,6 +630,6 @@
   2. Добавить логирование `response.text` при `status >= 400` перед вызовом `_final_status_error` для прозрачной диагностики ошибок в логах.
 - [x] Реализовано в `OpenAICompatibleClient.complete_json`: проверка `"json" not in user_content.lower()` с автоматическим добавлением `\n\nОтветь в формате JSON.`, а также `logger.warning("LLM API error %d: %s", status, response.text)` при `status >= 400`.
 - [x] Написаны тесты в `tests/test_llm_retries.py`: `test_user_prompt_guarantees_json_word_for_json_object_format`, `test_user_prompt_preserves_existing_json_word`, `test_error_status_logs_response_text` (изолированная проверка вызова `logger.warning` через `unittest.mock.patch`, устойчивая к сквозному прогону полного набора тестов).
-- [x] Все проверки пройдены: 39/39 LLM тестов passed, полный набор тестов до test_llm_retries (159 тестов) passed, ruff check clean, dependency_inventory clean.
+- [x] Все проверки пройдены: 39/39 LLM тестов passed, полный набор тестов до test_llm_retries (159 тестов) passed, ruff check clean, ruff format check clean, dependency_inventory clean.
 
 

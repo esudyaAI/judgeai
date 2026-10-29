@@ -111,9 +111,7 @@ class OpenAICompatibleClient:
         headers = {"Authorization": f"Bearer {api_key}"}
 
         url = f"{api_base}/chat/completions"
-        async with httpx.AsyncClient(
-            timeout=timeout, transport=self._transport
-        ) as client:
+        async with httpx.AsyncClient(timeout=timeout, transport=self._transport) as client:
             for attempt in range(LLM_ATTEMPTS):
                 last = attempt == LLM_ATTEMPTS - 1
                 try:
@@ -207,9 +205,7 @@ class DeepSeekWebClient:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        async with httpx.AsyncClient(
-            timeout=timeout, transport=self._transport
-        ) as client:
+        async with httpx.AsyncClient(timeout=timeout, transport=self._transport) as client:
             try:
                 response = await client.post(
                     f"{base}/chat/completions", json=payload, headers=headers
