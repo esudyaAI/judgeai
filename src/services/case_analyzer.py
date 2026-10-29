@@ -9,7 +9,7 @@ import logging
 import math
 import re
 import time
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 from legal_core.entities import (
     ArticleReference,
@@ -151,6 +151,42 @@ def _similar_refs(similar_items: list[dict]) -> list[SimilarVerdictRef]:
     return refs
 
 
+def _fine_credit_excerpt(card) -> str:
+    if not card.fine_credits:
+        return ""
+    decisions = []
+    for credit in card.fine_credits:
+        target = (
+            "итог"
+            if credit.scope == "final"
+            else (
+                f"эпизод {credit.count_index + 1}"
+                if credit.count_index is not None
+                else "эпизод не установлен"
+            )
+        )
+        remaining = (
+            "полное освобождение от отбывания"
+            if credit.released
+            else (
+                f"после смягчения {credit.reduced_amount:g} руб."
+                if credit.reduced_amount is not None
+                else "сумма после смягчения не установлена"
+            )
+        )
+        original = (
+            f"{credit.original_amount:g} руб."
+            if credit.original_amount is not None
+            else "не установлена"
+        )
+        status = "требует проверки" if credit.status == "requires_review" else "по тексту суда"
+        decisions.append(
+            f"{target}: первоначальная сумма {original}; {remaining}; "
+            f"чтение {status}; цитата: {credit.quote}"
+        )
+    return "Ч. 5 ст. 72 УК РФ: " + " | ".join(decisions) + ". Законность зачёта требует проверки."
+
+
 def precedent_prompt_items(report: PracticeReport) -> list[dict]:
     """The comparable precedents in the shape the LLM prompt lists them."""
     return [
@@ -167,8 +203,25 @@ def precedent_prompt_items(report: PracticeReport) -> list[dict]:
                     describe_precedent_punishment(
                         item.stored.card.punishment, item.stored.card.conditional
                     ),
+                    *(
+                        [_fine_credit_excerpt(item.stored.card)]
+                        if item.stored.card.fine_credits
+                        else []
+                    ),
                 ]
             ),
+            "fine_credits": [
+                {
+                    "original_amount": c.original_amount,
+                    "reduced_amount": c.reduced_amount,
+                    "released": c.released,
+                    "scope": c.scope,
+                    "count_index": c.count_index,
+                    "status": c.status,
+                    "quote": c.quote,
+                }
+                for c in item.stored.card.fine_credits
+            ],
             "score": item.score,
         }
         for item in report.shown
@@ -700,11 +753,37 @@ def _count_checks(
                     else "Санкция дополнительного наказания не найдена.",
                 )
             )
+    for credit in sentence.fine_credits:
+        checks.append(
+            LegalCheck(
+                norm="Смягчение штрафа · ч. 5 ст. 72 УК РФ",
+                status="insufficient_data",
+                source="",
+                explanation="Указанное судом смягчение сохранено отдельно от назначенного штрафа. "
+                "Его законность и связь с совокупностью требуют проверки; "
+                "пересчёт дней в рубли не выполняется.",
+                evidence=[credit.quote],
+            )
+        )
     for term, rule, quote in (
         (sentence.intermediate, sentence.intermediate_rule, sentence.intermediate_quote),
         (sentence.final, sentence.aggregation_rule, sentence.final_quote),
     ):
         if term is None:
+            continue
+        if sentence.fine_credits:
+            label = "Промежуточное" if term is sentence.intermediate else "Окончательное"
+            checks.append(
+                LegalCheck(
+                    norm=f"{label} наказание ({rule or 'ст. 69/70 УК РФ'})",
+                    status="insufficient_data",
+                    source="",
+                    value=describe_term(term),
+                    explanation="В приговоре указано смягчение штрафа по ч. 5 ст. 72 УК РФ. "
+                    "Автоматический расчёт совокупности с таким зачётом не поддерживается.",
+                    evidence=[q for q in [quote, *(c.quote for c in sentence.fine_credits)] if q],
+                )
+            )
             continue
         parsed = _aggregation_rule(rule)
         if parsed == "70":
@@ -871,6 +950,7 @@ def _sentence_read(sentence: ImposedSentence | None) -> ImposedSentenceRead | No
     if sentence is None or sentence.is_empty:
         return None
     return ImposedSentenceRead(
+        fine_credits=[asdict(c) for c in sentence.fine_credits],
         counts=[
             ImposedCountRead(
                 qualification=c.qualification,

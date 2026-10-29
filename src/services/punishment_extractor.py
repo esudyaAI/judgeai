@@ -12,6 +12,7 @@ from datetime import datetime
 from legal_core.entities import (
     ArticleReference,
     CountSentence,
+    FineCredit,
     ImposedSentence,
     MeasureUnit,
     PunishmentKind,
@@ -20,6 +21,7 @@ from legal_core.entities import (
 )
 from legal_core.precedents import QualificationCitation, qualification_citations
 
+from src.services.defendant_blocks import defendant_names
 from src.services.russian_numerals import parse_russian_number
 
 WINDOW_RADIUS = 200
@@ -251,6 +253,21 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
             _NOT_IMPOSED_AFTER.match(text, match.end(), match.end() + 40)
         ):
             continue
+        # A credit decision is not another imposed punishment or an LLM window.
+        if kind is PunishmentKind.FINE:
+            local_start, local_end = _sentence_bounds(text, match.start())
+            local = text[local_start:local_end]
+            prefix = text[local_start : match.start()]
+            rule = _CREDIT_RULE.search(local)
+            imposition = list(re.finditer(r"назначить|признать|признан\w*", prefix, re.I))
+            new_imposition = bool(
+                imposition
+                and (
+                    not rule or rule.start() > len(prefix) or imposition[-1].start() > rule.start()
+                )
+            )
+            if rule and _CREDIT_ACTION.search(local) and not new_imposition:
+                continue
         after_match = _TERM_AFTER.match(text, match.end())
         if after_match is None and kind is PunishmentKind.FINE:
             after_match = _FINE_AFTER.match(text, match.end())
@@ -369,6 +386,112 @@ def read_prior_terms(text: str):
     balance = balances[0] if len(balance_terms) == 1 else (None, "")
     joined = joins[0] if len(join_terms) == 1 else (None, "")
     return *balance, *joined
+
+
+_CREDIT_RULE = re.compile(r"ч(?:асть|асти|\.)?\s*5\s*ст(?:атьи|атья|\.)?\s*72\b", re.I)
+_CREDIT_ACTION = re.compile(r"(?:смягчить|снизить|уменьшить|полностью\s+освободить)", re.I)
+_CREDIT_NEGATIVE = re.compile(
+    r"просил\w*|просит|предложил\w*|предлагал\w*|ходатайств\w*|отказать|"
+    r"не\s+(?:находит|считает|имеется|усматривает|подлежит|может)|нет\s+оснований|"
+    r"не\s+(?:смягч\w*|сниз\w*|уменьш\w*|освобод\w*)",
+    re.I,
+)
+
+
+def _fine_credits(text: str, impositions: list[_Imposition]) -> tuple[FineCredit, ...]:
+    """Attach only explicit credit decisions with unambiguous local targets."""
+    result = []
+    indexed = []
+    index = 0
+    for event in impositions:
+        if event.additional:
+            continue
+        indexed.append((event, None if event.final else index))
+        if not event.final:
+            index += 1
+    for action in _CREDIT_ACTION.finditer(text):
+        start, end = _sentence_bounds(text, action.start())
+        quote = text[start:end].strip()
+        if not _CREDIT_RULE.search(quote) or _CREDIT_NEGATIVE.search(quote):
+            continue
+        release = action.group().lower().startswith("полностью")
+        if release and not re.search(r"от\s+отбывания[^\n]{0,100}штраф", quote, re.I):
+            continue
+        prior = [(e, n) for e, n in indexed if e.start < action.start()]
+        event, number = prior[-1] if prior else (None, None)
+        fine = event is not None and event.term.kind is PunishmentKind.FINE
+        line_start = text.rfind("\n", 0, action.start()) + 1
+        local = text[line_start:end]
+        if not fine and not re.search(r"штраф", local, re.I):
+            continue
+        same_line = event is not None and text.rfind("\n", 0, event.start) == text.rfind(
+            "\n", 0, action.start()
+        )
+        target = bool(fine and (event.final or len(prior) == 1 or same_line))
+        if event and event.final and any(e.final and e.start > event.start for e, _ in indexed):
+            target = False
+        # A qualification explicitly named in a credit is not the latest aggregate by default.
+        qualifications = qualification_citations(quote)
+        if qualifications:
+            target = False
+        people = set(re.findall(r"ФИО\s*\d+", quote, re.I))
+        names = defendant_names(text[: event.start]) if event else []
+        earlier_people = {names[-1].upper()} if names else set()
+        if people and not {p.upper() for p in people}.issubset(earlier_people):
+            target = False
+        named_people = re.findall(
+            r"[А-ЯЁ][а-яё-]+[ \t]+[А-ЯЁ][а-яё-]+[ \t]+[А-ЯЁ][а-яё-]+"
+            r"|[А-ЯЁ][а-яё-]+[ \t]+(?:[А-ЯЁ]\.[ \t]*){1,2}"
+            r"|(?:[А-ЯЁ]\.[ \t]*){3}",
+            quote,
+        )
+        for person in named_people:
+            words = person.lower().split()
+            known = names[-1].split() if names else []
+            if (
+                len(words) != 3
+                or len(known) != 3
+                or not all(
+                    left.startswith(right[:-2] if len(right) > 4 else right)
+                    for left, right in zip(words, known, strict=True)
+                )
+            ):
+                target = False
+        tail = text[action.end() : end]
+        amount_match = re.search(r"\bдо\s+", tail, re.I)
+        if re.search(
+            r"издерж|расход|гражданск|рассроч|ежемесяч",
+            tail[: amount_match.start()] if amount_match else tail,
+            re.I,
+        ):
+            continue
+        amount = _parse_rubles(tail[amount_match.end() :]) if amount_match else None
+        if not release and amount_match is None:
+            continue
+        original = event.term.amount if target else None
+        status = (
+            "stated"
+            if target
+            and original is not None
+            and (release or amount is not None and 0 < amount <= original)
+            else "requires_review"
+        )
+        result.append(
+            FineCredit(
+                "final" if target and event.final else "count" if target else "unassigned",
+                number if target and not event.final else None,
+                original,
+                None if release else amount,
+                release,
+                status,
+                quote,
+            )
+        )
+    # Multiple decisions for one target require a human to establish their sequence.
+    for i, credit in enumerate(result):
+        if sum(c.scope == credit.scope and c.count_index == credit.count_index for c in result) > 1:
+            result[i] = replace(credit, status="requires_review")
+    return tuple(result)
 
 
 def extract_imposed_sentence(operative: str, description: str = "") -> SentenceExtraction:
@@ -524,5 +647,6 @@ def extract_imposed_sentence(operative: str, description: str = "") -> SentenceE
         prior_judgment_quote=prior_quote,
         credited=credited,
         credited_quote=credited_quote,
+        fine_credits=_fine_credits(operative, impositions),
     )
     return SentenceExtraction(sentence, tuple(windows))
