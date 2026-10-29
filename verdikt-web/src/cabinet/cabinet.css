@@ -364,3 +364,7 @@
 }
 
 .settings .avatar-lg { width: 96px; height: 96px; font-size: 30px; }
+@media (max-width: 460px) {
+  .set-avatar-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px 16px; justify-items: start; }
+  .set-avatar-row > .avatar { grid-row: span 2; }
+}

@@ -39,14 +39,18 @@ async page => {
   await page.getByRole('button',{name:'Сохранить профиль',exact:true}).click();
   await page.getByText('Профиль сохранён',{exact:true}).waitFor();
   if(!saved?.avatar?.startsWith('data:image/'))throw Error('Compressed avatar missing from profile');
+  await page.evaluate(()=>document.fonts.ready);
   const results=[];
   for(const [width,height] of [[1440,1000],[390,844]]){
     await page.setViewportSize({width,height});
+    if(width<761)await page.getByLabel('Дела',{exact:true}).waitFor({state:'hidden'});
     await page.waitForFunction(()=>{const el=document.querySelector('[role=tabpanel]');return el && getComputedStyle(el).opacity==='1';});
     if(await page.locator('.settings .avatar-lg').evaluate(el=>el.getBoundingClientRect().width)!==96)throw Error('Avatar is not 96px');
+    for(const button of await page.locator('.set-avatar-row button').all()){const box=await button.boundingBox();if(box.x<0 || box.x+box.width>width)throw Error('Avatar actions clipped');}
     await page.screenshot({path:`acceptance-screenshots/profile-avatar-${width}.png`,fullPage:true});
+    if(await page.locator('.cab-scroll').evaluate(el=>el.scrollWidth>el.clientWidth))throw Error('Profile content clipped');
     if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Profile overflow');
-    results.push({width,avatar96:true});
+    results.push({width,avatar96:true,geometry:await page.locator('.settings').evaluate(el=>({settings:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,scroll:el.parentElement.scrollWidth,client:el.parentElement.clientWidth,panel:el.querySelector('[role=tabpanel]').getBoundingClientRect().width,heading:el.querySelector('h1').getBoundingClientRect().width}))});
   }
   await page.setViewportSize({width:1440,height:1000});
   const icon=await page.getByRole('button',{name:'Свернуть боковое меню',exact:true}).locator('svg').innerHTML();
