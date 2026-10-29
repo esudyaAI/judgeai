@@ -155,6 +155,8 @@ class DefendantAnalysisRead(ApiModel):
 
 
 class CaseAnalysis(ApiModel):
+    # Engine that produced the analysis; None in results saved before T43 (they are stale).
+    engine_version: str | None = None
     defendants: list[DefendantAnalysisRead] = Field(default_factory=list)
     legal_checks: list["LegalCheck"] = Field(default_factory=list)
     imposed_sentence: ImposedSentenceRead | None = None

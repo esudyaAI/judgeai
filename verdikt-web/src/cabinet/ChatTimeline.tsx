@@ -10,7 +10,7 @@ export type ChatAttachment = Message['attachments'][number];
 
 /** Memoised: the poll skips identical fingerprints, so between stage changes the
  *  whole timeline (including the heavy Result) stays untouched while the timer ticks. */
-export const ChatTimeline = memo(function ChatTimeline({messages, onOpen, onOpenVerdict, chatId}: {chatId?: string; messages: Message[]; onOpen: (attachment: ChatAttachment) => void; onOpenVerdict?: (verdict: SimilarVerdict) => void}) {
+export const ChatTimeline = memo(function ChatTimeline({messages, onOpen, onOpenVerdict, onRecalculate, chatId}: {chatId?: string; messages: Message[]; onOpen: (attachment: ChatAttachment) => void; onOpenVerdict?: (verdict: SimilarVerdict) => void; onRecalculate?: (messageId: number) => void}) {
   return <div className="thread chat-timeline" aria-label="История переписки">
     {messages.map(message => {
       const busy = message.status === 'pending' || message.status === 'running';
@@ -24,7 +24,15 @@ export const ChatTimeline = memo(function ChatTimeline({messages, onOpen, onOpen
           </div>)}</div>
         </div></div> : busy ? <div aria-busy="true"><Thinking stage={message.stage} status={message.status} startedAt={message.created_at} /></div> : message.status === 'failed' ?
           <div className="warn-box" role="alert">{message.error || 'Анализ не выполнен. Отправьте уточнение, чтобы повторить попытку.'}</div> :
-          message.result ? <Result a={mapAnalysis(message.result)} onOpenVerdict={onOpenVerdict} /> : <div className="thread-ai chat-message-text">{message.content}</div>}
+          message.result ? <div>
+            {message.stale && onRecalculate && (
+              <div className="stale-notice" role="status">
+                <span>Анализ выполнен прежней версией правил.</span>
+                <button type="button" className="btn btn-soft btn-xs" onClick={() => onRecalculate(message.id)}>Пересчитать</button>
+              </div>
+            )}
+            <Result a={mapAnalysis(message.result)} onOpenVerdict={onOpenVerdict} />
+          </div> : <div className="thread-ai chat-message-text">{message.content}</div>}
       </section>;
     })}
   </div>;

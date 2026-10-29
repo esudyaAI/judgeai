@@ -43,6 +43,7 @@ from legal_core.rules.sentence_edges import (
 from pydantic import ValidationError
 
 from src.application.practice_report import PracticeReport
+from src.domain.analysis_version import ANALYSIS_VERSION
 from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import (
     AnalysisStats,
@@ -479,6 +480,7 @@ def assemble_analysis(
         guilt=cited_guilt.value if cited_guilt is not None else None,
     )
     return CaseAnalysis(
+        engine_version=ANALYSIS_VERSION,
         legal_checks=legal_checks,
         imposed_sentence=_sentence_read(sentence),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),

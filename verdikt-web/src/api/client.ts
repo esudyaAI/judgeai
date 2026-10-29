@@ -13,7 +13,7 @@ export type WireAnalysis = Omit<CaseAnalysis, 'scale' | 'legalChecks' | 'precede
 export interface Message {
   id: number; role: string; content: string | null; created_at?: string;
   status: 'pending' | 'running' | 'completed' | 'failed'; stage: string | null;
-  error: string | null; result: WireAnalysis | null;
+  error: string | null; result: WireAnalysis | null; stale?: boolean | null;
   attachments: { id: number; filename: string; page_count: number | null;
     extraction_status: CaseFile['recognition'] }[];
 }
@@ -110,6 +110,9 @@ export const api = {
     body.set('use_knowledge_base', String(useKnowledge));
     for (const file of files) body.append('files', file);
     return request(`/chats/${encodeURIComponent(id)}/messages`, {method:'POST', body});
+  },
+  recalculate(id: string, messageId: number): Promise<Message> {
+    return request(`/chats/${encodeURIComponent(id)}/messages/${messageId}/recalculate`, {method:'POST'});
   },
 };
 

@@ -135,6 +135,58 @@ async def get_message(chat_id: int, message_id: int, db: DbSession, user: Curren
     return MessageRead.model_validate(message)
 
 
+@router.post(
+    "/{chat_id}/messages/{message_id}/recalculate", response_model=MessageRead, status_code=202
+)
+async def recalculate_message(
+    chat_id: int,
+    message_id: int,
+    db: DbSession,
+    background: BackgroundTasks,
+    user: CurrentUser,
+):
+    """Re-run the stored exchange with the current engine; the old result is replaced (T43)."""
+    chat = await db.scalar(
+        select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id).with_for_update()
+    )
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    message = await load_message(db, message_id)
+    if message.chat_id != chat_id or message.role != "assistant":
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+    if message.request_message_id is None:
+        raise HTTPException(
+            status_code=422, detail="У сообщения нет исходного запроса для пересчёта"
+        )
+    active = await db.scalar(
+        select(Message.id)
+        .where(
+            Message.chat_id == chat_id,
+            Message.role == "assistant",
+            Message.status.in_(("pending", "running")),
+        )
+        .limit(1)
+    )
+    if active is not None:
+        raise HTTPException(409, "Дождитесь завершения текущего анализа")
+    message.status = "pending"
+    message.stage = None
+    message.error = None
+    message.analysis = None
+    message.content = None
+    await db.commit()
+    await db.refresh(message)
+    background.add_task(
+        run_analysis,
+        message.request_message_id,
+        message.id,
+        user=user,
+        save_to_knowledge_base=False,
+        use_knowledge_base=True,
+    )
+    return MessageRead.model_validate(message)
+
+
 @router.post("/{chat_id}/messages", response_model=MessageSendResponse, status_code=202)
 async def create_message(
     chat_id: int,

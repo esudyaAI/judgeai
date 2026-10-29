@@ -51,6 +51,21 @@ test('pin action persists a boolean and listing maps the account pin', async () 
   } finally { globalThis.fetch = original; }
 });
 
+test('recalculate posts to the message recalculate endpoint', async () => {
+  const original = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = {url, ...options};
+    return new Response(JSON.stringify({id: 9, status: 'pending'}), {status: 202});
+  };
+  try {
+    const message = await api.recalculate('3', 9);
+    assert.equal(request.url, '/api/chats/3/messages/9/recalculate');
+    assert.equal(request.method, 'POST');
+    assert.equal(message.status, 'pending');
+  } finally { globalThis.fetch = original; }
+});
+
 test('network failure is translated into a Russian recovery message', async()=> {
   const original=globalThis.fetch;
   globalThis.fetch=async()=>{throw new TypeError('Failed to fetch');};

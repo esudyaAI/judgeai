@@ -223,6 +223,20 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const openVerdict = useCallback((verdict: SimilarVerdict) => {
     if (verdict.verdict_id != null) panelOpen({name: `Приговор · ${verdict.court}.txt`, verdictId: verdict.verdict_id});
   }, [panelOpen]);
+  const recalcLock = useRef(false);
+  const recalculate = useCallback(async (messageId: number) => {
+    if (recalcLock.current || !caseId) return;
+    recalcLock.current = true;
+    try {
+      await api.recalculate(caseId, messageId);
+      setRetry(n => n + 1);  // restarts the poll: the message is pending again
+      void refreshCases();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось пересчитать анализ');
+    } finally {
+      recalcLock.current = false;
+    }
+  }, [caseId, refreshCases]);
 
   return (
     <div className={`cab ${documentPanel.visible ? 'cab-with-document' : ''} ${sidebarCollapsed ? 'cab-sidebar-collapsed' : ''}`}>
@@ -252,7 +266,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
           {loading && <CaseSkeleton />}
           {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={signOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
-              {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={openAttachment} onOpenVerdict={openVerdict} /> :
+              {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={openAttachment} onOpenVerdict={openVerdict} onRecalculate={id => { void recalculate(id); }} /> :
                 !loading && !error && <p>Задайте вопрос или прикрепите материалы дела.</p>}
               {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} />}
             </>
