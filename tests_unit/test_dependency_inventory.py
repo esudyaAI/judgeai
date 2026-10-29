@@ -77,7 +77,7 @@ class InventoryTests(unittest.TestCase):
         lock = json.loads((ROOT / "verdikt-web/package-lock.json").read_text())
         self.assertEqual(len(npm), len(lock["packages"]) - 1)
         self.assertIn("unresolved", json.dumps(first))
-        self.assertIn("121", report)
+        self.assertIn(f"**{len(lock['packages']) - 1}**", report)
         self.assertEqual(len({c["bom-ref"] for c in first["components"]}), len(first["components"]))
 
     def test_generate_and_check_detect_drift_without_rewriting(self):
@@ -93,6 +93,7 @@ class InventoryTests(unittest.TestCase):
                 "docs/legal-sources.json",
                 "src/config.py",
                 "Dockerfile",
+                "Dockerfile.preview",
                 "docker-compose.yml",
             ):
                 path = root / relative

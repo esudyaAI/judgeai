@@ -14,9 +14,11 @@ from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.precedent_cards import CardExtraction
+from src.application.precedent_refresh import prior_versions
 from src.application.similar_precedents import StoredCard, VerdictSource
 from src.db.models import KnowledgeVerdict
 from src.db.precedents import PrecedentCardField, PrecedentCardRow, PrecedentEmbedding
+from src.domain.embedding_text import build_embedding_text
 from src.domain.extraction import input_hash
 from src.domain.practice import NOT_PRACTICE, PRIVATE_SOURCE_TYPES
 
@@ -78,6 +80,41 @@ def _stored(row: PrecedentCardRow) -> StoredCard:
     )
 
 
+def _card_values(source: VerdictSource, extraction: CardExtraction, embedding_text: str) -> dict:
+    card = extraction.card
+    main = card.main_qualification
+    return dict(
+        knowledge_verdict_id=source.knowledge_verdict_id,
+        defendant_no=extraction.defendant_no,
+        outcome=extraction.outcome,
+        text_sha256=extraction.text_hash,
+        uid=source.uid,
+        court_name=source.court_name,
+        decision_date=source.decision_date,
+        source_url=source.source_url,
+        main_article=main.article if main else None,
+        main_part=main.part if main else None,
+        qualification_keys=sorted(card.qualification_keys),
+        mitigating=sorted(card.mitigating),
+        aggravating=sorted(card.aggravating),
+        applied_general=sorted(card.applied_general),
+        recidivism=card.recidivism.value if card.recidivism else None,
+        conditional=card.conditional,
+        imprisonment_months=card.imprisonment_months,
+        episodes=[
+            {
+                "qualification": _qualification_json(e.qualification),
+                "punishment": _term_json(e.punishment),
+            }
+            for e in card.episodes
+        ],
+        final=_term_json(card.final),
+        fabula=embedding_text,
+        embedding_text_hash=input_hash(embedding_text) if embedding_text else None,
+        extractor_version=extraction.fields[0].extractor_version if extraction.fields else "",
+    )
+
+
 class SqlPrecedentStore:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -127,45 +164,19 @@ class SqlPrecedentStore:
     async def save_card(
         self, source: VerdictSource, extraction: CardExtraction, embedding_text: str
     ) -> int:
-        card = extraction.card
-        main = card.main_qualification
-        row = PrecedentCardRow(
-            knowledge_verdict_id=source.knowledge_verdict_id,
-            defendant_no=extraction.defendant_no,
-            outcome=extraction.outcome,
-            text_sha256=extraction.text_hash,
-            uid=source.uid,
-            court_name=source.court_name,
-            decision_date=source.decision_date,
-            source_url=source.source_url,
-            main_article=main.article if main else None,
-            main_part=main.part if main else None,
-            qualification_keys=sorted(card.qualification_keys),
-            mitigating=sorted(card.mitigating),
-            aggravating=sorted(card.aggravating),
-            applied_general=sorted(card.applied_general),
-            recidivism=card.recidivism.value if card.recidivism else None,
-            conditional=card.conditional,
-            imprisonment_months=card.imprisonment_months,
-            episodes=[
-                {
-                    "qualification": _qualification_json(e.qualification),
-                    "punishment": _term_json(e.punishment),
-                }
-                for e in card.episodes
-            ],
-            final=_term_json(card.final),
-            fabula=embedding_text,
-            embedding_text_hash=input_hash(embedding_text) if embedding_text else None,
-            extractor_version=extraction.fields[0].extractor_version if extraction.fields else "",
-        )
+        row = PrecedentCardRow(**_card_values(source, extraction, embedding_text))
         self.db.add(row)
         await self.db.flush()
-        for field in extraction.fields:
+        await self._save_fields(row.id, extraction.fields)
+        await self.db.commit()
+        return row.id
+
+    async def _save_fields(self, card_id, fields):
+        for field in fields:
             await self.db.execute(
                 insert(PrecedentCardField)
                 .values(
-                    card_id=row.id,
+                    card_id=card_id,
                     name=field.name,
                     value=field.value,
                     method=field.method.value,
@@ -175,8 +186,97 @@ class SqlPrecedentStore:
                 )
                 .on_conflict_do_nothing(constraint="uq_precedent_card_field")
             )
-        await self.db.commit()
-        return row.id
+
+    async def stale_sources(self, version: str) -> list[VerdictSource]:
+        stale = (
+            select(PrecedentCardRow.id)
+            .where(
+                PrecedentCardRow.knowledge_verdict_id == KnowledgeVerdict.id,
+                PrecedentCardRow.extractor_version.in_(prior_versions(version)),
+            )
+            .exists()
+        )
+        rows = await self.db.scalars(
+            select(KnowledgeVerdict)
+            .where(
+                stale,
+                KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
+            )
+            .order_by(KnowledgeVerdict.id)
+        )
+        return [
+            VerdictSource(
+                row.id,
+                row.raw_text or "",
+                row.uid,
+                row.court_name,
+                row.verdict_date,
+                (row.structured or {}).get("source_url"),
+            )
+            for row in rows
+        ]
+
+    async def _refresh_rows(
+        self, source: VerdictSource, cards: list[CardExtraction], *, lock: bool
+    ):
+        statement = (
+            select(KnowledgeVerdict)
+            .where(
+                KnowledgeVerdict.id == source.knowledge_verdict_id,
+                KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
+            )
+            .execution_options(populate_existing=True)
+        )
+        current = await self.db.scalar(statement.with_for_update() if lock else statement)
+        if current is None or (current.raw_text or "") != source.text or not cards:
+            return None
+        statement = (
+            select(PrecedentCardRow)
+            .where(
+                PrecedentCardRow.knowledge_verdict_id == source.knowledge_verdict_id,
+            )
+            .execution_options(populate_existing=True)
+        )
+        rows = list(await self.db.scalars(statement.with_for_update() if lock else statement))
+        # A newer extractor may tell apart people an older one merged; it never drops a person.
+        if not rows or not {r.defendant_no for r in rows} <= {c.defendant_no for c in cards}:
+            return None
+        version = cards[0].fields[0].extractor_version
+        allowed = {*prior_versions(version), version}
+        if any(row.extractor_version not in allowed for row in rows):
+            return None
+        return rows
+
+    async def can_refresh(self, source: VerdictSource, cards: list[CardExtraction]) -> bool:
+        return await self._refresh_rows(source, cards, lock=False) is not None
+
+    async def refresh_cards(self, source: VerdictSource, cards: list[CardExtraction]) -> int | None:
+        try:
+            rows = await self._refresh_rows(source, cards, lock=True)
+            if rows is None:
+                # Release refused-source locks immediately instead of keeping a batch hostage.
+                await self.db.rollback()
+                return None
+            by_person = {row.defendant_no: row for row in rows}
+            for extraction in cards:
+                values = _card_values(
+                    source, extraction, build_embedding_text(extraction.card.fabula)
+                )
+                row = by_person.get(extraction.defendant_no)
+                if row is None:  # a person the older extractor merged into another one
+                    row = PrecedentCardRow(**values)
+                    self.db.add(row)
+                    await self.db.flush()
+                else:
+                    for name, value in values.items():
+                        setattr(row, name, value)
+                await self._save_fields(row.id, extraction.fields)
+            # Each source is atomic; preserve originals, ids, prior evidence and vectors.
+            await self.db.commit()
+            return len(cards)
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def texts_without_embedding(self, model: str) -> list[tuple[str, str]]:
         embedded = select(PrecedentEmbedding.text_hash).where(PrecedentEmbedding.model == model)

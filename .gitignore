@@ -84,3 +84,9 @@ data/
 
 # Данные краулеров (ВС РФ / sudact): только на диске, не в git
 verdikt-parser/data/
+
+# Ephemeral private document previews
+/previews/
+/verdikt-web/public/pdfjs/
+
+/acceptance-screenshots/

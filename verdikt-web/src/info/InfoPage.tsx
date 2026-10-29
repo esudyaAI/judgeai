@@ -20,7 +20,7 @@ export function InfoPage({page}: {page: InfoPageContent}) {
         <p className="info-eyebrow">Информация о сервисе · 28 октября 2026</p>
         <h1>{page.title}</h1>
         <p className="info-intro">{page.intro}</p>
-        {page.path === '/privacy' && <p className="info-notice" role="note">Информация об обработке данных уточняется. Реквизиты оператора и контакт для обращений будут добавлены перед публикацией.</p>}
+        {(page.path === '/privacy' || page.path === '/contacts') && <p className="info-notice" role="note">Информация об обработке данных уточняется. Реквизиты оператора и контакт для обращений будут добавлены перед публикацией.</p>}
         {page.sections.map((section, index) => <section key={section.title} aria-labelledby={`info-section-${index}`}>
           <h2 id={`info-section-${index}`}>{section.title}</h2>
           {section.paragraphs.map(text => <p key={text}>{text}</p>)}

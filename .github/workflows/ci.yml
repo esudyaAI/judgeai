@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-24.04
     container: python:3.12-slim-bookworm
     timeout-minutes: 5
+    env:
+      PYTHONPATH: .:packages/legal_core
     steps:
       - uses: actions/checkout@v4
       - run: python -m unittest discover -s tests_unit -v
@@ -109,8 +111,23 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  document-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f Dockerfile.preview -t document-preview:test .
+      - name: Offline Word pagination and isolation
+        run: |
+          docker run --rm --network none --read-only --init --memory 1g --cpus 1 --pids-limit 128 \
+            --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID \
+            --cap-add DAC_OVERRIDE --cap-add KILL --security-opt no-new-privileges \
+            --tmpfs /tmp:size=256m,mode=1777 \
+            -v "$PWD/tests_unit/test_word_conversion.py:/app/acceptance.py:ro" \
+            document-preview:test python /app/acceptance.py
+
   build:
-    needs: [inventory, api-tests, browser-auth]
+    needs: [inventory, api-tests, browser-auth, document-preview]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -122,8 +139,13 @@ jobs:
         include:
           - image: api
             context: .
+            dockerfile: Dockerfile
+          - image: preview
+            context: .
+            dockerfile: Dockerfile.preview
           - image: web
             context: verdikt-web
+            dockerfile: verdikt-web/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -139,6 +161,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ steps.tag.outputs.short }}
@@ -215,8 +238,8 @@ jobs:
           GHCR_USER: ${{ github.actor }}
         run: |
           short="${GITHUB_SHA::8}"
-          printf 'API_IMAGE=%s/api:%s\nWEB_IMAGE=%s/web:%s\n' \
-            "$IMAGE_PREFIX" "$short" "$IMAGE_PREFIX" "$short" > deploy.env
+          printf 'API_IMAGE=%s/api:%s\nWEB_IMAGE=%s/web:%s\nPREVIEW_IMAGE=%s/preview:%s\n' \
+            "$IMAGE_PREFIX" "$short" "$IMAGE_PREFIX" "$short" "$IMAGE_PREFIX" "$short" > deploy.env
           scp -q deploy/docker-compose.prod.yml deploy/Caddyfile deploy.env \
             "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/"
           # The job token lets the server pull this run's images even from private packages;
@@ -225,7 +248,9 @@ jobs:
             "docker login ghcr.io -u '${GHCR_USER}' --password-stdin >/dev/null"
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "cd ${DEPLOY_DIR} \
             && docker compose --env-file deploy.env -f docker-compose.prod.yml pull --quiet \
-            && docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --remove-orphans; \
+            && docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --remove-orphans \
+            && docker compose --env-file deploy.env -f docker-compose.prod.yml run -d --rm api \
+              python -m src.cli.precedents index >/dev/null; \
             status=\$?; docker logout ghcr.io >/dev/null; exit \$status"
       - name: Health check
         run: |

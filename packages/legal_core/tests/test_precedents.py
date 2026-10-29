@@ -84,3 +84,27 @@ def test_card_without_episodes_has_no_main_qualification():
 def test_card_rejects_unknown_circumstance_codes():
     with pytest.raises(ValueError):
         _card(mitigating=frozenset({"явка"}))
+
+
+def test_parse_qualifications_reads_part_and_article_in_words():
+    assert parse_qualifications("предусмотренного частью 1 статьи 222 УК РФ") == (
+        Qualification("222", 1),
+    )
+    assert parse_qualifications("пунктом «а» части 2 статьи 158 УК РФ") == (
+        Qualification("158", 2, "а"),
+    )
+    assert parse_qualifications("статьей 73 УК РФ") == ()
+
+
+def test_card_punishment_is_final_or_the_single_count_of_any_kind():
+    works = PunishmentTerm(PunishmentKind.COMPULSORY_WORKS, 220, MeasureUnit.HOURS)
+    single = _card(episodes=(PrecedentEpisode(Qualification("264.1", 1), works),))
+    assert single.punishment == works
+    assert single.imprisonment_months is None
+    two = (
+        PrecedentEpisode(Qualification("158", 1), works),
+        PrecedentEpisode(Qualification("159", 1), works),
+    )
+    assert _card(episodes=two).punishment is None
+    fine = PunishmentTerm(PunishmentKind.FINE, 5000, MeasureUnit.RUBLES)
+    assert _card(episodes=two, final=fine).punishment == fine

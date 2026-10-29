@@ -196,6 +196,8 @@ class LegalFacts(BaseModel):
 
 
 class LegalCheck(BaseModel):
+    # Quoted court finding usable as an input, independently of art.18 verification.
+    recidivism_input: Literal["none", "simple", "dangerous", "especially_dangerous"] | None = None
     norm: str
     status: Literal["ok", "possible_violation", "insufficient_data"]
     explanation: str

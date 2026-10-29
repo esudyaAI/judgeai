@@ -76,7 +76,7 @@ def test_extracted_recidivism_is_evidence_not_verified_classification():
         assert check.status == "insufficient_data"
         assert "опасный" in check.value
         assert check.evidence == [quote]
-    assert checks[-1].norm == "ст. 58 УК РФ"
+    assert checks[-1].recidivism_input == "dangerous"
     assert (
         len(
             build_legal_checks(
@@ -167,4 +167,31 @@ def test_text_and_calculated_recidivism_conflict_requires_review():
     )[1]
     assert check.status == "insufficient_data"
     assert "расходится" in check.explanation
-    assert "расчёт: none" in check.value
+    assert check.value == "none"
+    assert check.recidivism_input is None
+
+
+def test_quoted_recidivism_reaches_existing_regime_rule():
+    from legal_core.entities import ImposedSentence
+
+    from src.services.sentence_checks import build_sentence_checks, recidivism_of
+
+    quote = "Суд установил опасный рецидив преступлений."
+    earlier = build_legal_checks(
+        None, quote, extracted_recidivism=Recidivism.DANGEROUS, recidivism_quote=quote
+    )
+    assert recidivism_of(earlier).value == "dangerous"
+    earlier[0].status = "ok"
+    earlier[0].value = "grave"
+    checks = build_sentence_checks(
+        ImposedSentence(final=term(60)),
+        {},
+        earlier,
+        [],
+        guilt="intentional",
+        document_text=quote + " Подсудимый отбывал лишение свободы. "
+        "Назначить отбывание в исправительной колонии общего режима.",
+    )
+    regime = next(check for check in checks if check.norm.startswith("Вид исправительного"))
+    assert regime.status == "possible_violation"
+    assert quote in regime.evidence

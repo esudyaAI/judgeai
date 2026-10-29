@@ -122,20 +122,10 @@ def build_legal_checks(
                 "В тексте указан вид рецидива. Это извлечённый факт, а не проверка его "
                 "правильности по ст. 18; для расчёта недостаточно сведений о судимостях."
             )
-        art18.value = f"В тексте: {stated}" + (f"; расчёт: {art18.value}" if art18.value else "")
+        if art18.value is None or art18.value == extracted_recidivism.value:
+            art18.recidivism_input = extracted_recidivism.value
+        if art18.value is None:
+            art18.value = f"В тексте: {stated}"
+        art18.explanation += f" В тексте: {stated}."
         art18.evidence = list(dict.fromkeys([*art18.evidence, recidivism_quote]))
-        results.append(
-            LegalCheck(
-                norm="ст. 58 УК РФ",
-                status="insufficient_data",
-                source="ст. 58 УК РФ",
-                value=f"Рецидив в тексте: {stated}",
-                evidence=[recidivism_quote],
-                explanation=(
-                    "Извлечённый рецидив учтён как исходный факт для сверки режима. "
-                    "Автоматическая проверка режима не реализована; нужны пол, категория "
-                    "преступления, сведения об отбывании лишения свободы и назначенный режим."
-                ),
-            )
-        )
     return results

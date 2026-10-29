@@ -21,7 +21,7 @@ from enum import StrEnum
 from legal_core.entities import ImposedSentence
 
 from src.application.precedent_cards import VerdictReading
-from src.infrastructure.circumstance_extractor import extract_circumstances
+from src.infrastructure.circumstance_extractor import circumstance_statements, extract_circumstances
 from src.infrastructure.fabula import extract_fabula
 from src.services.punishment_extractor import extract_imposed_sentence
 
@@ -243,6 +243,42 @@ def _outcome(flat: str) -> tuple[RulingOutcome | None, bool, str]:
     return None, False, ""
 
 
+def _person_identifiers(head: str) -> tuple[list[set[str]], list[str]]:
+    names, introductions, seen = [], [], 0
+    for anchor in _CONVICTED.finditer(head):
+        candidates = _introduced_names(head[: anchor.end() + 3])
+        name = candidates[-1] if len(candidates) > seen else None
+        seen = len(candidates)
+        if name is None:
+            names.append(set())
+            introductions.append("")
+            continue
+        names.append(_surname_stems("в отношении " + name.capitalize()))
+        occurrences = list(
+            re.finditer(rf"(?<![а-яё]){re.escape(name)}(?![а-яё])", head[: anchor.start()], re.I)
+        )
+        introductions.append(head[occurrences[-1].start() : anchor.start()] if occurrences else "")
+    return names, introductions
+
+
+def _person_description(description: str, index: int, names: list[set[str]]) -> str:
+    """Only attributed or explicitly common facts may reach a multi-person card."""
+    common = re.compile(r"\b(?:обоим|всем|каждому)\s+(?:осужденн|осуждённ|подсудим)\w*", re.I)
+    statements = []
+    for statement in circumstance_statements(description):
+        mentioned = {
+            person
+            for person, stems in enumerate(names)
+            if any(
+                re.search(rf"(?<![а-яё]){re.escape(stem)}[а-яё]*", statement, re.I)
+                for stem in stems
+            )
+        }
+        if mentioned == {index} or (not mentioned and common.search(statement)):
+            statements.append(statement)
+    return "\n\n".join(statements)
+
+
 class RulingReader:
     def read_all(self, text: str) -> list[VerdictReading]:
         flat = _flat(text)
@@ -259,9 +295,18 @@ class RulingReader:
             description = description[: found[-1].start()]
         fabula = _without_names(extract_fabula(description), _surname_stems(flat))
         readings = []
-        for segment in _restated_sentences(head):
+        person_segments = list(_restated_sentences(head))
+        person_names, person_introductions = _person_identifiers(head)
+        for person_index, segment in enumerate(person_segments):
             sentence = ImposedSentence() if punishment_changed else _sentence(segment)
-            circumstances = extract_circumstances(description, segment, "")
+            scoped = (
+                _person_description(description, person_index, person_names)
+                if len(person_segments) > 1
+                else description
+            )
+            circumstances = extract_circumstances(
+                scoped, segment, person_introductions[person_index]
+            )
             readings.append(
                 VerdictReading(
                     introduction=head[:QUOTE_LIMIT],

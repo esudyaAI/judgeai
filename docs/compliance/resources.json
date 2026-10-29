@@ -88,5 +88,42 @@
     "npm license fields are lockfile metadata; installed package notices and redistribution obligations still need release review.",
     "No project LICENSE is selected; owner approval is required before choosing or publishing one.",
     "No external corpus permissions, private sample redistribution or production-provider privacy approval is granted by this inventory."
+  ],
+  "preview_runtime": [
+    {
+      "name": "LibreOffice Writer",
+      "source_url": "https://www.libreoffice.org/about-us/licenses/",
+      "license_notice": "MPL-2.0; incorporated Apache-2.0 and additional bundled notices",
+      "evidence": "Built Debian bookworm preview image: /usr/share/doc/libreoffice-common/copyright; primary notice inspected, transitive notices remain in image",
+      "review_status": "package-notice-reviewed-release-obligations-pending"
+    },
+    {
+      "name": "Liberation fonts",
+      "source_url": "https://pagure.io/liberation-fonts/",
+      "license_notice": "GPL version 2 with the font embedding and distribution exceptions in the package notice",
+      "evidence": "Built Debian bookworm preview image: /usr/share/doc/fonts-liberation/copyright; primary notice inspected, transitive notices remain in image",
+      "review_status": "package-notice-reviewed-release-obligations-pending"
+    },
+    {
+      "name": "DejaVu fonts",
+      "source_url": "https://dejavu-fonts.github.io/",
+      "license_notice": "Bitstream Vera license; DejaVu changes are public domain",
+      "evidence": "Built Debian bookworm preview image: /usr/share/doc/fonts-dejavu-core/copyright; primary notice inspected, transitive notices remain in image",
+      "review_status": "package-notice-reviewed-release-obligations-pending"
+    },
+    {
+      "name": "Carlito fonts",
+      "source_url": "https://github.com/googlefonts/carlito",
+      "license_notice": "OFL-1.1",
+      "evidence": "Built Debian bookworm preview image: /usr/share/doc/fonts-crosextra-carlito/copyright; primary notice inspected, transitive notices remain in image",
+      "review_status": "package-notice-reviewed-release-obligations-pending"
+    },
+    {
+      "name": "Caladea fonts",
+      "source_url": "https://github.com/huertatipografica/Caladea",
+      "license_notice": "OFL-1.1",
+      "evidence": "Built Debian bookworm preview image: /usr/share/doc/fonts-crosextra-caladea/copyright; primary notice inspected, transitive notices remain in image",
+      "review_status": "package-notice-reviewed-release-obligations-pending"
+    }
   ]
 }

@@ -24,6 +24,7 @@ INPUTS = (
     "docs/legal-sources.json",
     "src/config.py",
     "Dockerfile",
+    "Dockerfile.preview",
     "docker-compose.yml",
 )
 
@@ -306,7 +307,22 @@ def build_inventory(root: Path) -> tuple[dict, str]:
                 ],
             }
         )
+    for item in resources.get("preview_runtime", []):
+        components.append(
+            {
+                "type": "application" if item["name"] == "LibreOffice Writer" else "data",
+                "bom-ref": "preview-runtime:" + item["name"],
+                "name": item["name"],
+                "licenses": [{"license": {"name": item["license_notice"]}}],
+                "externalReferences": [{"type": "website", "url": safe_url(item["source_url"])}],
+                "properties": [
+                    prop("evidence", item["evidence"]),
+                    prop("review", item["review_status"]),
+                ],
+            }
+        )
     images = re.findall(r"^FROM\s+(\S+)", (root / "Dockerfile").read_text(), re.MULTILINE)
+    images += re.findall(r"^FROM\s+(\S+)", (root / "Dockerfile.preview").read_text(), re.MULTILINE)
     images += re.findall(
         r"^\s+image:\s*(\S+)", (root / "docker-compose.yml").read_text(), re.MULTILINE
     )
@@ -412,6 +428,11 @@ def build_inventory(root: Path) -> tuple[dict, str]:
                 f"| {component['name']} | {', '.join(constraints)} | "
                 f"{component['licenses'][0]['expression']} |"
             )
+    lines += ["", "## Document preview runtime", ""]
+    lines += [
+        "- " + item["name"] + ": " + item["license_notice"] + ". " + item["evidence"]
+        for item in resources.get("preview_runtime", [])
+    ]
     lines += ["", "## Open decisions and release blockers", ""] + [
         "- " + gap for gap in resources["gaps"]
     ]

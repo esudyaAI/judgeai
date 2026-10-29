@@ -4,16 +4,19 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "predev": "node tools/copy-pdf-assets.mjs",
+    "prebuild": "node tools/copy-pdf-assets.mjs"
   },
   "dependencies": {
+    "pdfjs-dist": "6.4.299",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

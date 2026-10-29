@@ -12,6 +12,7 @@ export interface CaseSummary {
   title: string;
   group: CaseGroup;
   status: CaseStatus;
+  pinned?: boolean;
   /** Secondary line in the sidebar, e.g. "8 окт. · проект готов". */
   meta: string;
 }
@@ -47,6 +48,8 @@ export interface PunishmentVariant {
 }
 
 export interface SimilarVerdict {
+  /** Practice-base verdict whose text opens in the document panel. */
+  verdict_id?: number | null;
   punishment: string;
   court: string;
   match: string;

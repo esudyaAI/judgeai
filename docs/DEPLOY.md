@@ -663,6 +663,17 @@ CORS_ORIGINS=https://esudya.ru,https://www.esudya.ru
 
 Примечания: `LLM_PROVIDER=fake` — только для демонстрации без реального ключа; `AUTH_COOKIE_SECURE=true` обязателен для HTTPS; `CORS_ORIGINS` в проде фактически не участвует (фронт и API на одном домене), но задаётся явно.
 
+**Эмбеддинги через Jina (облако).** На сервере 1 CPU / 2 ГБ локальная jina-embeddings-v3 (2,3 ГБ) не помещается, поэтому векторы можно считать через Jina API. В `/opt/judgeai/.env`:
+
+```
+EMBEDDING_PROVIDER=jina
+EMBEDDING_MODEL=jina-embeddings-v3
+EMBEDDING_DIM=1024
+JINA_API_KEY=<ключ с jina.ai/api-dashboard>
+```
+
+Затем `docker compose --env-file deploy.env -f docker-compose.prod.yml up -d api` и `docker compose --env-file deploy.env -f docker-compose.prod.yml run -d --rm api python -m src.cli.precedents index` — пересчёт векторов карточек новой моделью (то же делает каждый деплой; при 429/5xx Jina запрос повторяется с паузой). Фрагменты базы знаний нужны только запасному поиску и пересчитываются отдельно: `index --chunks` (для облачной модели это много токенов). Векторы разных моделей хранятся рядом (миграция 0011), поиск сравнивает только векторы текущей `EMBEDDING_MODEL`, поэтому переключение и откат — правка `.env`. В Jina уходят только обезличенные фабулы и фрагменты открытой базы знаний; приватные загрузки из чатов не векторизуются. Без ключа или при ошибке Jina поиск продолжает работать по квалификации и полному тексту.
+
 ### Приложение B — скрипты на сервере
 
 `/opt/judgeai/scripts/backup.sh`:
@@ -766,3 +777,29 @@ tail -1000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
 - Требования T17 (privacy-аудит до загрузки реальных материалов) остаются обязательными: не загружать приватные образцы приговоров до его закрытия.
 
 Статусы задач и результаты проверок — в [TASKS.md](TASKS.md).
+
+
+## Private document previews
+
+The compose stacks include a separate `preview` worker and a private `previews` volume.
+The API needs `DOCUMENT_PREVIEW_DIR=/app/previews`; compose sets it explicitly. Without
+this directory, Word previews return 503 while original downloads remain available.
+The worker has no network, database credentials or original uploads mount. It processes
+one admitted DOCX/DOTX per container lifetime using a separate converter UID, then restarts.
+Keep the read-only filesystem, capabilities allowlist, tmpfs, memory/CPU/PID and time limits.
+API and worker must share the private volume with their root-owned queue inaccessible to
+converter UID 65534. Do not expose the volume through the web server.
+
+Previews expire after 10 minutes; source copies are removed immediately after conversion.
+There are at most 8 active jobs (2 per owner) and 32 cached jobs. All file/token requests require
+a live session and re-check original attachment ownership; deleting a chat revokes its
+previews. A full queue returns 503 and the UI offers a retry. The standard CI builds and
+checks the converter before publishing `${PREVIEW_IMAGE}` alongside API/web images.
+
+Word pagination uses local LibreOffice with Liberation, DejaVu, Carlito and Caladea fonts.
+Missing or substituted source fonts can change line/page breaks compared with Microsoft
+Word. For exact original layout, upload a PDF exported by the document author. Legacy DOC,
+macro-enabled and encrypted documents remain outside the admitted upload subset.
+PDF.js worker, CMaps, standard fonts and WASM decoders are versioned local web assets;
+`npm run dev` and `npm run build` prepare them automatically. No public document viewer
+receives case files. No database migration is needed for this feature.

@@ -7,13 +7,13 @@ The LLM only extracts facts (LlmCaseFacts). Everything that is arithmetic over t
 import json
 import logging
 import math
+import time
 
 from legal_core.entities import (
     ArticleReference,
     CountSentence,
     ImposedPunishment,
     ImposedSentence,
-    MeasureUnit,
     SanctionCeiling,
 )
 from legal_core.rules.imposed_term import check_imposed_imprisonment, check_imposed_punishment
@@ -40,9 +40,10 @@ from src.services.legal_checks import build_legal_checks
 from src.services.llm_client import LLMClient, LLMError
 from src.services.sanction_summary import (
     describe_main_alternatives,
+    describe_precedent_punishment,
     describe_term,
-    format_amount,
 )
+from src.services.sentence_checks import build_sentence_checks
 from src.services.sentencing import art62_part1_limit
 
 logger = logging.getLogger(__name__)
@@ -107,13 +108,6 @@ def _similar_refs(similar_items: list[dict]) -> list[SimilarVerdictRef]:
     return refs
 
 
-def _precedent_punishment(months: int | None, conditional: bool) -> str:
-    if months is None:
-        return "Наказание не распознано"
-    term = f"{format_amount(months, MeasureUnit.MONTHS)} лишения свободы"
-    return f"{term}, условно" if conditional else term
-
-
 def precedent_prompt_items(report: PracticeReport) -> list[dict]:
     """The comparable precedents in the shape the LLM prompt lists them."""
     return [
@@ -127,8 +121,8 @@ def precedent_prompt_items(report: PracticeReport) -> list[dict]:
             "excerpt": "; ".join(
                 [
                     ", ".join(str(e.qualification) for e in item.stored.card.episodes),
-                    _precedent_punishment(
-                        item.stored.card.imprisonment_months, item.stored.card.conditional
+                    describe_precedent_punishment(
+                        item.stored.card.punishment, item.stored.card.conditional
                     ),
                 ]
             ),
@@ -197,8 +191,8 @@ def _precedent_refs(report: PracticeReport) -> list[SimilarVerdictRef]:
     return [
         SimilarVerdictRef(
             verdict_id=item.stored.knowledge_verdict_id,
-            punishment=_precedent_punishment(
-                item.stored.card.imprisonment_months, item.stored.card.conditional
+            punishment=describe_precedent_punishment(
+                item.stored.card.punishment, item.stored.card.conditional
             ),
             court=" · ".join(
                 x
@@ -316,16 +310,25 @@ def assemble_analysis(
             warnings.append("Рекомендованный срок выходит за допустимый предел — проверьте.")
 
     extracted = extract_circumstances("\n\n".join(document_texts or []))
+    legal_checks = statute_checks + build_legal_checks(
+        facts.legal_facts,
+        source_text,
+        statutory_ceiling=ceiling,
+        extracted_recidivism=extracted.recidivism,
+        recidivism_quote=extracted.recidivism_quote,
+        extracted_source_text="\n\n".join(document_texts or []),
+    )
+    cited_guilt = facts.legal_facts.guilt if facts.legal_facts is not None else None
+    legal_checks += build_sentence_checks(
+        sentence,
+        count_statutes or {},
+        legal_checks,
+        facts.mitigating,
+        document_text="\n".join(document_texts or []),
+        guilt=cited_guilt.value if cited_guilt is not None else None,
+    )
     return CaseAnalysis(
-        legal_checks=statute_checks
-        + build_legal_checks(
-            facts.legal_facts,
-            source_text,
-            statutory_ceiling=ceiling,
-            extracted_recidivism=extracted.recidivism,
-            recidivism_quote=extracted.recidivism_quote,
-            extracted_source_text="\n\n".join(document_texts or []),
-        ),
+        legal_checks=legal_checks,
         imposed_sentence=_sentence_read(sentence),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
         prompt=prompt,
@@ -531,9 +534,23 @@ async def extract_facts(
 
     last_error: Exception | None = None
     for attempt in (1, 2):  # one retry for malformed output
+        t_llm = time.monotonic()
+        logger.info(
+            "[CASE-ANALYZER] Calling LLM extract_facts (attempt %d/2, prompt_chars=%d)...",
+            attempt,
+            len(system) + len(user),
+        )
         data = await llm.complete_json(system, user)
+        llm_sec = time.monotonic() - t_llm
+        logger.info("[CASE-ANALYZER] LLM returned response in %.2fs", llm_sec)
         try:
-            return LlmCaseFacts.model_validate(data)
+            facts = LlmCaseFacts.model_validate(data)
+            logger.info(
+                "[CASE-ANALYZER] Facts validated in %.2fs (qualification=%s)",
+                time.monotonic() - t_llm,
+                facts.qualification.article if facts.qualification else None,
+            )
+            return facts
         except ValidationError as exc:
             last_error = exc
             logger.warning(

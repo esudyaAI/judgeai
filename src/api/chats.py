@@ -1,3 +1,6 @@
+import logging
+import time
+
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,13 +9,17 @@ from sqlalchemy.orm import selectinload
 from src.api.deps import CurrentUser, DbSession
 from src.application.account import AnalysisInProgress
 from src.application.chat_deletion import ChatNotFound, delete_chat
+from src.application.chat_pinning import pin_chat
 from src.db.models import Attachment, Chat, Message
 from src.infrastructure.chat_deletion import SqlChatDeletionRepository
+from src.infrastructure.chat_pinning import SqlChatPinRepository
 from src.infrastructure.chat_queries import owned_chat_query
-from src.schemas.chat import ChatCreate, ChatRead, ChatStatus
+from src.schemas.chat import ChatCreate, ChatPin, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
 from src.services.analysis_runner import run_analysis
 from src.services.file_reader import save_upload_file, validate_extension
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -124,6 +131,17 @@ async def create_message(
     )
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
+    active = await db.scalar(
+        select(Message.id)
+        .where(
+            Message.chat_id == chat_id,
+            Message.role == "assistant",
+            Message.status.in_(("pending", "running")),
+        )
+        .limit(1)
+    )
+    if active is not None:
+        raise HTTPException(409, "Дождитесь завершения текущего анализа")
     if not (content and content.strip()) and not files:
         raise HTTPException(status_code=422, detail="Нужен текст запроса или хотя бы один файл")
     for file in files:  # reject the whole request before writing anything
@@ -134,6 +152,7 @@ async def create_message(
     await db.flush()
 
     stored_paths = []
+    t_save_start = time.monotonic()
     try:
         for file in files:
             stored_path, size = await save_upload_file(file)
@@ -156,6 +175,15 @@ async def create_message(
         # Chat.updated_at's onupdate only fires on changes to the chat row itself.
         await db.execute(update(Chat).where(Chat.id == chat_id).values(updated_at=func.now()))
         await db.commit()
+        save_sec = time.monotonic() - t_save_start
+        logger.info(
+            "[API] Chat %d: user_message=%d (%d files, %.2fs), dispatched assistant_message=%d",
+            chat_id,
+            user_message.id,
+            len(files),
+            save_sec,
+            assistant_message.id,
+        )
     except BaseException:
         await db.rollback()
         for path in stored_paths:
@@ -185,3 +213,12 @@ async def remove_chat(chat_id: int, db: DbSession, user: CurrentUser):
         raise HTTPException(404, "Чат не найден") from None
     except AnalysisInProgress:
         raise HTTPException(409, "Дождитесь завершения анализа перед удалением чата") from None
+
+
+@router.patch("/{chat_id}/pin", response_model=ChatRead)
+async def set_chat_pin(chat_id: int, payload: ChatPin, db: DbSession, user: CurrentUser):
+    try:
+        await pin_chat(SqlChatPinRepository(db), user.user_id, chat_id, payload.pinned)
+    except ChatNotFound:
+        raise HTTPException(404, "Чат не найден") from None
+    return await get_chat(chat_id, db, user)

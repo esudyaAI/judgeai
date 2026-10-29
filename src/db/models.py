@@ -1,18 +1,17 @@
 from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.config import settings
 from src.db.base import Base
 
 # Message.status lifecycle for assistant messages:
 #   pending -> running -> completed | failed
 MESSAGE_STATUSES = ("pending", "running", "completed", "failed")
 # Message.stage while running (drives the "analysis steps" UI):
-ANALYSIS_STAGES = ("reading", "searching", "qualifying", "checking")
+ANALYSIS_STAGES = ("reading", "extracting", "checking", "searching", "recommending")
 # Attachment.extraction_status:
 #   ok | partial (some PDF pages had no text layer) | empty | unsupported | error
 EXTRACTION_STATUSES = ("ok", "partial", "empty", "unsupported", "error")
@@ -23,6 +22,9 @@ class Chat(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str | None] = mapped_column(String(255))
+    is_pinned: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     owner_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT", name="fk_chats_owner_id_users"), index=True
     )
@@ -114,7 +116,9 @@ class KnowledgeChunk(Base):
     )
     chunk_type: Mapped[str] = mapped_column(String(32), default="full_text")
     content: Mapped[str] = mapped_column(Text)
-    embedding = mapped_column(Vector(settings.EMBEDDING_DIM), nullable=True)
+    # Any dimension: the vector belongs to embedding_model (migration 0011).
+    embedding = mapped_column(Vector(), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     verdict: Mapped["KnowledgeVerdict"] = relationship(back_populates="chunks")

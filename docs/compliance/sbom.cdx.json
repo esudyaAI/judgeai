@@ -33,11 +33,11 @@
       },
       {
         "name": "judgeai:input-sha256:verdikt-web/package.json",
-        "value": "ca221168366fd8213e429400b99b987524fef9d81933ad82da9ee84147a18e1a"
+        "value": "a5e8ba7f2558bcc4dac8b0aaea3bfdd38b1bc5ff2c3c764ea24e9a749ed14900"
       },
       {
         "name": "judgeai:input-sha256:verdikt-web/package-lock.json",
-        "value": "e0f28d7578fc6a5421ee49e84a39ac64135224b4fda31c2c19a259fbcbd31c01"
+        "value": "dc973cb3711fd2cbf2474d816a37a9e7bc6802f3ddc9b7f767c3856922e34cf9"
       },
       {
         "name": "judgeai:input-sha256:docs/compliance/license-evidence.json",
@@ -45,7 +45,7 @@
       },
       {
         "name": "judgeai:input-sha256:docs/compliance/resources.json",
-        "value": "fbe268c3449b7131b75bf75072ad5eeefc67499c27b13f3c50d26e5e8eaf56a9"
+        "value": "0bf02d545c9e1837d9178e4ff71e498f590d0a9348c5ff1eeb20bb4c44e7ea23"
       },
       {
         "name": "judgeai:input-sha256:docs/legal-sources.json",
@@ -53,15 +53,19 @@
       },
       {
         "name": "judgeai:input-sha256:src/config.py",
-        "value": "7a38726f9b91dcbcc72ef690fbcfbc0e1f1eef0bed638420721e2c97fe5a4eb7"
+        "value": "0d348fe231f25435c2d7b44ff6e023e6c97fdf283b8f62e2a882f6f11bb041cf"
       },
       {
         "name": "judgeai:input-sha256:Dockerfile",
         "value": "a157e3a8a83520e068730969455e55868537b903384f48cd526e531e2250f6d9"
       },
       {
+        "name": "judgeai:input-sha256:Dockerfile.preview",
+        "value": "1bfc9998a0b39eb44332c56822339ad2efc93a936ad7ed2d12e0cab666790e6b"
+      },
+      {
         "name": "judgeai:input-sha256:docker-compose.yml",
-        "value": "20f0fad879f8a4d52d1e8f8ab3fe3a6658614876fb5777b926bff67525605484"
+        "value": "f987929ba3159d7830f3120b68e47615ff4f63a102ba1a541cd00e1596449cb3"
       }
     ]
   },
@@ -2440,6 +2444,510 @@
     },
     {
       "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-android-arm64@1.0.13",
+      "name": "@napi-rs/canvas-android-arm64",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-android-arm64@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-android-arm64"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "b6b9fb01a0f343ec9e780d1ece1902edc0756433eda7851893412f07917caad60bf631155ad56b537d163a9239d83b33a13c5a4ec0a07f93cfe1955a3a53881d"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-android-arm64/-/canvas-android-arm64-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-darwin-arm64@1.0.13",
+      "name": "@napi-rs/canvas-darwin-arm64",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-darwin-arm64@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-darwin-arm64"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "e98d9d8c47ad2fc728a717cd2ba860ee88a0ff1a93c0e721bf5f6104e9becc135d29cff4d99de48d9379c2b2f3bff9793b4e3f6c0412e88fc0950a700655e03e"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-darwin-x64@1.0.13",
+      "name": "@napi-rs/canvas-darwin-x64",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-darwin-x64@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-darwin-x64"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "399a0fc30bb84cc320f064c2141ae0f14144c7041353fe798b7b930bf8b30dab7a3c713eae8f5d8a6c90a0e6e815ff75f8d63b3e79fbd12711f1ff08f3e7995f"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-darwin-x64/-/canvas-darwin-x64-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-linux-arm-gnueabihf@1.0.13",
+      "name": "@napi-rs/canvas-linux-arm-gnueabihf",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-arm-gnueabihf@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-linux-arm-gnueabihf"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "75949868a44ebacc14d9e5161b96812a774d55eebc7a5a35617f77c6d45ac7babae7cb63f2b604f87c1dba8bd6260b3aab0bf5af5fc22d1eb49c37816f28efca"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-linux-arm-gnueabihf/-/canvas-linux-arm-gnueabihf-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-linux-arm64-gnu@1.0.13",
+      "name": "@napi-rs/canvas-linux-arm64-gnu",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-arm64-gnu@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-linux-arm64-gnu"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5ba173604f000c723ddc89f5be2f342812fa6ed0ed00cba3e740a1e69b64592f31ba7b72cdb4788792435265e86a4c599f6c8c22792cb9d4c4a95496a05a851a"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-linux-arm64-gnu/-/canvas-linux-arm64-gnu-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-linux-arm64-musl@1.0.13",
+      "name": "@napi-rs/canvas-linux-arm64-musl",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-arm64-musl@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-linux-arm64-musl"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "fba7d0fab478f619006b8be8876b2d2c8c10fb8b7e826a2c78cf01739dff0e53176fbdc82b29833d62bd03f36d59ea935b88a35a9a58bb2bb14b684f23cb7334"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-linux-arm64-musl/-/canvas-linux-arm64-musl-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-linux-riscv64-gnu@1.0.13",
+      "name": "@napi-rs/canvas-linux-riscv64-gnu",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-riscv64-gnu@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-linux-riscv64-gnu"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "d7b5c430ededf515bf4ed1ed4857f60246925ae0967736cf7a2773ef3ace15ac07c682d22429e94c8d61379694beb64d9e434d9adfef655242874af251a8a4dc"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-linux-riscv64-gnu/-/canvas-linux-riscv64-gnu-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-linux-x64-gnu@1.0.13",
+      "name": "@napi-rs/canvas-linux-x64-gnu",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-x64-gnu@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-linux-x64-gnu"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "95ce3c23092754706c3735e7f57b393a452c457dfc325dd9d5a3b26d0e7598c13365c926f3ee00d2a44e97260712804fcebd642f7214f19500a836fbc2d757f3"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-linux-x64-musl@1.0.13",
+      "name": "@napi-rs/canvas-linux-x64-musl",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-linux-x64-musl@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-linux-x64-musl"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6c6635af6e92d9bb3c50d14970f59c09235d0856ca7a9e4f013b2fb60b42f40e6ee92460af6fe3244fd19611cbe66f59a62c4d0e15642d8ff9875e8ac7957d60"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-linux-x64-musl/-/canvas-linux-x64-musl-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-win32-arm64-msvc@1.0.13",
+      "name": "@napi-rs/canvas-win32-arm64-msvc",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-win32-arm64-msvc@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-win32-arm64-msvc"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "daf44f059a1a22f26b5240e16531361e7d18ae7a49442595337109002a012a3b9623a5a03f11ad52844cb3146f882b3292cf1b293485772c35e027a59671b6a8"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-win32-arm64-msvc/-/canvas-win32-arm64-msvc-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas-win32-x64-msvc@1.0.13",
+      "name": "@napi-rs/canvas-win32-x64-msvc",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas-win32-x64-msvc@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas-win32-x64-msvc"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0d4956de564fcfade462c7fc9b1832c99b9ebe1947d13dff0463fd97e35ace1074175fa02fa0f886a65d9e1669c36e03956993a404c373261266524e8be0dd7d"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "npm:node_modules/@napi-rs/canvas@1.0.13",
+      "name": "@napi-rs/canvas",
+      "version": "1.0.13",
+      "purl": "pkg:npm/%40napi-rs/canvas@1.0.13",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/@napi-rs/canvas"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6fceee819a50e558b0a950648deaefc69c1ad069893ec2872c136864de86a6359e1f34db0d41abcab8aafb60d85b65db07ec42a92208350cac0b4fc8f3b9cf6f"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/@napi-rs/canvas/-/canvas-1.0.13.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "npm:node_modules/@napi-rs/lzma-linux-x64-gnu@1.5.1",
       "name": "@napi-rs/lzma-linux-x64-gnu",
       "version": "1.5.1",
@@ -4750,6 +5258,48 @@
     },
     {
       "type": "library",
+      "bom-ref": "npm:node_modules/pdfjs-dist@6.4.299",
+      "name": "pdfjs-dist",
+      "version": "6.4.299",
+      "purl": "pkg:npm/pdfjs-dist@6.4.299",
+      "properties": [
+        {
+          "name": "judgeai:resolution",
+          "value": "npm-lock"
+        },
+        {
+          "name": "judgeai:lock-path",
+          "value": "node_modules/pdfjs-dist"
+        },
+        {
+          "name": "judgeai:development",
+          "value": "false"
+        },
+        {
+          "name": "judgeai:license-evidence-scope",
+          "value": "npm-lock-metadata-not-release-approval"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "015975dfccc02ed7da00fbc00ee944d0f65385b6330814bbf672f8a4e48bffa4a6ff8007e40db5043f551edf7b3a50aecc9b82a66799b40b648a78ac17855bd6"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.4.299.tgz"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "npm:node_modules/picocolors@1.1.1",
       "name": "picocolors",
       "version": "1.1.1",
@@ -5417,6 +5967,146 @@
         {
           "type": "distribution",
           "url": "https://registry.npmjs.org/yallist/-/yallist-3.1.1.tgz"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "preview-runtime:Caladea fonts",
+      "name": "Caladea fonts",
+      "licenses": [
+        {
+          "license": {
+            "name": "OFL-1.1"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/huertatipografica/Caladea"
+        }
+      ],
+      "properties": [
+        {
+          "name": "judgeai:evidence",
+          "value": "Built Debian bookworm preview image: /usr/share/doc/fonts-crosextra-caladea/copyright; primary notice inspected, transitive notices remain in image"
+        },
+        {
+          "name": "judgeai:review",
+          "value": "package-notice-reviewed-release-obligations-pending"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "preview-runtime:Carlito fonts",
+      "name": "Carlito fonts",
+      "licenses": [
+        {
+          "license": {
+            "name": "OFL-1.1"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/googlefonts/carlito"
+        }
+      ],
+      "properties": [
+        {
+          "name": "judgeai:evidence",
+          "value": "Built Debian bookworm preview image: /usr/share/doc/fonts-crosextra-carlito/copyright; primary notice inspected, transitive notices remain in image"
+        },
+        {
+          "name": "judgeai:review",
+          "value": "package-notice-reviewed-release-obligations-pending"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "preview-runtime:DejaVu fonts",
+      "name": "DejaVu fonts",
+      "licenses": [
+        {
+          "license": {
+            "name": "Bitstream Vera license; DejaVu changes are public domain"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://dejavu-fonts.github.io/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "judgeai:evidence",
+          "value": "Built Debian bookworm preview image: /usr/share/doc/fonts-dejavu-core/copyright; primary notice inspected, transitive notices remain in image"
+        },
+        {
+          "name": "judgeai:review",
+          "value": "package-notice-reviewed-release-obligations-pending"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "preview-runtime:Liberation fonts",
+      "name": "Liberation fonts",
+      "licenses": [
+        {
+          "license": {
+            "name": "GPL version 2 with the font embedding and distribution exceptions in the package notice"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://pagure.io/liberation-fonts/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "judgeai:evidence",
+          "value": "Built Debian bookworm preview image: /usr/share/doc/fonts-liberation/copyright; primary notice inspected, transitive notices remain in image"
+        },
+        {
+          "name": "judgeai:review",
+          "value": "package-notice-reviewed-release-obligations-pending"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "bom-ref": "preview-runtime:LibreOffice Writer",
+      "name": "LibreOffice Writer",
+      "licenses": [
+        {
+          "license": {
+            "name": "MPL-2.0; incorporated Apache-2.0 and additional bundled notices"
+          }
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://www.libreoffice.org/about-us/licenses/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "judgeai:evidence",
+          "value": "Built Debian bookworm preview image: /usr/share/doc/libreoffice-common/copyright; primary notice inspected, transitive notices remain in image"
+        },
+        {
+          "name": "judgeai:review",
+          "value": "package-notice-reviewed-release-obligations-pending"
         }
       ]
     },
@@ -6564,6 +7254,66 @@
       ]
     },
     {
+      "ref": "npm:node_modules/@napi-rs/canvas-android-arm64@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-darwin-arm64@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-darwin-x64@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-linux-arm-gnueabihf@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-linux-arm64-gnu@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-linux-arm64-musl@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-linux-riscv64-gnu@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-linux-x64-gnu@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-linux-x64-musl@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-win32-arm64-msvc@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas-win32-x64-msvc@1.0.13",
+      "dependsOn": []
+    },
+    {
+      "ref": "npm:node_modules/@napi-rs/canvas@1.0.13",
+      "dependsOn": [
+        "npm:node_modules/@napi-rs/canvas-android-arm64@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-darwin-arm64@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-darwin-x64@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-linux-arm-gnueabihf@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-linux-arm64-gnu@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-linux-arm64-musl@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-linux-riscv64-gnu@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-linux-x64-gnu@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-linux-x64-musl@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-win32-arm64-msvc@1.0.13",
+        "npm:node_modules/@napi-rs/canvas-win32-x64-msvc@1.0.13"
+      ]
+    },
+    {
       "ref": "npm:node_modules/@napi-rs/lzma-linux-x64-gnu@1.5.1",
       "dependsOn": []
     },
@@ -6850,6 +7600,12 @@
       "dependsOn": []
     },
     {
+      "ref": "npm:node_modules/pdfjs-dist@6.4.299",
+      "dependsOn": [
+        "npm:node_modules/@napi-rs/canvas@1.0.13"
+      ]
+    },
+    {
       "ref": "npm:node_modules/picocolors@1.1.1",
       "dependsOn": []
     },
@@ -6983,10 +7739,16 @@
         "npm:node_modules/@types/react-dom@19.3.0",
         "npm:node_modules/@types/react@19.3.0",
         "npm:node_modules/@vitejs/plugin-react@5.2.0",
+        "npm:node_modules/pdfjs-dist@6.4.299",
         "npm:node_modules/react-dom@19.3.1",
         "npm:node_modules/react@19.3.1",
         "npm:node_modules/typescript@5.9.3",
         "npm:node_modules/vite@7.3.7",
+        "preview-runtime:Caladea fonts",
+        "preview-runtime:Carlito fonts",
+        "preview-runtime:DejaVu fonts",
+        "preview-runtime:Liberation fonts",
+        "preview-runtime:LibreOffice Writer",
         "project:legal_core",
         "pypi:alembic",
         "pypi:argon2-cffi",
