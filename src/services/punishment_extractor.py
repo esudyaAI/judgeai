@@ -36,7 +36,11 @@ _KIND_REGEX = re.compile(
     "|".join(f"(?P<k{i}>(?<![а-яё]){pattern})" for i, (_, pattern) in enumerate(_KINDS)),
     re.IGNORECASE,
 )
-_TERM_AFTER = re.compile(r"\s*(?:на\s+срок|сроком(?:\s+на)?|в\s+размере)\s+", re.IGNORECASE)
+# "на срок", "сроком на", and the typo "срок 8 лет" without the preposition
+_TERM_AFTER = re.compile(r"\s*(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|в\s+размере)\s+", re.IGNORECASE)
+# "с лишением права заниматься деятельностью …, сроком на 2 года": the term trails the right
+_TERM_AHEAD = re.compile(r"(?:на\s+срок|сроком(?:\s+на)?)\s+", re.IGNORECASE)
+_TERM_AHEAD_REACH = 200
 _TERM_STOP = re.compile(r"[,;.]|\s(?:с|со|условно|без|и|в)\s", re.IGNORECASE)
 _EXPLICIT_IMPOSITION = re.compile(r"в\s+виде\s*$", re.IGNORECASE)
 _TERM_BEFORE = re.compile(r"(?:в\s+виде|(?<![а-яё])к)\s+(?P<term>[^,;:]{1,60}?)\s*$", re.IGNORECASE)
@@ -47,6 +51,7 @@ _RUBLES = re.compile(
     r"(?P<num>\d[\d\s]*\d|\d)?\s*(?:\((?P<words>[^)]*)\))?\s*(?P<thousand>тыс\w*\.?)?\s*рубл",
     re.IGNORECASE,
 )
+
 # A dot ends a sentence unless it follows an initial ("К.") and the next word is capitalised.
 _SENTENCE_END = re.compile(r"(?<![\s(][А-ЯЁ])\.\s+(?=[А-ЯЁ])|\n\s*\n")
 _FINAL = re.compile(r"окончательн", re.IGNORECASE)
@@ -152,6 +157,15 @@ def _read_term(kind: PunishmentKind, after: str) -> PunishmentTerm | None:
     return PunishmentTerm(kind, amount, unit) if amount else None
 
 
+def _trailing_term(kind: PunishmentKind, text: str, start: int) -> PunishmentTerm | None:
+    """Term after the description of a right, within the sentence and before any other kind."""
+    _, sentence_end = _sentence_bounds(text, start)
+    ahead = _TERM_AHEAD.search(text, start, min(sentence_end, start + _TERM_AHEAD_REACH))
+    if ahead is None or _KIND_REGEX.search(text, start, ahead.start()):
+        return None
+    return _read_term(kind, text[ahead.end() : ahead.end() + 120])
+
+
 def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
     found, windows = [], []
     for match in _KIND_REGEX.finditer(text):
@@ -160,12 +174,16 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
         after_match = _TERM_AFTER.match(text, match.end())
         term = None
         end = match.end()
+        additional = bool(re.search(r"(?:^|\s)(?:с|со)\s*$", before[-4:], re.IGNORECASE))
         if kind is PunishmentKind.LIFE_IMPRISONMENT:
             term = PunishmentTerm(kind)
         elif after_match:
             term = _read_term(kind, text[after_match.end() : after_match.end() + 120])
             end = after_match.end() + 40
-        if term is None and kind is not PunishmentKind.FINE:
+        if term is None and additional and kind is PunishmentKind.DEPRIVATION_OF_RIGHT:
+            term = _trailing_term(kind, text, match.end())
+        # The words before an additional punishment are the main one's term, never its own.
+        if term is None and kind is not PunishmentKind.FINE and not additional:
             before_match = _TERM_BEFORE.search(before)
             if before_match:
                 amount, unit = parse_term(before_match["term"])
@@ -177,7 +195,6 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
                 windows.append(text[start : match.end() + WINDOW_RADIUS].strip())
             continue
         sentence_start, sentence_end = _sentence_bounds(text, match.start())
-        additional = bool(re.search(r"(?:^|\s)(?:с|со)\s*$", before[-4:], re.IGNORECASE))
         final = bool(_FINAL.search(text[sentence_start : match.start()]))
         found.append(
             _Imposition(term, match.start(), min(end, sentence_end), additional, final, match.end())

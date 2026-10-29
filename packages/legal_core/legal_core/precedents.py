@@ -62,13 +62,17 @@ class Qualification:
 
 # The same spans feed both card qualification and punishment attribution.
 _QUALIFICATION = re.compile(
-    r'(?:п(?:\.\s*п)?\.\s*[«"“]?(?P<points>[а-яё](?:\s*,\s*[а-яё])*)[»"”)]?\s*)?'
-    r"(?:ч\.\s*(?P<part>\d{1,2})\s*)?ст\.\s*(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)"
-    r"(?:\s*ч\.\s*(?P<part_after>\d{1,2}))?",
+    r'(?:(?:п(?:\.\s*п)?\.|пункт\w*)\s*[«"“]?'
+    r'(?P<points>[а-яё](?:\s*,\s*[а-яё])*)[»"”)]?\s*)?'
+    r"(?:(?:ч\.|част\w*)\s*(?P<part>\d{1,2})\s*)?(?:ст\.|стать\w*)\s*"
+    r"(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)"
+    r"(?:\s*(?:ч\.|част\w*)\s*(?P<part_after>\d{1,2}))?",
     re.IGNORECASE,
 )
 _CITATION_CODE = re.compile(
-    r"^\s*(?:(?:,|и|[-–—])\s*(?:ч\.\s*\d{1,2}\s*)?(?:ст\.\s*)?\d{1,3}(?:\.\d{1,2})?\s*)*\s*(?P<code>УПК|КоАП|ГПК|АПК|ГК|НК|СК|ТК|УК)\b",
+    r"\s*(?:(?:,|и|[-–—])\s*(?:(?:ч\.|част\w*)\s*\d{1,2}\s*)?"
+    r"(?:(?:ст\.|стать\w*)\s*)?\d{1,3}(?:\.\d{1,2})?\s*)*\s*"
+    r"(?P<code>УПК|КоАП|ГПК|АПК|ГК|НК|СК|ТК|УК)\b",
     re.I,
 )
 
@@ -86,7 +90,7 @@ def qualification_citations(text: str) -> tuple[QualificationCitation, ...]:
     for match in _QUALIFICATION.finditer(text):
         if int(match["article"].split(".")[0]) < FIRST_SPECIAL_PART_ARTICLE:
             continue
-        code = _CITATION_CODE.match(text[match.end() :])
+        code = _CITATION_CODE.match(text, match.end())
         if code and code["code"].upper() != "УК":
             continue
         part_text = match["part"] or match["part_after"]
@@ -148,11 +152,16 @@ class PrecedentCard:
         return frozenset(e.qualification.key for e in self.episodes)
 
     @property
+    def punishment(self) -> PunishmentTerm | None:
+        """Final punishment, or the single count's one when there is no aggregate; any kind."""
+        if self.final is not None:
+            return self.final
+        return self.episodes[0].punishment if len(self.episodes) == 1 else None
+
+    @property
     def imprisonment_months(self) -> int | None:
         """Final term of imprisonment, or the single count's term when there is no aggregate."""
-        term = self.final
-        if term is None and len(self.episodes) == 1:
-            term = self.episodes[0].punishment
+        term = self.punishment
         if (
             term is not None
             and term.kind is PunishmentKind.IMPRISONMENT

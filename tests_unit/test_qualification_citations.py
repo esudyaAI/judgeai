@@ -45,3 +45,8 @@ class QualificationCitationTests(unittest.TestCase):
                 self.assertEqual(parse_qualifications(text), (Qualification("158", 1),))
                 reference = parse_qualification_reference(text)
                 self.assertEqual(reference.article, "158")
+
+    def test_worded_procedural_reference_groups_keep_their_code(self):
+        self.assertEqual(
+            parse_qualifications("Руководствуясь статьями 307 и статьей 308 УПК РФ."), ()
+        )
