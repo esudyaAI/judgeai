@@ -7,6 +7,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from src.api import (
     account,
@@ -19,6 +20,7 @@ from src.api import (
     precedents,
 )
 from src.config import settings
+from src.db.session import async_session_factory
 from src.services.analysis_runner import fail_interrupted_analyses
 
 logger = logging.getLogger(__name__)
@@ -80,5 +82,17 @@ async def private_response_cache_control(request, call_next):
 
 @app.get("/health")
 async def health_check():
-    """Liveness probe polled by the deploy job after `docker compose up`."""
-    return {"status": "ok"}
+    """Liveness probe polled by the deploy job after `docker compose up`.
+
+    A reachable API with a dead database (recovery mode, out of disk) is not a
+    healthy service: the deploy poll must see 503 instead of a blind 200.
+    """
+    try:
+        async with async_session_factory() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("health check: database unavailable")
+        return JSONResponse(
+            status_code=503, content={"status": "degraded", "database": "unavailable"}
+        )
+    return {"status": "ok", "database": "ok"}
