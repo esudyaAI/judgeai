@@ -141,6 +141,13 @@ class PunishmentTerm:
         return None
 
 
+class Unfinished(StrEnum):
+    """Unfinished offence under ст. 30 УК РФ: preparation (ч. 1) or attempt (ч. 3)."""
+
+    PREPARATION = "preparation"
+    ATTEMPT = "attempt"
+
+
 @dataclass(frozen=True)
 class CountSentence:
     """Punishment imposed for one count (one qualification) of the verdict."""
@@ -150,6 +157,7 @@ class CountSentence:
     main: PunishmentTerm
     additional: tuple[PunishmentTerm, ...] = ()
     quote: str = ""
+    unfinished: Unfinished | None = None
 
 
 @dataclass(frozen=True)

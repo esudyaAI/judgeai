@@ -24,6 +24,8 @@ from legal_core.entities import (
 )
 from legal_core.rules.art18 import Recidivism
 from legal_core.rules.art58 import check_regime
+from legal_core.rules.art66 import NORMS as ART66_NORMS
+from legal_core.rules.art66 import reduced_maximum
 from legal_core.rules.art68 import check_recidivism_term
 from legal_core.rules.art73 import ConditionalKind, check_conditional_sentence
 from legal_core.rules.imposed_term import main_imprisonment
@@ -94,7 +96,9 @@ def _art68_count(
             and top.max_value
             and not main_kinds & _HARSHER_THAN_IMPRISONMENT
         ):
-            maximum = int(top.max_value)
+            # For an unfinished offence one third is taken of the maximum reduced under ст. 66
+            # (п. 49 Пленума ВС РФ № 58).
+            maximum = reduced_maximum(int(top.max_value), count.unfinished)
             most_severe_kind = count.main.kind is PunishmentKind.IMPRISONMENT
     result = check_recidivism_term(
         recidivism=recidivism,
@@ -106,6 +110,11 @@ def _art68_count(
     )
     source = reading.provenance.source_url if reading is not None else ""
     check = _legal_check(result, count.qualification, _months(count.main), [count.quote])
+    if count.unfinished is not None and maximum is not None:
+        check.explanation += (
+            f" Треть взята от максимума, сниженного по {ART66_NORMS[count.unfinished]}: "
+            f"{maximum} мес."
+        )
     if source:
         check.source = f"{check.source}; санкция: {source}"
     return check
