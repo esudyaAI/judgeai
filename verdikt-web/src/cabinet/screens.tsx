@@ -193,6 +193,7 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
           {plural(seconds, ['секунда', 'секунды', 'секунд'])}
         </span>
         {(a.warnings ?? []).map(w => <div key={w} className="warn-box" role="note">{w}</div>)}
+        <h2>Разбор</h2>
         <p>{a.fabula}</p>
 
         <div className="grid-2">
@@ -218,8 +219,6 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
           </div>}
         </div>
 
-        {a.scale && <SentenceScale scale={a.scale} legend="plain" />}
-        {a.practice && <Practice p={a.practice} />}
 
         <div className="grid-2">
           <div className="soft-card">
@@ -239,6 +238,29 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
             <span>{a.personality}</span>
           </div>
         </div>
+
+        <h2>Сверка</h2>
+        {(a.legalChecks ?? []).map(check => {
+          const sourceUrl = legalCheckSourceUrl(check.source);
+          return <section key={check.norm} className={`legal-check legal-check--${check.status}`}>
+            <div className="eyebrow">{check.norm} · {legalCheckStatusLabel(check.status)}</div>
+            {check.value && <strong>{check.value.replaceAll('_', ' ')}</strong>}
+            <p>{check.explanation}</p>
+            {check.evidence.map(quote => <blockquote key={quote}>{quote}</blockquote>)}
+            <p className="legal-check-source">
+              Источник: {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">{sourceUrl}</a> : check.source}
+            </p>
+          </section>;
+        })}
+        {(a.practiceEpisodes?.length ?? 0) > 0
+          ? a.practiceEpisodes!.map((p, i) => <div key={i}>
+              <h3>Эпизод {i + 1}: {p.qualification}</h3>
+              <p>Рецидив: {({none: 'отсутствует', simple: 'простой', dangerous: 'опасный', especially_dangerous: 'особо опасный'} as Record<string, string>)[p.recidivism ?? ''] ?? 'не установлен в тексте'}</p>
+              <Practice p={p} />
+            </div>)
+          : a.practice && <Practice p={a.practice} />}
+        <h2>Рекомендация</h2>
+        {a.scale && <SentenceScale scale={a.scale} legend="plain" />}
 
         {current && <div className="variants">
           <div className="variants-head">
@@ -288,18 +310,6 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         </div>
 
         }
-        {(a.legalChecks ?? []).map(check => {
-          const sourceUrl = legalCheckSourceUrl(check.source);
-          return <section key={check.norm} className={`legal-check legal-check--${check.status}`}>
-            <div className="eyebrow">{check.norm} · {legalCheckStatusLabel(check.status)}</div>
-            {check.value && <strong>{check.value.replaceAll('_', ' ')}</strong>}
-            <p>{check.explanation}</p>
-            {check.evidence.map(quote => <blockquote key={quote}>{quote}</blockquote>)}
-            <p className="legal-check-source">
-              Источник: {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">{sourceUrl}</a> : check.source}
-            </p>
-          </section>;
-        })}
 
       </div>
     </div>

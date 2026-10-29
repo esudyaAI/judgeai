@@ -5,6 +5,7 @@ Every candidate therefore requires human review; no inference from absent histor
 """
 
 from legal_core.entities import Category, Guilt, SanctionCeiling
+from legal_core.precedents import Recidivism
 from legal_core.rules.art15 import SOURCE as ART15_SOURCE
 from legal_core.rules.art15 import categorize
 from legal_core.rules.art18 import SOURCE as ART18_SOURCE
@@ -30,6 +31,9 @@ def build_legal_checks(
     facts: LegalFacts | None,
     source_text: str,
     statutory_ceiling: SanctionCeiling | None = None,
+    extracted_recidivism: Recidivism | None = None,
+    recidivism_quote: str = "",
+    extracted_source_text: str | None = None,
 ) -> list[LegalCheck]:
     """statutory_ceiling comes from the imported УК РФ text; it replaces model-cited sanctions."""
     results = []
@@ -97,4 +101,31 @@ def build_legal_checks(
         except (ValueError, KeyError):
             pass
         results.append(check)
+    if (
+        extracted_recidivism is not None
+        and recidivism_quote
+        and recidivism_quote
+        in (extracted_source_text if extracted_source_text is not None else source_text)
+    ):
+        art18 = results[1]
+        stated = {
+            Recidivism.NONE: "отсутствует",
+            Recidivism.SIMPLE: "простой",
+            Recidivism.DANGEROUS: "опасный",
+            Recidivism.ESPECIALLY_DANGEROUS: "особо опасный",
+        }[extracted_recidivism]
+        if art18.value is not None and art18.value != extracted_recidivism.value:
+            art18.status = "insufficient_data"
+            art18.explanation += " Расчёт расходится с указанием рецидива в тексте; нужна сверка."
+        elif art18.value is None:
+            art18.explanation = (
+                "В тексте указан вид рецидива. Это извлечённый факт, а не проверка его "
+                "правильности по ст. 18; для расчёта недостаточно сведений о судимостях."
+            )
+        if art18.value is None or art18.value == extracted_recidivism.value:
+            art18.recidivism_input = extracted_recidivism.value
+        if art18.value is None:
+            art18.value = f"В тексте: {stated}"
+        art18.explanation += f" В тексте: {stated}."
+        art18.evidence = list(dict.fromkeys([*art18.evidence, recidivism_quote]))
     return results

@@ -75,6 +75,8 @@ class PrecedentMatchRead(ApiModel):
 class PracticeComparisonRead(ApiModel):
     """Terms imposed in the comparable precedents and the draft's place among them (T28)."""
 
+    qualification: str | None = None
+    recidivism: str | None = None
     total: int
     with_term: int
     enough_data: bool
@@ -153,6 +155,7 @@ class CaseAnalysis(ApiModel):
     precedent_source: Literal["cards", "text", "none"] | None = None
     precedents: list[PrecedentMatchRead] = []
     practice: PracticeComparisonRead | None = None
+    practice_episodes: list[PracticeComparisonRead] = Field(default_factory=list)
     # Human-readable caveats the UI must show (e.g. unverified sanction, partial OCR).
     warnings: list[str] = []
 
@@ -193,6 +196,8 @@ class LegalFacts(BaseModel):
 
 
 class LegalCheck(BaseModel):
+    # Quoted court finding usable as an input, independently of art.18 verification.
+    recidivism_input: Literal["none", "simple", "dangerous", "especially_dangerous"] | None = None
     norm: str
     status: Literal["ok", "possible_violation", "insufficient_data"]
     explanation: str

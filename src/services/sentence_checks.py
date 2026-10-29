@@ -47,8 +47,10 @@ _CONDITIONAL_KINDS = {
 
 
 def recidivism_of(checks: Iterable[LegalCheck]) -> Recidivism:
-    """Kind of recidivism from a confirmed ст. 18 check; anything else is UNKNOWN."""
+    """Calculated recidivism or a nonconflicting quoted court finding; otherwise UNKNOWN."""
     for check in checks:
+        if check.norm == ART18_NORM and check.recidivism_input and check.evidence:
+            return Recidivism(check.recidivism_input)
         if check.norm == ART18_NORM and check.status == "ok" and check.value:
             try:
                 return Recidivism(check.value)
@@ -188,4 +190,11 @@ def build_sentence_checks(
         regime = _art58(document_text, recidivism, category, known_guilt)
         if regime is not None:
             checks.append(regime)
+    for earlier in earlier_checks:
+        if earlier.norm == ART18_NORM and earlier.recidivism_input:
+            for check in checks:
+                check.evidence = list(dict.fromkeys([*check.evidence, *earlier.evidence]))
+                check.explanation += (
+                    " Вид рецидива взят из цитированного указания суда; требуется сверка."
+                )
     return checks
