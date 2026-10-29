@@ -300,3 +300,61 @@ def test_preposed_terms_and_aggregate_by_citation_keep_each_count():
     assert [c.main.imprisonment_months for c in result.sentence.counts] == [24, 36]
     assert result.sentence.final.imprisonment_months == 48
     assert result.sentence.aggregation_rule == "ч. 2 ст. 69 УК РФ"
+
+
+def test_explicit_numeric_term_without_word_srok():
+    variants = (
+        ("лишения свободы на 3 (три) года", PunishmentKind.IMPRISONMENT, 36, MeasureUnit.MONTHS),
+        (
+            "ограничения свободы на 8 месяцев",
+            PunishmentKind.RESTRICTION_OF_FREEDOM,
+            8,
+            MeasureUnit.MONTHS,
+        ),
+        (
+            "обязательных работ 470 (четыреста семьдесят) часов",
+            PunishmentKind.COMPULSORY_WORKS,
+            470,
+            MeasureUnit.HOURS,
+        ),
+    )
+    for wording, kind, amount, unit in variants:
+        result = extract_imposed_sentence(
+            "ФИО1 признать виновным по ч. 1 ст. 158 УК РФ и назначить наказание в виде "
+            + wording
+            + "."
+        )
+        assert len(result.sentence.counts) == 1
+        term = result.sentence.counts[0].main
+        assert (term.kind, term.amount, term.unit) == (kind, amount, unit)
+        assert result.ambiguous_windows == ()
+
+
+def test_fine_marker_variants_keep_the_explicit_amount():
+    for marker in (
+        "в размер 20 000 рублей",
+        "в размере в размере 20 000 рублей",
+        "с применением ст. 64 Уголовного кодекса Российской Федерации в размере 20 000 рублей",
+    ):
+        result = extract_imposed_sentence(
+            "ФИО1 признать виновным по ч. 1 ст. 158 УК РФ и назначить наказание в виде штрафа "
+            + marker
+            + "."
+        )
+        assert len(result.sentence.counts) == 1
+        assert result.sentence.counts[0].main.amount == 20000
+
+
+def test_bare_term_does_not_cross_into_a_different_instruction():
+    for wording in (
+        "лишения свободы на основании ст. 73 УК РФ. Испытательный срок 3 года",
+        "обязательных работ. Установить срок надзора 200 часов",
+        "штрафа в размере сумма. Взыскать издержки 10000 рублей",
+        "штрафа 135000 (сто тридцать пять) тысяча рублей",
+    ):
+        result = extract_imposed_sentence(
+            "ФИО1 признать виновным по ч. 1 ст. 158 УК РФ и назначить наказание в виде "
+            + wording
+            + "."
+        )
+        assert all(c.main.amount is None for c in result.sentence.counts)
