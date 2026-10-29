@@ -256,7 +256,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
                 !loading && !error && <p>Задайте вопрос или прикрепите материалы дела.</p>}
               {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} />}
             </>
-          ) : selectedFiles.length > 0 ? <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} /> : <NewCaseScreen onFiles={addFiles} onSuggestion={applySuggestion} />}
+          ) : selectedFiles.length > 0 ? <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} /> : <NewCaseScreen disabled={busy} onFiles={addFiles} onSuggestion={applySuggestion} />}
         </div>
         {view !== 'settings' && <>
           <Composer mode={sending ? 'sending' : busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}

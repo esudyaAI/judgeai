@@ -23,3 +23,9 @@ test('initial text document is loading, not an unobservable iframe',()=> {
   const html=render('TextDocument',{url:'/synthetic',name:'Материалы.md'});
   assert.match(html,/Загружаем текст/); assert.doesNotMatch(html,/<iframe/);
 });
+test('new-case shortcuts and picker cannot mutate a draft during sending',()=> {
+  const html=render('NewCaseScreen',{disabled:true,onFiles(){},onSuggestion(){}});
+  const controls=html.match(/<(?:button|input)\b[^>]*>/g)||[];
+  assert.ok(controls.length>0);
+  for(const control of controls)assert.match(control,/disabled=""/);
+});

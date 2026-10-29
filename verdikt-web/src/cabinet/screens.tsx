@@ -44,17 +44,19 @@ const SUGGESTIONS: { title: string; sub: string; bg: string; icon: IconName; pro
   },
 ];
 
-export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File[]) => void; onSuggestion?: (prompt: string) => void }) {
+export function NewCaseScreen({ onFiles, onSuggestion, disabled = false }: { onFiles: (files: File[]) => void; onSuggestion?: (prompt: string) => void; disabled?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setDrag(false);
+    if (disabled) return;
     onFiles(Array.from(e.dataTransfer.files));
   };
   // Pasting a file copied in the OS file manager works anywhere on this screen,
   // not only after focusing the composer (ChatGPT-style global paste).
   useEffect(() => {
+    if (disabled) return;
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
@@ -65,7 +67,7 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  }, [onFiles]);
+  }, [onFiles, disabled]);
   return (
     <div className="fade-in screen-new">
       <LogoMark size={56} color="#141414" />
@@ -76,10 +78,11 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
       <button
         type="button"
         className={`btn-soft dropzone ${drag ? 'drag' : ''}`}
+        disabled={disabled}
         onClick={() => input.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
-          setDrag(true);
+          if (!disabled) setDrag(true);
         }}
         onDragLeave={() => setDrag(false)}
         onDrop={onDrop}
@@ -90,10 +93,10 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
         <span style={{ fontWeight: 600 }}>Перетащите материалы дела или выберите файлы</span>
         <span className="muted-14">PDF, DOCX, DOTX, TXT, MD · до 50 МБ на файл</span>
       </button>
-      <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { const files = Array.from(e.target.files ?? []); e.target.value = ''; onFiles(files); }} />
+      <input ref={input} type="file" disabled={disabled} multiple accept={ACCEPT} hidden onChange={(e) => { const files = Array.from(e.target.files ?? []); e.target.value = ''; onFiles(files); }} />
       <div className="sug-grid">
         {SUGGESTIONS.map((s) => (
-          <Pressable key={s.title} type="button" className="sug" onClick={() => onSuggestion?.(s.prompt)}>
+          <Pressable disabled={disabled} key={s.title} type="button" className="sug" onClick={() => onSuggestion?.(s.prompt)}>
             <IconTile name={s.icon} bg={s.bg} size={36} iconSize={18} />
             <span className="sug-text">
               <span className="sug-title">{s.title}</span>

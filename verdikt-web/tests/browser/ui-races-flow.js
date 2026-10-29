@@ -6,14 +6,14 @@ async page => {
   };
   const base='http://127.0.0.1:5185';
   let chats=[{id:1,title:'Первое дело',status:'ready',updated_at:'2026-10-29T12:00:00Z'}, {id:2,title:'Второе дело',status:'ready',updated_at:'2026-10-29T12:00:00Z'}];
-  let holdList=false, stale=null, holdSend=false, sendRoute=null, sendCount=0, holdLogout=false, logoutRoute=null;
+  let holdList=false, stale=null, holdSend=false, sendRoute=null, sendCount=0, holdLogout=false, logoutRoute=null, holdCreate=false, createRoute=null;
   await page.route(`${base}/api/**`,route=>{
     const path=route.request().url().replace(/^https?:\/\/[^/]+/,'').split('?')[0];
     const method=route.request().method();
     if (path==='/api/auth/me') return route.fulfill({json:{id:1,username:'помощник',is_admin:false,csrf_token:'synthetic'}});
     if (path==='/api/auth/logout') { if(holdLogout){logoutRoute=route;return;} return route.fulfill({json:{}}); }
     if (path==='/api/account/profile') return route.fulfill({json:{firstName:'',lastName:'',email:'',position:'',org:'',region:'',avatar:''}});
-    if (path==='/api/chats') { if(holdList){stale=route;return;} return route.fulfill({json:chats}); }
+    if (path==='/api/chats') { if(method==='POST' && holdCreate){createRoute=route;return;} if(holdList){stale=route;return;} return route.fulfill({json:chats}); }
     if (path==='/api/chats/1/pin') return route.fulfill({json:{}});
     if (path==='/api/chats/1' && method==='DELETE') {chats=chats.filter(c=>c.id!==1);return route.fulfill({json:{deleted:1,files_pending:0}});}
     if (path==='/api/chats/2/messages') {
@@ -70,5 +70,17 @@ async page => {
   await waitRoute(()=>logoutRoute); holdLogout=false; await logoutRoute.fulfill({status:503,json:{detail:'Нет связи'}});
   await page.getByRole('alert').filter({hasText:'Не удалось выйти'}).waitFor();
   await page.screenshot({path:'acceptance-screenshots/ui-races.png',fullPage:true});
-  return {staleList:true,deleteLoading:true,overlappingInert:true,resize:true,pendingSend:true,preservedDraft:true,noAutoRetry:true,logoutPending:true};
+  await page.goto(`${base}/app`);
+  const newPrompt=page.getByRole('textbox',{name:'Задача по делу'});
+  await newPrompt.fill('Не менять эту задачу во время отправки');
+  holdCreate=true; await page.getByRole('button',{name:'Отправить',exact:true}).click();
+  await page.getByRole('button',{name:'Отправляем запрос',exact:true}).waitFor();
+  await waitRoute(()=>createRoute);
+  for(const control of await page.locator('.screen-new button, .screen-new input[type=file]').all())if(!await control.isDisabled())throw Error('New case shortcut can mutate a pending draft');
+  await page.screenshot({path:'acceptance-screenshots/pending-new-case.png',fullPage:true});
+  holdCreate=false; await createRoute.fulfill({status:503,json:{detail:'Тестовая ошибка создания'}});
+  await page.getByRole('alert').filter({hasText:'Тестовая ошибка создания'}).waitFor();
+  if(await newPrompt.inputValue()!=='Не менять эту задачу во время отправки')throw Error('New draft changed after error');
+  if(await page.locator('.sug').first().isDisabled())throw Error('Shortcuts did not recover after failure');
+  return {pendingNewCase:true,staleList:true,deleteLoading:true,overlappingInert:true,resize:true,pendingSend:true,preservedDraft:true,noAutoRetry:true,logoutPending:true};
 }
