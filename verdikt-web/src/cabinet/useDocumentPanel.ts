@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { DocumentPanelState } from './DocumentPanel';
 
 export type DocumentSource = {name: string} & ({file: File} | {chatId: string; attachmentId: number} | {verdictId: number});
 
 export function useDocumentPanel(scope: string) {
+  const [generation, setGeneration] = useState(0);
+  const opener = useRef<HTMLElement | null>(null);
+  const open = useCallback((source: DocumentSource) => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setState(null); setGeneration(n=>n+1); setSource(source); }, []);
   const [source, setSource] = useState<DocumentSource | null>(null);
   const [state, setState] = useState<DocumentPanelState | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -32,7 +35,7 @@ export function useDocumentPanel(scope: string) {
         if (controller.signal.aborted) return;
         setState({...base, status:job.status, error:job.error || undefined, url:job.status === 'ready' ? api.previewUrl(id) : undefined});
         if (job.status === 'queued' || job.status === 'converting') {
-          if (Date.now() - start > 120000) throw new Error('Conversion is taking too long. Повторить shortly.');
+          if (Date.now() - start > 120000) throw new Error('Подготовка документа заняла слишком много времени. Повторите попытку.');
           timer = setTimeout(() => { void poll(id).catch(fail); }, 1000);
         }
       };
@@ -46,5 +49,5 @@ export function useDocumentPanel(scope: string) {
     }
     return () => { controller.abort(); if (timer) clearTimeout(timer); if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [source, attempt]);
-  return {state, open:setSource, close, retry};
+  return {state, open, close, retry, opener:opener.current, generation};
 }

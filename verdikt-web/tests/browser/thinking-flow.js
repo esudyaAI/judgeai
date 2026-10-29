@@ -20,7 +20,7 @@ async page => {
     if (first < 3) throw Error('Timer ignored message creation time');
     await page.waitForFunction(n => parseInt(document.querySelector('[role="timer"]').textContent) > n, first);
     stage = 'checking';
-    await page.locator('.step-active').filter({hasText:'Проверяем нормы закона'}).waitFor();
+    await page.locator('.step-active').filter({hasText:'Сверяем с законом'}).waitFor();
     if (parseInt(await timer.textContent()) < first) throw Error('Stage reset timer');
     if (await page.locator('.cab-knowledge').count()) throw Error('Checkbox remains');
     const title = page.locator('.steps-title');

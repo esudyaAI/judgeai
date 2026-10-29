@@ -20,6 +20,12 @@ async page => {
     await page.goto('http://127.0.0.1:5183/app');
     await page.locator('.dropzone').waitFor();
 
+    // Snapshot File[] before resetting the native picker: its FileList is live.
+    await page.locator('.cab-composer input[type=file]').setInputFiles([{name:'Synthetic verdict.pdf',mimeType:'application/pdf',buffer:Buffer.from('synthetic upload')}]);
+    await page.getByRole('button',{name:'Открыть Synthetic verdict.pdf',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Удалить файл Synthetic verdict.pdf',exact:true}).click();
+    await page.locator('.dropzone').waitFor();
+
     // Card fills the composer instead of navigating to an empty attach screen.
     await page.locator('.sug').first().click();
     const composer = page.locator('.composer-field input');

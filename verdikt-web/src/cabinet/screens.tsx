@@ -7,6 +7,7 @@ import { SentenceScale } from '../components/SentenceScale';
 import { plural } from '../lib/format';
 import { ACCEPT, filesFromClipboard } from '../lib/files';
 import { fileReadingLabel, fileReadingWarning } from './fileReadingPresentation';
+import {Pressable} from '../components/UiState';
 import { formatElapsed, useElapsedSeconds } from './useElapsedSeconds';
 import { legalCheckSourceUrl, legalCheckStatusLabel } from './legalCheckPresentation';
 import { practiceSummary, precedentSourceNote, shareLabel } from './practicePresentation';
@@ -43,17 +44,19 @@ const SUGGESTIONS: { title: string; sub: string; bg: string; icon: IconName; pro
   },
 ];
 
-export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File[]) => void; onSuggestion?: (prompt: string) => void }) {
+export function NewCaseScreen({ onFiles, onSuggestion, disabled = false }: { onFiles: (files: File[]) => void; onSuggestion?: (prompt: string) => void; disabled?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setDrag(false);
+    if (disabled) return;
     onFiles(Array.from(e.dataTransfer.files));
   };
   // Pasting a file copied in the OS file manager works anywhere on this screen,
   // not only after focusing the composer (ChatGPT-style global paste).
   useEffect(() => {
+    if (disabled) return;
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
@@ -64,7 +67,7 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
-  }, [onFiles]);
+  }, [onFiles, disabled]);
   return (
     <div className="fade-in screen-new">
       <LogoMark size={56} color="#141414" />
@@ -75,10 +78,11 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
       <button
         type="button"
         className={`btn-soft dropzone ${drag ? 'drag' : ''}`}
+        disabled={disabled}
         onClick={() => input.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
-          setDrag(true);
+          if (!disabled) setDrag(true);
         }}
         onDragLeave={() => setDrag(false)}
         onDrop={onDrop}
@@ -89,16 +93,16 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
         <span style={{ fontWeight: 600 }}>Перетащите материалы дела или выберите файлы</span>
         <span className="muted-14">PDF, DOCX, DOTX, TXT, MD · до 50 МБ на файл</span>
       </button>
-      <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => onFiles(Array.from(e.target.files ?? []))} />
+      <input ref={input} type="file" disabled={disabled} multiple accept={ACCEPT} hidden onChange={(e) => { const files = Array.from(e.target.files ?? []); e.target.value = ''; onFiles(files); }} />
       <div className="sug-grid">
         {SUGGESTIONS.map((s) => (
-          <button key={s.title} type="button" className="sug" onClick={() => onSuggestion?.(s.prompt)}>
+          <Pressable disabled={disabled} key={s.title} type="button" className="sug" onClick={() => onSuggestion?.(s.prompt)}>
             <IconTile name={s.icon} bg={s.bg} size={36} iconSize={18} />
             <span className="sug-text">
               <span className="sug-title">{s.title}</span>
               <span className="sug-sub">{s.sub}</span>
             </span>
-          </button>
+          </Pressable>
         ))}
       </div>
     </div>
@@ -106,7 +110,7 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File
 }
 
 
-export function AttachScreen({ files, onRemove, onOpen }: { files: CaseFile[]; onRemove: (name: string) => void; onOpen?: (index: number) => void }) {
+export function AttachScreen({ files, onRemove, onOpen, disabled = false }: { files: CaseFile[]; onRemove: (index: number) => void; onOpen?: (index: number) => void; disabled?: boolean }) {
   const pages = files.reduce((s, f) => s + f.pages, 0);
   const limited = files.filter((f) => fileReadingWarning(f.recognition));
   return (
@@ -119,13 +123,13 @@ export function AttachScreen({ files, onRemove, onOpen }: { files: CaseFile[]; o
       </div>
       <ul className="file-list">
         {files.map((f, index) => (
-          <li key={f.name} className="file-row">
+          <li key={`${index}:${f.name}`} className="file-row">
             <FileTile ext={f.ext} size={40} />
             <div className="file-text">
-              <button type="button" className="file-name document-filename" onClick={() => onOpen?.(index)} aria-label={`Открыть ${f.name}`}>{f.name}</button>
+              <button type="button" className="file-name document-filename" disabled={!onOpen} onClick={() => onOpen?.(index)} aria-label={`Открыть ${f.name}`}>{f.name}</button>
               <span className={`file-meta ${fileReadingWarning(f.recognition) ? 'warn' : ''}`}>{fileReadingLabel(f)}</span>
             </div>
-            <button type="button" aria-label={`Удалить файл ${f.name}`} className="btn btn-soft btn-icon" onClick={() => onRemove(f.name)}>
+            <button type="button" aria-label={`Удалить файл ${f.name}`} className="btn btn-soft btn-icon" disabled={disabled} onClick={() => onRemove(index)}>
               <Icon name="close" size={16} strokeWidth={2} />
             </button>
           </li>
@@ -266,6 +270,7 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         <div className="grid-2">
           <div className="soft-card">
             <span className="eyebrow">Смягчающие обстоятельства</span>
+            {!a.mitigating.length && <span>Сведения не выделены. Проверьте исходные материалы.</span>}
             {a.mitigating.map((m) => (
               <span key={m.name}>
                 <strong>{m.name}</strong> — {m.norm}

@@ -28,7 +28,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (csrfToken && init?.method && !['GET', 'HEAD'].includes(init.method)) {
     headers.set('X-CSRF-Token', csrfToken);
   }
-  const response = await fetch(`/api${path}`, {...init, headers, credentials: 'same-origin'});
+  let response: Response;
+  try { response = await fetch(`/api${path}`, {...init, headers, credentials: 'same-origin'}); }
+  catch (cause) {
+    if (init?.signal?.aborted) throw cause;
+    throw new Error('Нет связи с сервером. Проверьте подключение и повторите попытку.');
+  }
   if (response.status === 401) {
     csrfToken = '';
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('judgeai:unauthorized'));

@@ -432,7 +432,11 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.get_by_label("Имя", exact=True).fill("Тест")
                 page.get_by_label("Фамилия", exact=True).fill("Профиль")
                 page.get_by_role("button", name="Сохранить профиль").click()
-                expect(page.get_by_role("status")).to_contain_text("Профиль сохранён")
+                expect(
+                    page.locator(".settings")
+                    .get_by_role("status")
+                    .filter(has_text="Профиль сохранён")
+                ).to_be_visible()
                 page.reload()
                 expect(page.get_by_label("Имя", exact=True)).to_have_value("Тест")
                 for tab, suffix in [
@@ -564,7 +568,9 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 username = f"new-judge-{label}"
                 page.get_by_label("Имя пользователя", exact=True).fill(username)
                 page.get_by_label("Пароль", exact=True).fill("short")
-                page.get_by_role("button", name="Зарегистрироваться", exact=True).first.click()
+                expect(
+                    page.locator("form").get_by_role("button", name="Зарегистрироваться")
+                ).to_be_disabled()
                 # The browser blocks a password under 12 characters before any request.
                 self.assertEqual(
                     page.locator("#password").evaluate("el => el.validity.tooShort"), True

@@ -14,6 +14,8 @@ try {
     stdin: {
       contents: `
         import { createElement } from 'react';
+import { BusyButton } from './src/components/UiState';
+import { TextDocument } from './src/cabinet/TextDocument';
         import { renderToStaticMarkup } from 'react-dom/server';
         import { ChatTimeline } from './src/cabinet/ChatTimeline';
         import { DocumentPanel } from './src/cabinet/DocumentPanel';
@@ -25,7 +27,7 @@ try {
         import { DeleteChatDialog } from './src/cabinet/DeleteChatDialog';
         import { Sidebar } from './src/cabinet/Sidebar';
         import { Footer } from './src/landing/Sections';
-        export const render = (name, props) => renderToStaticMarkup(createElement({ChatTimeline, DocumentPanel, Composer, NewCaseScreen, ThreadScreen, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar, DeleteChatDialog}[name], props));
+        export const render = (name, props) => renderToStaticMarkup(createElement({BusyButton, TextDocument, ChatTimeline, DocumentPanel, Composer, NewCaseScreen, ThreadScreen, AuthGate, InfoPage, CaseWorkflow, Footer, Sidebar, DeleteChatDialog}[name], props));
       `,
       resolveDir: fileURLToPath(new URL('../..', import.meta.url)), loader: 'tsx',
     },

@@ -2,11 +2,12 @@ import { useRef, type ClipboardEvent, type FormEvent, type Ref } from 'react';
 import type { CaseFile } from '../api/types';
 import { FileTile } from '../components/FileTile';
 import { Icon } from '../components/Icon';
+import {BusyButton} from '../components/UiState';
 import { filesFromClipboard, ACCEPT } from '../lib/files';
 
 interface Props {
   /** idle = nothing attached; attach = files ready, can send; thinking = analysis running. */
-  mode: 'idle' | 'attach' | 'thinking';
+  mode: 'idle' | 'attach' | 'sending' | 'thinking';
   files: CaseFile[];
   value: string;
   onChange: (v: string) => void;
@@ -19,7 +20,7 @@ interface Props {
 
 export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop, inputRef }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const canSend = mode !== 'thinking' && (files.length > 0 || value.trim().length > 0);
+  const canSend = mode !== 'thinking' && mode !== 'sending' && (files.length > 0 || value.trim().length > 0);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -37,7 +38,7 @@ export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop
 
   return (
     <div className="cab-composer-wrap">
-      <form className="composer cab-composer" aria-busy={mode === 'thinking'} onSubmit={submit}>
+      <form className="composer cab-composer" aria-busy={mode === 'thinking' || mode === 'sending'} onSubmit={submit}>
         {mode === 'attach' && (
           <div className="chips">
             {files.slice(0, 3).map((f) => (
@@ -50,10 +51,10 @@ export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop
           </div>
         )}
         <div className="composer-row">
-          <button type="button" className="btn btn-icon composer-attach" aria-label="Прикрепить файлы" disabled={mode === 'thinking'} onClick={() => fileInput.current?.click()}>
+          <button type="button" className="btn btn-icon composer-attach" aria-label="Прикрепить файлы" disabled={mode === 'thinking' || mode === 'sending'} onClick={() => fileInput.current?.click()}>
             <Icon name="clip" size={18} />
           </button>
-          <input ref={fileInput} type="file" multiple accept={ACCEPT} hidden onChange={(e) => onFiles(Array.from(e.target.files ?? []))} />
+          <input ref={fileInput} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { const files = Array.from(e.target.files ?? []); e.target.value = ''; onFiles(files); }} />
           <label className="composer-field">
             <span className="sr-only">Задача по делу</span>
             <input
@@ -61,7 +62,7 @@ export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop
               type="text"
               value={mode === 'thinking' ? '' : value}
               placeholder={mode === 'thinking' ? 'Анализ выполняется…' : 'Опишите задачу или задайте вопрос по делу'}
-              disabled={mode === 'thinking'}
+              disabled={mode === 'thinking' || mode === 'sending'}
               onChange={(e) => onChange(e.target.value)}
               onPaste={paste}
             />
@@ -82,9 +83,9 @@ export function Composer({ mode, files, value, onChange, onFiles, onSend, onStop
               <span className="stop-square" />
             </button>
           ) : (
-            <button key="send" type="submit" className={`btn btn-icon composer-submit ${canSend ? 'ready' : ''}`} aria-label="Отправить" disabled={!canSend}>
-              <Icon name="arrowUp" size={18} strokeWidth={2} color="#ffffff" />
-            </button>
+            <BusyButton pending={mode === 'sending'} pendingLabel="" key="send" type="submit" className={`btn btn-icon composer-submit ${canSend ? 'ready' : ''}`} aria-label={mode === 'sending' ? 'Отправляем запрос' : 'Отправить'} disabled={!canSend}>
+              {mode !== 'sending' && <Icon name="arrowUp" size={18} strokeWidth={2} color="#ffffff" />}
+            </BusyButton>
           )}
         </div>
       </form>

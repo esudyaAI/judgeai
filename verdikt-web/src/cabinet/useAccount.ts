@@ -9,6 +9,7 @@ export function useAccount() {
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState('');
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [retry, setRetry] = useState(0);
@@ -22,28 +23,18 @@ export function useAccount() {
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
   }, [retry]);
-  async function run(action: () => Promise<void>) {
+  async function run(action: () => Promise<void>, key = 'action') {
     if (lock.current) return;
-    lock.current = true; setBusy(true); setError(''); setStatus('');
+    lock.current = true; setBusy(true); setPendingAction(key); setError(''); setStatus('');
     try { await action(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Не удалось выполнить действие'); }
-    finally { lock.current = false; setBusy(false); }
+    finally { lock.current = false; setBusy(false); setPendingAction(''); }
   }
-  return {profile, setProfile, sessions, setSessions, loading, loaded, busy, error, setError, status, setStatus,
+  return {profile, setProfile, sessions, setSessions, loading, loaded, busy, pendingAction, error, setError, status, setStatus,
     run, reload: () => setRetry(n => n + 1)};
 }
 
-export async function readAvatar(file: File): Promise<string> {
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 256 * 1024) {
-    throw new Error('Выберите PNG, JPEG или WebP не более 256 КБ');
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Не удалось прочитать фото'));
-    reader.readAsDataURL(file);
-  });
-}
+export {prepareAvatar as readAvatar} from './avatarImage';
 
 export function downloadAccountData(data: unknown) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}));

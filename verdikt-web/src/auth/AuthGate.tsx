@@ -3,6 +3,8 @@ import { auth, AuthenticationError, type AuthUser } from '../api/client';
 import { LogoMark } from '../components/Logo';
 import './auth.css';
 import { Link } from '../router';
+import {BusyButton} from '../components/UiState';
+import {canAuthenticate} from './formValidity';
 
 export function AuthGate({children}: {children: (user: AuthUser, signOut: () => Promise<void>) => ReactNode}) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -59,7 +61,7 @@ function SignIn({onSignedIn}: {onSignedIn: (user: AuthUser) => void}) {
       <p className="auth-intro">{text.intro}</p>
       <form onSubmit={async event => {
         event.preventDefault();
-        if (pending) return;
+        if (pending || !canAuthenticate(mode, username, password)) return;
         setPending(true); setError('');
         try {
           const user = registering ? await auth.register(username, password) : await auth.login(username, password);
@@ -81,7 +83,7 @@ function SignIn({onSignedIn}: {onSignedIn: (user: AuthUser) => void}) {
           aria-describedby={[registering ? 'password-hint' : '', error ? 'auth-error' : ''].filter(Boolean).join(' ') || undefined} />
         {registering && <p id="password-hint" className="auth-hint">Не меньше 12 символов.</p>}
         {error && <p id="auth-error" className="auth-error" role="alert">{error}</p>}
-        <button type="submit" className="btn btn-ink btn-md" aria-busy={pending} disabled={pending}>{pending ? text.pending : text.submit}</button>
+        <BusyButton type="submit" className="btn btn-ink btn-md" pending={pending} pendingLabel={text.pending} disabled={!canAuthenticate(mode,username,password)}>{text.submit}</BusyButton>
       </form>
       <p className="auth-help">
         {text.switchHint}{' '}

@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import {motion, useReducedMotion} from 'motion/react';
+import {BusyButton} from '../components/UiState';
 import { Icon } from '../components/Icon';
 import type { CaseSummary } from '../api/types';
 
@@ -11,6 +13,7 @@ interface Props {
 }
 
 export function DeleteChatDialog({chat, busy, error, onCancel, onConfirm}: Props) {
+  const reduce = useReducedMotion();
   const dialog = useRef<HTMLDialogElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -24,7 +27,7 @@ export function DeleteChatDialog({chat, busy, error, onCancel, onConfirm}: Props
     };
   }, []);
 
-  return <dialog ref={dialog} className="delete-chat-dialog" aria-labelledby="delete-chat-title"
+  return <motion.dialog initial={reduce ? false : {opacity:0,scale:.96,y:8}} animate={{opacity:1,scale:1,y:0}} ref={dialog} className="delete-chat-dialog" aria-labelledby="delete-chat-title"
     aria-describedby="delete-chat-description" aria-busy={busy || undefined}
     onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}
     onKeyDown={event => {
@@ -50,9 +53,7 @@ export function DeleteChatDialog({chat, busy, error, onCancel, onConfirm}: Props
     </div>
     <div className="delete-chat-actions">
       <button ref={cancelButton} type="button" className="btn btn-soft btn-md" disabled={busy} onClick={onCancel}>Отмена</button>
-      <button type="button" className="btn btn-md delete-chat-confirm" disabled={busy} onClick={onConfirm}>
-        {busy ? 'Удаляем…' : 'Удалить чат'}
-      </button>
+      <BusyButton type="button" className="btn btn-md delete-chat-confirm" pending={busy} pendingLabel="Удаляем…" onClick={onConfirm}>Удалить чат</BusyButton>
     </div>
-  </dialog>;
+  </motion.dialog>;
 }
