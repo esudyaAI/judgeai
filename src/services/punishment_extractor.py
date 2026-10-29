@@ -5,6 +5,7 @@ cannot be read is not guessed: its text window is returned for a separate LLM st
 """
 
 import re
+from collections import deque
 from dataclasses import dataclass, field
 
 from legal_core.entities import (
@@ -41,20 +42,32 @@ _TERM_AFTER = re.compile(r"\s*(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|в\s+
 # "с лишением права заниматься деятельностью …, сроком на 2 года": the term trails the right
 _TERM_AHEAD = re.compile(r"(?:на\s+срок|сроком(?:\s+на)?)\s+", re.IGNORECASE)
 _TERM_AHEAD_REACH = 200
+_FINE_AFTER = re.compile(
+    r"[\s,]*(?:(?:в\s+доход\s+государства|в\s+определ\w*\s+денежн\w*\s+сумм\w*)[\s,]*)?"
+    r"в\s+(?:размере|сумме)\s+",
+    re.IGNORECASE,
+)
+# an amount removed when the verdict was published: "в размере сумма", "<данные изъяты> часов"
+_HIDDEN_AMOUNT = re.compile(r"\s*(?:сумма(?![а-яё])|<[^>]{0,20}>|№(?!\s*\d))", re.IGNORECASE)
+# "наказание - 220 часов обязательных работ", "назначить ДВА года ШЕСТЬ месяцев лишения свободы"
+_TERM_BEFORE_PREFIX = re.compile(
+    r"(?:в\s+виде|(?<![а-яё])к|наказани\w*\s*[-–—:]|назначить)\s+", re.IGNORECASE
+)
 _TERM_STOP = re.compile(r"[,;.]|\s(?:с|со|условно|без|и|в)\s", re.IGNORECASE)
 _EXPLICIT_IMPOSITION = re.compile(r"в\s+виде\s*$", re.IGNORECASE)
-_TERM_BEFORE = re.compile(r"(?:в\s+виде|(?<![а-яё])к)\s+(?P<term>[^,;:]{1,60}?)\s*$", re.IGNORECASE)
 _UNIT = re.compile(r"(?<![а-яё])(?P<unit>год\w*|лет|месяц\w*|час\w*)(?![а-яё])", re.IGNORECASE)
 _PARENS = re.compile(r"\([^)]*\)")
 _DIGITS = re.compile(r"\d[\d\s]*\d|\d")
 _RUBLES = re.compile(
-    r"(?P<num>\d[\d\s]*\d|\d)?\s*(?:\((?P<words>[^)]*)\))?\s*(?P<thousand>тыс\w*\.?)?\s*рубл",
+    r"(?P<num>\d{1,3}(?:[\s.]\d{3})+|\d+)?\s*(?:[(/](?P<words>[^)/]*)[)/])?\s*"
+    r"(?P<thousand>тыс\w*\.?)?\s*руб(?:л|\.|(?![а-яё]))",
     re.IGNORECASE,
 )
 
 # A dot ends a sentence unless it follows an initial ("К.") and the next word is capitalised.
 _SENTENCE_END = re.compile(r"(?<![\s(][А-ЯЁ])\.\s+(?=[А-ЯЁ])|\n\s*\n")
-_FINAL = re.compile(r"окончательн", re.IGNORECASE)
+# the aggregate sentence: "окончательно назначить", or "по совокупности … назначить"
+_FINAL = re.compile(r"окончательн|по\s+совокупности", re.IGNORECASE)
 _AGGREGATION = re.compile(
     r"(?:ч\.\s*(?P<part>\d)\s*)?ст\.\s*(?P<article>69|70)(?!\d)", re.IGNORECASE
 )
@@ -119,7 +132,7 @@ def _parse_rubles(text: str) -> float | None:
     if not match:
         return None
     if match["num"]:
-        value = int(re.sub(r"\s", "", match["num"]))
+        value = int(re.sub(r"[\s.]", "", match["num"]))
     elif match["words"]:
         value = parse_russian_number(match["words"])
     else:
@@ -151,10 +164,26 @@ def _sentence_bounds(text: str, position: int) -> tuple[int, int]:
 def _read_term(kind: PunishmentKind, after: str) -> PunishmentTerm | None:
     if kind is PunishmentKind.FINE:
         rubles = _parse_rubles(after)
-        return PunishmentTerm(kind, rubles, MeasureUnit.RUBLES) if rubles else None
-    stop = _TERM_STOP.search(after)
-    amount, unit = parse_term(after[: stop.start()] if stop else after)
-    return PunishmentTerm(kind, amount, unit) if amount else None
+        if rubles:
+            return PunishmentTerm(kind, rubles, MeasureUnit.RUBLES)
+    else:
+        stop = _TERM_STOP.search(after)
+        amount, unit = parse_term(after[: stop.start()] if stop else after)
+        if amount:
+            return PunishmentTerm(kind, amount, unit)
+    # The kind is known even when publication removed the amount; nothing is left to resolve.
+    return PunishmentTerm(kind) if _HIDDEN_AMOUNT.match(after) else None
+
+
+def _term_before(before: str) -> tuple[float | None, MeasureUnit | None]:
+    """The term written ahead of the kind, after the nearest "в виде", "к", "наказание -"."""
+    prefixes = deque(_TERM_BEFORE_PREFIX.finditer(before), maxlen=1)
+    if not prefixes:
+        return None, None
+    term = before[prefixes[0].end() :].strip()
+    if not term or len(term) > 60 or re.search(r"[,;:]", term):
+        return None, None
+    return parse_term(term)
 
 
 def _trailing_term(kind: PunishmentKind, text: str, start: int) -> PunishmentTerm | None:
@@ -172,6 +201,8 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
         kind = _kind_of(match)
         before = text[max(0, match.start() - 80) : match.start()]
         after_match = _TERM_AFTER.match(text, match.end())
+        if after_match is None and kind is PunishmentKind.FINE:
+            after_match = _FINE_AFTER.match(text, match.end())
         term = None
         end = match.end()
         additional = bool(re.search(r"(?:^|\s)(?:с|со)\s*$", before[-4:], re.IGNORECASE))
@@ -184,11 +215,9 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
             term = _trailing_term(kind, text, match.end())
         # The words before an additional punishment are the main one's term, never its own.
         if term is None and kind is not PunishmentKind.FINE and not additional:
-            before_match = _TERM_BEFORE.search(before)
-            if before_match:
-                amount, unit = parse_term(before_match["term"])
-                if amount:
-                    term = PunishmentTerm(kind, amount, unit)
+            amount, unit = _term_before(before)
+            if amount:
+                term = PunishmentTerm(kind, amount, unit)
         if term is None:
             if _EXPLICIT_IMPOSITION.search(before) or after_match:
                 start = max(0, match.start() - WINDOW_RADIUS)
