@@ -50,6 +50,18 @@ def describe_main_alternatives(sanctions: list[StatutorySanction]) -> str:
     return "; ".join(dict.fromkeys(main))
 
 
+def describe_precedent_punishment(term: PunishmentTerm | None, conditional: bool) -> str:
+    """Punishment of a similar verdict: '1 г. 6 мес. лишения свободы, условно', 'Штраф 5 000 ₽'."""
+    if term is None:
+        return "Наказание не распознано"
+    if term.kind is PunishmentKind.IMPRISONMENT and term.unit is MeasureUnit.MONTHS:
+        text = f"{format_amount(term.amount, term.unit)} лишения свободы"
+    else:
+        name = describe_term(term)
+        text = name[:1].upper() + name[1:]
+    return f"{text}, условно" if conditional else text
+
+
 def describe_term(term: PunishmentTerm) -> str:
     """'лишение свободы 2 г. 6 мес.' for an imposed punishment."""
     name = _KIND_NAMES[term.kind]

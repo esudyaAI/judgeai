@@ -85,3 +85,48 @@ def test_unparseable_term_is_reported_as_ambiguous_window():
 
 def test_empty_operative_gives_empty_sentence():
     assert extract_imposed_sentence("").sentence.is_empty
+
+
+def test_reference_in_words_and_restriction_of_freedom_in_words():
+    operative = (
+        "Признать Иванова И.И. виновным в совершении преступления, предусмотренного частью 1 "
+        "статьи 222 УК РФ, и назначить ему наказание в виде ограничения свободы на срок шесть "
+        "месяцев с установлением ограничений."
+    )
+    (count,) = extract_imposed_sentence(operative).sentence.counts
+    assert count.reference == ArticleReference("222", 1)
+    assert count.main.kind is PunishmentKind.RESTRICTION_OF_FREEDOM
+    assert (count.main.amount, count.main.unit) == (6, MeasureUnit.MONTHS)
+
+
+def test_additional_deprivation_of_right_reads_its_own_trailing_term():
+    operative = (
+        "Иванова И.И. признать виновным в совершении преступления, предусмотренного ч. 1 "
+        "ст. 264.1 УК РФ, и назначить ему наказание в виде обязательных работ сроком на 220 "
+        "(двести двадцать) часов с лишением права заниматься деятельностью, связанной с "
+        "управлением транспортными средствами, сроком на 02 (два) года."
+    )
+    (count,) = extract_imposed_sentence(operative).sentence.counts
+    assert (count.main.kind, count.main.amount, count.main.unit) == (
+        PunishmentKind.COMPULSORY_WORKS,
+        220,
+        MeasureUnit.HOURS,
+    )
+    (extra,) = count.additional
+    assert (extra.kind, extra.amount, extra.unit) == (
+        PunishmentKind.DEPRIVATION_OF_RIGHT,
+        24,
+        MeasureUnit.MONTHS,
+    )
+
+
+def test_term_without_preposition_and_attempt_reference_in_words():
+    operative = (
+        "Иванова И.И. признать виновным в совершении преступления, предусмотренного частью 3 "
+        "статьи 30, пунктом «г» части 4 статьи 228.1 Уголовного кодекса Российской Федерации, "
+        "за которое назначить ему наказание в виде лишения свободы срок 8 (восемь) лет, с "
+        "отбыванием наказания в исправительной колонии строгого режима."
+    )
+    (count,) = extract_imposed_sentence(operative).sentence.counts
+    assert count.reference == ArticleReference("228.1", 4)
+    assert count.main.imprisonment_months == 96
