@@ -61,8 +61,9 @@ class Qualification:
 
 
 _QUALIFICATION = re.compile(
-    r"(?:п\.\s*(?:п\.\s*)?«(?P<points>[а-яё,\s]{1,20})»\s*)?"
-    r"(?:ч\.\s*(?P<part>\d{1,2})\s+)?ст\.\s*(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)",
+    r"(?:(?:п\.\s*(?:п\.\s*)?|пункт\w*\s+)«(?P<points>[а-яё,\s]{1,20})»\s*)?"
+    r"(?:(?:ч\.|част\w*)\s*(?P<part>\d{1,2})\s+)?(?:ст\.|стать\w*)\s*"
+    r"(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)",
     re.IGNORECASE,
 )
 _OTHER_CODE = re.compile(r"\b(?:УПК|КоАП|ГК|ГПК|АПК)\b")
@@ -127,11 +128,16 @@ class PrecedentCard:
         return frozenset(e.qualification.key for e in self.episodes)
 
     @property
+    def punishment(self) -> PunishmentTerm | None:
+        """Final punishment, or the single count's one when there is no aggregate; any kind."""
+        if self.final is not None:
+            return self.final
+        return self.episodes[0].punishment if len(self.episodes) == 1 else None
+
+    @property
     def imprisonment_months(self) -> int | None:
         """Final term of imprisonment, or the single count's term when there is no aggregate."""
-        term = self.final
-        if term is None and len(self.episodes) == 1:
-            term = self.episodes[0].punishment
+        term = self.punishment
         if (
             term is not None
             and term.kind is PunishmentKind.IMPRISONMENT

@@ -14,7 +14,6 @@ from legal_core.entities import (
     CountSentence,
     ImposedPunishment,
     ImposedSentence,
-    MeasureUnit,
     SanctionCeiling,
 )
 from legal_core.rules.imposed_term import check_imposed_imprisonment, check_imposed_punishment
@@ -40,8 +39,8 @@ from src.services.legal_checks import build_legal_checks
 from src.services.llm_client import LLMClient, LLMError
 from src.services.sanction_summary import (
     describe_main_alternatives,
+    describe_precedent_punishment,
     describe_term,
-    format_amount,
 )
 from src.services.sentence_checks import build_sentence_checks
 from src.services.sentencing import art62_part1_limit
@@ -106,13 +105,6 @@ def _similar_refs(similar_items: list[dict]) -> list[SimilarVerdictRef]:
     return refs
 
 
-def _precedent_punishment(months: int | None, conditional: bool) -> str:
-    if months is None:
-        return "Наказание не распознано"
-    term = f"{format_amount(months, MeasureUnit.MONTHS)} лишения свободы"
-    return f"{term}, условно" if conditional else term
-
-
 def precedent_prompt_items(report: PracticeReport) -> list[dict]:
     """The comparable precedents in the shape the LLM prompt lists them."""
     return [
@@ -126,8 +118,8 @@ def precedent_prompt_items(report: PracticeReport) -> list[dict]:
             "excerpt": "; ".join(
                 [
                     ", ".join(str(e.qualification) for e in item.stored.card.episodes),
-                    _precedent_punishment(
-                        item.stored.card.imprisonment_months, item.stored.card.conditional
+                    describe_precedent_punishment(
+                        item.stored.card.punishment, item.stored.card.conditional
                     ),
                 ]
             ),
@@ -192,8 +184,8 @@ def _precedent_refs(report: PracticeReport) -> list[SimilarVerdictRef]:
     return [
         SimilarVerdictRef(
             verdict_id=item.stored.knowledge_verdict_id,
-            punishment=_precedent_punishment(
-                item.stored.card.imprisonment_months, item.stored.card.conditional
+            punishment=describe_precedent_punishment(
+                item.stored.card.punishment, item.stored.card.conditional
             ),
             court=" · ".join(
                 x
