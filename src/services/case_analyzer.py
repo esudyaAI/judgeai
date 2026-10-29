@@ -21,6 +21,7 @@ from legal_core.rules.sanction_ceiling import sanction_ceiling_for_part
 from pydantic import ValidationError
 
 from src.application.practice_report import PracticeReport
+from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import (
     AnalysisStats,
     CaseAnalysis,
@@ -68,6 +69,8 @@ SYSTEM_PROMPT = """Ты — ассистент судьи по уголовны�
 - legal_facts.imposed_imprisonment_months — срок лишения свободы, назначенный в резолютивной
   части проекта приговора (целые месяцы; при условном осуждении тоже), quote — точный фрагмент
   с этим сроком. legal_facts.art64_applied — true только при явной ссылке на ст. 64 УК РФ.
+- В пользовательских текстах не используй служебные имена полей:
+  final_sentence называй «окончательное наказание».
 - Если сведений нет — null или пустой список, ничего не выдумывай."""
 
 
@@ -166,6 +169,10 @@ def _precedent_reads(report: PracticeReport) -> list[PrecedentMatchRead]:
 def _practice_read(report: PracticeReport) -> PracticeComparisonRead:
     c = report.comparison
     return PracticeComparisonRead(
+        qualification=str(report.query.main_qualification)
+        if report.query.main_qualification
+        else None,
+        recidivism=report.query.recidivism.value if report.query.recidivism else None,
         total=c.total,
         with_term=c.with_term,
         enough_data=c.enough_data,
@@ -292,7 +299,7 @@ def assemble_analysis(
             within_sanction=(rec <= cap) if rec is not None else None,
         )
         comparison = practice.comparison if practice is not None else None
-        if comparison is not None and comparison.enough_data:
+        if comparison is not None and comparison.enough_data and len(practice.query.episodes) <= 1:
             # Half up, not Python's half-to-even: 13.5 and 28.5 must both move outward alike.
             scale.practice_months = (
                 math.floor(comparison.p25_months + 0.5),
@@ -308,12 +315,16 @@ def assemble_analysis(
         if rec is not None and rec > cap:
             warnings.append("Рекомендованный срок выходит за допустимый предел — проверьте.")
 
+    extracted = extract_circumstances("\n\n".join(document_texts or []))
     return CaseAnalysis(
         legal_checks=statute_checks
         + build_legal_checks(
             facts.legal_facts,
             source_text,
             statutory_ceiling=ceiling,
+            extracted_recidivism=extracted.recidivism,
+            recidivism_quote=extracted.recidivism_quote,
+            extracted_source_text="\n\n".join(document_texts or []),
         ),
         imposed_sentence=_sentence_read(sentence),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
@@ -325,13 +336,24 @@ def assemble_analysis(
         aggravating="; ".join(f"{c.name} — {c.norm}" for c in facts.aggravating)
         or "Не установлены (ст. 63 УК РФ).",
         personality=facts.personality,
-        variants=facts.variants,
+        variants=[
+            v.model_copy(
+                update={
+                    key: getattr(v, key).replace("final_sentence", "окончательное наказание")
+                    for key in ("label", "title", "details", "rationale")
+                }
+            )
+            for v in facts.variants
+        ],
         similar=_precedent_refs(practice)
         if practice and practice.shown
         else _similar_refs(similar_items),
         precedent_source=precedent_source,
         precedents=_precedent_reads(practice) if practice else [],
-        practice=_practice_read(practice) if practice else None,
+        practice=_practice_read(practice)
+        if practice and len(practice.query.episodes) <= 1
+        else None,
+        practice_episodes=[_practice_read(r) for r in practice.episodes] if practice else [],
         warnings=warnings,
     )
 

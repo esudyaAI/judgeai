@@ -74,6 +74,8 @@ export interface PrecedentMatch {
 
 /** Terms of the comparable precedents and the draft's place among them (T28). */
 export interface PracticeComparison {
+  qualification?: string | null;
+  recidivism?: string | null;
   total: number;
   with_term: number;
   enough_data: boolean;
@@ -122,6 +124,7 @@ export interface CaseAnalysis {
   precedentSource?: PrecedentSource;
   precedents?: PrecedentMatch[];
   practice?: PracticeComparison | null;
+  practiceEpisodes?: PracticeComparison[];
 }
 
 export interface AnalysisStep {
