@@ -71,7 +71,7 @@
 
 ### Данные и эксплуатация
 
-- [ ] T41 — Правовая библиотека на проде загружена вручную 29.10 (8 актов, 4102 санкции по 406 статьям, файлы в /opt/judgeai/legal-corpus). Описать команду в DEPLOY.md или сделать отдельный ops-workflow; редакции в статусе unreviewed — сверка юристом.
+- [x] T41 (29.10: сделано — раздел DEPLOY.md D.5 «Загрузка правовой библиотеки»: prepare/import манифестов по актам, criminal_sanctions import, SQL-проверки 8/8/~1324 и 4102/406, пометка unreviewed→T23; команды сверены с фактическими CLI-аргументами src/cli/legal_library.py) — Правовая библиотека на проде загружена вручную 29.10 (8 актов, 4102 санкции по 406 статьям, файлы в /opt/judgeai/legal-corpus). Описать команду в DEPLOY.md или сделать отдельный ops-workflow; редакции в статусе unreviewed — сверка юристом.
 - [ ] T42 — Карточки прецедентов: после refresh-cards наказание распознано у 1172 из 1211 (97%). Остаток: обезличенные сроки («№ месяцев», «<данные изъяты>»), искажённые номера статей («ст. 3141»), оправдания, пустые тексты.
 - [ ] T43 — Сохранённые анализы не пересчитываются после исправлений: показывать «выполнен прежней версией» и кнопку «Пересчитать».
 - [ ] T44 — Удалить устаревшие ветки, код которых уже в main (auto/T1-data-sources-3, auto/T10-pg-suite, auto/T3-criminal-record, chore/ai-review-smoke, feat/T17-docx-upload-guard, feat/user-auth, fix/rebuild-stale-cards); служебные ops/* оставить.
@@ -866,7 +866,7 @@
 **Фикс (`src/api/chats.py`):** `_derive_chat_status` — обход assistant-сообщений от последнего: pending/running → busy; failed → failed; completed **с данными дела** (defendants≠[] или stats.documents>0, вычисляется в SQL без передачи JSONB) → ready; completed без данных дела пропускается и точку не перекрашивает. Чисто текстовые чаты (без падений) остаются ready; чат без assistant-сообщений — draft. Живой репро до фикса: `cab-dot ready` («Анализ готов»), после: `cab-dot failed` («Ошибка анализа»).
 
 - [x] Тесты: `tests/test_chat_status.py` — 5 (пустой follow-up не прячет failed; пересчёт с документами → ready; текстовый чат ready; готовое дело переживает текстовый follow-up; без assistant-сообщений — draft); полный suite 560 passed + 79 subtests, cov 87,97%; ruff чисто.
-- [~] Публикация: ветка fix/T47-chat-status-dot, PR и CI; итог ниже.
+- [x] Публикация завершена 29.10: [PR #40](https://github.com/esudyaAI/judgeai/pull/40), head 2b6c96b; обязательные checks 4/4 success; merge c1c5da9 (без squash, ветка сохранена). Main-деплой success; https://esudya.ru/health → {"status":"ok","database":"ok"}.
 
 - [x] Синхронизация с origin/main9655522: конфликт только в TASKS.md, сохранены обе независимые записи; доменные art63/art86 из PR35 приняты без редактирования и не подключаются к анализу этим PR. После синхронизации287 core tests +21subtests прошли, coverage97,46%; автономные68, inventory и Ruff — success. Полный543 API snapshot выше остаётся до синхронизации: пришли только изолированные art63/art86 без src-изменений.
 

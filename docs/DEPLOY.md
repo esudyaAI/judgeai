@@ -557,6 +557,58 @@ docker compose --env-file deploy.env -f docker-compose.prod.yml exec db \
 - Обновление корпуса: на рабочей машине `python -m src.cli.sudact crawl --out data/sudact` добирает только новые страницы sitemap (state резюмируется), затем повторить шаги 1–2; существующие записи не перезатираются.
 - Краулинг с сервера не выполнялся и не планировался: источник (sudact.ru) уважается robots/лимитами, объём и юридические оговорки — в [data-sources.md](data-sources.md).
 
+### D.5. Загрузка правовой библиотеки (УК/УПК/Конституция/постановления ВС)
+
+> Как и корпус практики, правовая библиотека **не** переносится CI: исходные файлы актов лежат на сервере в `/opt/judgeai/legal-corpus` (загружены вручную 29.10.2026, 8 актов), в git их нет. Без библиотеки анализ не сверяет назначенное наказание с санкциями статей (блок «Сверяем с законом» отвечает «санкция не найдена»). Импорт идемпотентен: повторный запуск не создаёт новых снимков.
+
+**Шаг 1 (однократно, на сервере): подготовить манифесты** — для каждого акта из официального источника (pravo.gov.ru MHTML-выгрузка `--format pravo-export`, kremlin.ru `--format kremlin` или PDF):
+
+```bash
+cd /opt/judgeai
+docker compose --env-file deploy.env -f docker-compose.prod.yml exec api \
+  python -m src.cli.legal_library prepare \
+    --source /data/legal-corpus/uk-rf.mhtml --manifest /tmp/uk-rf.json \
+    --format pravo-export --source-url "http://pravo.gov.ru/proxy/ips/?nd=102041891" \
+    --retrieved-at 2026-10-27T00:00:00 --key uk-rf --title "Уголовный кодекс РФ" \
+    --kind code --number 63-ФЗ --adopted-on 1996-05-13 --edition-label "ред. 04.08.2026"
+```
+
+Остальные акты (УПК, Конституция, постановления Пленума ВС № 58/14/…) — тем же шаблоном со своими `--key/--title/--kind/--edition-label`. Акты, у которых нет номера/даты, импортируются без `--number/--adopted-on`.
+
+**Шаг 2: импорт** (исходник + манифест, sha256 и происхождение сохраняются):
+
+```bash
+docker compose --env-file deploy.env -f docker-compose.prod.yml exec api \
+  python -m src.cli.legal_library import --source /data/legal-corpus/uk-rf.mhtml --manifest /tmp/uk-rf.json
+# ожидание: "Edition N: imported; ..." (при повторе — "already present")
+```
+
+**Шаг 3: санкции статей из импортированной редакции УК** (парсер берёт последний снимок `uk-rf`):
+
+```bash
+docker compose --env-file deploy.env -f docker-compose.prod.yml exec api \
+  python -m src.cli.criminal_sanctions import --act uk-rf
+# ожидание: {"edition_id": N, ...} — 4102 альтернативы по 406 статьям
+```
+
+**Шаг 4 — проверка:**
+
+```bash
+docker compose --env-file deploy.env -f docker-compose.prod.yml exec db \
+  psql -U judgeai -d judgeai -t -c \
+  "SELECT count(*) FROM legal_acts; SELECT count(*) FROM legal_editions; SELECT count(*) FROM legal_provisions;"
+# ожидание: 8 / 8 / ~1324
+
+docker compose --env-file deploy.env -f docker-compose.prod.yml exec db \
+  psql -U judgeai -d judgeai -t -c \
+  "SELECT count(*), count(DISTINCT article) FROM criminal_article_sanctions;"
+# ожидание: 4102 / 406
+
+curl -s https://esudya.ru/api/legal/sanctions?article=158 | head -c 300
+```
+
+Все записи приходят со статусом **unreviewed**: юридическая сверка редакций/периодов действия — задача T23, техническая загрузка её не заменяет. API библиотеки read-only (см. TASKS.md T22/T23).
+
 ### D.3. Если что-то не работает
 
 Порядок диагностики:
