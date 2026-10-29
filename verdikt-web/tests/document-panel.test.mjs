@@ -35,7 +35,7 @@ test('panel provides Word progress, failure retry and original download', () => 
 test('document controls and status messages use Russian', () => {
   const html = render('DocumentPanel', {name:'Документ.docx',status:'converting',downloadUrl:'/private/original',onClose:()=>{},onRetry:()=>{}});
   assert.match(html,/Закрыть документ/);
-  assert.match(html,/Скачать оригинал/);
+  assert.match(html,/document-download[^>]*>.*Скачать</);
   assert.match(html,/Подготавливаем документ/);
   assert.doesNotMatch(html,/Next|Previous|Download|Preparing|Retry|Preview/);
 });
@@ -50,4 +50,19 @@ test('similar verdicts with a practice id open as buttons; others stay plain row
   assert.equal((html.match(/similar-open/g) ?? []).length, 1);
   const withoutHandler = render('ChatTimeline', {messages, onOpen() {}});
   assert.doesNotMatch(withoutHandler, /similar-open/);
+});
+
+test('similar verdicts explain themselves and expand with «Показать все»', () => {
+  const similar = Array.from({length:7}, (_, i) => ({verdict_id:i+1, punishment:`Наказание ${i}`, court:`Суд ${i}`, match:'158', score:90-i}));
+  const result = {variants:[], mitigating:[], stats:{documents:1,pages:1,seconds:1}, fabula:'Кража', similar};
+  const messages = [{id:1, role:'assistant', status:'completed', stage:null, content:'', error:null, result, attachments:[], created_at:'2026-10-28T10:00:00Z'}];
+  const html = render('ChatTimeline', {messages, onOpen() {}, onOpenVerdict() {}});
+  assert.match(html, /class="similar-hint"/);
+  assert.match(html, /aria-expanded="false"[^>]*>Показать все \(7\)</);
+  assert.equal((html.match(/similar-open/g) ?? []).length, 5);
+});
+
+test('downloads are clear buttons with an icon', () => {
+  const html = render('DocumentPanel', {name:'a.pdf', status:'failed', downloadUrl:'/x', onClose() {}, onRetry() {}});
+  assert.match(html, /class="btn btn-ink btn-sm document-download"[^>]*><svg/);
 });
