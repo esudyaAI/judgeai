@@ -105,3 +105,16 @@ async def test_reembed_keeps_finished_batches_when_a_later_one_fails(monkeypatch
             await db.rollback()
     assert (await _chunk(first)).embedding_model == "new-model"
     assert (await _chunk(second)).embedding_model != "new-model"
+
+
+async def test_disabled_embeddings_return_none_without_loading_the_model(monkeypatch):
+    """EMBEDDING_ENABLED=false: query returns None at once, search falls back to keywords."""
+    from src.services import embeddings
+
+    def _no_load(*args, **kwargs):
+        raise AssertionError("the embedding model must not load when embeddings are disabled")
+
+    monkeypatch.setattr(embeddings.settings, "EMBEDDING_ENABLED", False)
+    monkeypatch.setattr(embeddings, "get_embedding_model", _no_load)
+    assert await embeddings.embed_query(TEXT) is None
+    assert await embeddings.embed_passages([TEXT]) == []
