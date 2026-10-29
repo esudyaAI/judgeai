@@ -7,6 +7,7 @@ cannot be read is not guessed: its text window is returned for a separate LLM st
 import re
 from collections import deque
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 
 from legal_core.entities import (
     ArticleReference,
@@ -56,9 +57,12 @@ _TERM_BEFORE_PREFIX = re.compile(
 )
 _TERM_STOP = re.compile(r"[,;.]|\s(?:с|со|условно|без|и|в)\s", re.IGNORECASE)
 _EXPLICIT_IMPOSITION = re.compile(r"в\s+виде\s*$", re.IGNORECASE)
-_UNIT = re.compile(r"(?<![а-яё])(?P<unit>год\w*|лет|месяц\w*|час\w*)(?![а-яё])", re.IGNORECASE)
+_UNIT = re.compile(
+    r"(?<![а-яё])(?P<unit>год\w*|лет|месяц\w*|час(?:а|ов|у|ам|ами|ах)?|день|дня|дней)(?![а-яё])",
+    re.IGNORECASE,
+)
 _PARENS = re.compile(r"\([^)]*\)")
-_DIGITS = re.compile(r"\d[\d\s]*\d|\d")
+_DIGITS = re.compile(r"\d+(?:[.,]\d+)?(?:\s+\d{3})*")
 _RUBLES = re.compile(
     r"(?P<num>\d{1,3}(?:[\s.]\d{3})+|\d+)?\s*(?:[(/](?P<words>[^)/]*)[)/])?\s*"
     r"(?P<thousand>тыс\w*\.?)?\s*руб(?:л|\.|(?![а-яё]))",
@@ -117,12 +121,19 @@ def parse_term(text: str) -> tuple[float | None, MeasureUnit | None]:
         if number is None:
             return None, None
         word = match["unit"].lower()
-        if word.startswith("час"):
+        if word in ("день", "дня", "дней"):
+            pair_unit, factor = MeasureUnit.DAYS, 1
+        elif word.startswith("час"):
             pair_unit, factor = MeasureUnit.HOURS, 1
         else:
             pair_unit, factor = MeasureUnit.MONTHS, (1 if word.startswith("месяц") else 12)
         if unit is not None and pair_unit is not unit:
-            return None, None
+            if {unit, pair_unit} == {MeasureUnit.DAYS, MeasureUnit.MONTHS}:
+                total = total * 30 if unit is MeasureUnit.MONTHS else total
+                number = number * factor * 30 if pair_unit is MeasureUnit.MONTHS else number
+                pair_unit, factor = MeasureUnit.DAYS, 1
+            else:
+                return None, None
         unit, total = pair_unit, total + number * factor
         previous_end = match.end()
     if unit is None or total <= 0:
@@ -134,7 +145,7 @@ def _number_before(segment: str) -> float | None:
     plain = _PARENS.sub(" ", segment)
     digits = _DIGITS.findall(plain)
     if digits:
-        return int(re.sub(r"\s", "", digits[-1]))
+        return float(re.sub(r"\s", "", digits[-1]).replace(",", "."))
     words = re.findall(r"[а-яё]+", plain.lower())
     for size in range(min(4, len(words)), 0, -1):
         value = parse_russian_number(" ".join(words[-size:]))
@@ -266,27 +277,112 @@ def _reference_before(
     )
 
 
-def extract_imposed_sentence(operative: str) -> SentenceExtraction:
+def _rule(quote: str) -> str | None:
+    match = _AGGREGATION.search(quote)
+    if match:
+        return (f"ч. {match['part']} " if match["part"] else "") + f"ст. {match['article']} УК РФ"
+    return None
+
+
+def _stated_term(statement: str) -> PunishmentTerm | None:
+    kind_match = _KIND_REGEX.search(statement)
+    if kind_match is None:
+        return None
+    kind = _kind_of(kind_match)
+    after = statement[kind_match.end() :]
+    marker = _TERM_AFTER.match(after)
+    term = _read_term(kind, after[marker.end() :] if marker else after)
+    if term is None and kind is not PunishmentKind.FINE:
+        amount, unit = parse_term(statement[max(0, kind_match.start() - 100) : kind_match.start()])
+        if amount:
+            term = PunishmentTerm(kind, amount, unit)
+    return term
+
+
+def _date(value: str):
+    try:
+        return datetime.strptime(value, "%d.%m.%Y").date()
+    except ValueError:
+        return None
+
+
+def read_chronology(text: str):
+    matches = list(
+        re.finditer(
+            r"(?:прежн\w*\s+приговор\w*|перв\w*\s+приговор\w*|приговор\w*\s+по\s+первому\s+делу)\s+от\s+(\d{2}\.\d{2}\.\d{4})",
+            text,
+            re.I,
+        )
+    )
+    dates = {_date(m[1]) for m in matches}
+    prior = next(iter(dates)) if len(dates) == 1 else None
+    prior_quote = matches[0][0] if prior else ""
+    credits = []
+    for statement in re.split(r"\n\s*\n|(?<=[.;])\s+(?=[А-ЯЁ])", text):
+        if re.search(r"зачесть[^.;]{0,80}отбыт|отбыто[^.;]{0,80}зачесть", statement, re.I):
+            term = _stated_term(statement)
+            if term:
+                credits.append((term, statement.strip()))
+    return (
+        prior,
+        prior_quote,
+        credits[0][0] if len(credits) == 1 else None,
+        credits[0][1] if len(credits) == 1 else "",
+    )
+
+
+def read_prior_terms(text: str):
+    balances, joins = [], []
+    for statement in re.split(r"\n\s*\n|(?<=[.;])\s+(?=[А-ЯЁ])", text):
+        if not re.search(r"неотбыт|присоедин", statement, re.I):
+            continue
+        term = _stated_term(statement)
+        if term is None:
+            continue
+        if re.search(r"присоедин", statement, re.I):
+            # Joined part is not the entire unserved balance.
+            joins.append((term, statement.strip()))
+        elif re.search(r"неотбыт", statement, re.I):
+            balances.append((term, statement.strip()))
+    balance_terms = {term for term, _ in balances}
+    join_terms = {term for term, _ in joins}
+    balance = balances[0] if len(balance_terms) == 1 else (None, "")
+    joined = joins[0] if len(join_terms) == 1 else (None, "")
+    return *balance, *joined
+
+
+def extract_imposed_sentence(operative: str, description: str = "") -> SentenceExtraction:
     impositions, windows = _impositions(operative)
     citations = qualification_citations(operative)
     counts: list[CountSentence] = []
     final_term, final_quote, extra_final, final_rank = None, "", [], 0
     floor = 0
+    intermediate, intermediate_rule, intermediate_quote = None, None, ""
     for item in impositions:
         if item.final:
             if item.additional and final_term is not None:
                 if item.final == final_rank:
                     extra_final.append(item.term)
-            elif final_term is None or item.final > final_rank:
-                final_term, final_rank, extra_final = item.term, item.final, []
+            else:
                 start, end = _sentence_bounds(operative, item.start)
-                final_quote = operative[start:end].strip()
+                quote = operative[start:end].strip()
+                rule = _rule(quote)
+                if final_term is None or item.final >= final_rank or (rule and "70" in rule):
+                    if final_term is not None and _rule(final_quote) and "69" in _rule(final_quote):
+                        intermediate, intermediate_rule, intermediate_quote = (
+                            final_term,
+                            _rule(final_quote),
+                            final_quote,
+                        )
+                    final_term, final_rank, extra_final = item.term, item.final, []
+                    final_quote = quote
             continue
         if item.additional and counts:
             counts[-1] = replace(counts[-1], additional=counts[-1].additional + (item.term,))
             continue
         found = _reference_before(citations, item.start, floor)
         reference, qualification, quote_start, unfinished = None, "", item.start, None
+        conflict = False
         if found is not None:
             first = found.qualifications[0]
             reference = ArticleReference(first.article, first.part)
@@ -300,6 +396,18 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
             if stage is not None:
                 unfinished = Unfinished.ATTEMPT if stage["part"] == "3" else Unfinished.PREPARATION
                 qualification = f"ч. {stage['part']} ст. 30, {qualification}"
+        sentence_start, _ = _sentence_bounds(operative, item.start)
+        context = operative[max(floor, sentence_start) : item.start]
+        words = set()
+        if re.search(r"(?<!неоконченное )покушени\w*\s+на", context, re.I):
+            words.add(Unfinished.ATTEMPT)
+        if re.search(r"приготовлени\w*\s+к", context, re.I):
+            words.add(Unfinished.PREPARATION)
+        if words:
+            conflict = len(words) > 1 or (unfinished is not None and unfinished not in words)
+            if not conflict:
+                unfinished = next(iter(words))
+            quote_start = max(floor, sentence_start)
         counts.append(
             CountSentence(
                 qualification,
@@ -308,11 +416,60 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
                 (),
                 operative[quote_start : item.end].strip(),
                 unfinished,
+                conflict,
             )
         )
         # The next count's reference may start right after this term; the quote end (item.end)
         # can overshoot into it, so the search floor is the end of the punishment name.
         floor = item.kind_end
+    if description:
+        for index, count in enumerate(counts):
+            if count.reference is None:
+                continue
+            stages = set()
+            offence_dates = []
+            for statement in re.split(r"\n\s*\n|(?<=[.;])\s+(?=[А-ЯЁ])", description):
+                references = {
+                    ArticleReference(q.article, q.part)
+                    for citation in qualification_citations(statement)
+                    for q in citation.qualifications
+                }
+                if (
+                    references == {count.reference}
+                    and sum(c.reference == count.reference for c in counts) == 1
+                ):
+                    dated = re.search(
+                        r"соверш(?:ил\w*|ен\w*|ён\w*)[^.;]{0,50}?(\d{2}\.\d{2}\.\d{4})",
+                        statement,
+                        re.I,
+                    )
+                    if dated:
+                        offence_dates.append((_date(dated[1]), statement))
+                if references != {count.reference} or re.search(r"\bне\b", statement, re.I):
+                    continue
+                if re.search(r"покушени\w*\s+на", statement, re.I):
+                    stages.add(Unfinished.ATTEMPT)
+                if re.search(r"приготовлени\w*\s+к", statement, re.I):
+                    stages.add(Unfinished.PREPARATION)
+            if offence_dates:
+                unique_dates = {d for d, _ in offence_dates}
+                dated = offence_dates[0] if len(unique_dates) == 1 else (None, "")
+                counts[index] = replace(
+                    counts[index], offence_date=dated[0], offence_date_quote=dated[1]
+                )
+            if stages:
+                ambiguous = sum(c.reference == count.reference for c in counts) > 1
+                conflict = (
+                    count.stage_conflict
+                    or ambiguous
+                    or len(stages) > 1
+                    or (count.unfinished is not None and count.unfinished not in stages)
+                )
+                counts[index] = replace(
+                    counts[index],
+                    stage_conflict=conflict,
+                    unfinished=count.unfinished if conflict else next(iter(stages)),
+                )
     aggregation = None
     if final_quote:
         rule = _AGGREGATION.search(final_quote)
@@ -326,6 +483,8 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
         stop = _TERM_STOP.search(tail)
         amount, unit = parse_term(tail[: stop.start()] if stop else tail)
         probation = int(amount) if unit is MeasureUnit.MONTHS else None
+    unserved, unserved_quote, joined, joined_quote = read_prior_terms(operative)
+    prior, prior_quote, credited, credited_quote = read_chronology(description + "\n" + operative)
     sentence = ImposedSentence(
         counts=tuple(counts),
         final=final_term,
@@ -333,5 +492,17 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
         conditional=bool(_CONDITIONAL.search(operative)),
         probation_months=probation,
         final_quote=final_quote,
+        intermediate=intermediate,
+        intermediate_rule=intermediate_rule,
+        intermediate_quote=intermediate_quote,
+        unserved=unserved,
+        unserved_quote=unserved_quote,
+        joined=joined,
+        joined_quote=joined_quote,
+        final_additional=tuple(extra_final),
+        prior_judgment_date=prior,
+        prior_judgment_quote=prior_quote,
+        credited=credited,
+        credited_quote=credited_quote,
     )
     return SentenceExtraction(sentence, tuple(windows))
