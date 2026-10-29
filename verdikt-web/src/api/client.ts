@@ -5,9 +5,10 @@ type WireScale = {
   practice_months: [number, number] | null; avg_similar_months: number | null;
   recommended_months: number | null; within_sanction: boolean | null; extra_notes: string[];
 };
-export type WireAnalysis = Omit<CaseAnalysis, 'scale' | 'legalChecks' | 'precedentSource'> & {
+export type WireAnalysis = Omit<CaseAnalysis, 'scale' | 'legalChecks' | 'precedentSource' | 'practiceEpisodes'> & {
   schema_version: number; scale: WireScale | null; legal_checks?: LegalCheck[];
   precedent_source?: PrecedentSource;
+  practice_episodes?: import('./types').PracticeComparison[];
 };
 export interface Message {
   id: number; role: string; content: string | null; created_at?: string;
@@ -52,6 +53,7 @@ export function mapAnalysis(a: WireAnalysis): CaseAnalysis {
     warnings: a.warnings ?? [], legalChecks: a.legal_checks ?? [],
     precedentSource: a.precedent_source ?? null, precedents: a.precedents ?? [],
     practice: a.practice ?? null,
+    practiceEpisodes: a.practice_episodes ?? [],
     scale: s ? {sanctionMaxMonths: s.sanction_max_months, limitMonths: s.limit_months,
       limitNorm: s.limit_norm, practiceMonths: s.practice_months,
       avgSimilarMonths: s.avg_similar_months, recommendedMonths: s.recommended_months,

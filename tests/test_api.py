@@ -207,3 +207,31 @@ async def test_operative_part_of_uploaded_draft_is_read_per_count(client):
     # No sanctions are imported in the test database: every count is explicitly unchecked.
     assert "Назначенное наказание · п. «г» ч. 3 ст. 158 УК РФ" in norms
     assert "Окончательное наказание (ч. 3 ст. 69 УК РФ)" in norms
+
+
+async def test_analysis_stages_follow_the_order_of_the_work(client, monkeypatch):
+    import src.services.analysis_runner as runner
+
+    seen = []
+    original = runner._set_stage
+
+    async def record(message_id, *, status="running", stage=None):
+        seen.append(stage)
+        await original(message_id, status=status, stage=stage)
+
+    monkeypatch.setattr(runner, "_set_stage", record)
+    chat_id = await _new_chat(client)
+    r = await client.post(
+        f"/api/chats/{chat_id}/messages",
+        data={"content": "Подготовь проект приговора"},
+        files=[_txt()],
+    )
+    msg_id = r.json()["assistant_message"]["id"]
+    msg = (await client.get(f"/api/chats/{chat_id}/messages/{msg_id}")).json()
+    assert msg["status"] == "completed", msg["error"]
+    assert [stage for stage in seen if stage] == [
+        "extracting",
+        "checking",
+        "searching",
+        "recommending",
+    ]

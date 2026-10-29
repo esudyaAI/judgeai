@@ -1,32 +1,71 @@
-import { useRef, useState, type DragEvent } from 'react';
+import { memo, useEffect, useRef, useState, type DragEvent } from 'react';
 import type { CaseAnalysis, CaseFile, PracticeComparison, SimilarVerdict } from '../api/types';
 import { FileChip, FileTile } from '../components/FileTile';
 import { Icon, IconTile, type IconName } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { SentenceScale } from '../components/SentenceScale';
 import { plural } from '../lib/format';
+import { ACCEPT, filesFromClipboard } from '../lib/files';
 import { fileReadingLabel, fileReadingWarning } from './fileReadingPresentation';
-import { ACCEPT } from './Composer';
 import {Pressable} from '../components/UiState';
 import { formatElapsed, useElapsedSeconds } from './useElapsedSeconds';
 import { legalCheckSourceUrl, legalCheckStatusLabel } from './legalCheckPresentation';
 import { practiceSummary, precedentSourceNote, shareLabel } from './practicePresentation';
 
-const SUGGESTIONS: [string, string, string, IconName][] = [
-  ['Подготовить проект приговора', 'Квалификация, наказание и текст', '#0066ff', 'doc'],
-  ['Проверить квалификацию', 'Статья, часть и спорные признаки', '#141414', 'scales'],
-  ['Найти схожие приговоры', 'Практика по той же статье', '#e5480f', 'cmp'],
-  ['Оценить позицию защиты', 'Смягчающие обстоятельства и риски', '#0f8a52', 'shield'],
+/** Clicking a card fills the composer with the prompt (it does not pick a "mode"). */
+const SUGGESTIONS: { title: string; sub: string; bg: string; icon: IconName; prompt: string }[] = [
+  {
+    title: 'Подготовить проект приговора',
+    sub: 'Квалификация, наказание и текст',
+    bg: '#0066ff',
+    icon: 'doc',
+    prompt: 'Подготовь проект приговора по представленным материалам дела: определи квалификацию, предложи наказание и составь текст приговора.',
+  },
+  {
+    title: 'Проверить квалификацию',
+    sub: 'Статья, часть и спорные признаки',
+    bg: '#141414',
+    icon: 'scales',
+    prompt: 'Проверь квалификацию по материалам дела: статья, часть и спорные признаки состава.',
+  },
+  {
+    title: 'Найти схожие приговоры',
+    sub: 'Практика по той же статье',
+    bg: '#e5480f',
+    icon: 'cmp',
+    prompt: 'Найди схожие приговоры по той же статье и сравни наказание с судебной практикой.',
+  },
+  {
+    title: 'Оценить позицию защиты',
+    sub: 'Смягчающие обстоятельства и риски',
+    bg: '#0f8a52',
+    icon: 'shield',
+    prompt: 'Оцени позицию защиты по материалам дела: смягчающие обстоятельства и риски.',
+  },
 ];
 
-export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (list: FileList | null) => void; onSuggestion?: (value: string) => void }) {
+export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (files: File[]) => void; onSuggestion?: (prompt: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setDrag(false);
-    onFiles(e.dataTransfer.files);
+    onFiles(Array.from(e.dataTransfer.files));
   };
+  // Pasting a file copied in the OS file manager works anywhere on this screen,
+  // not only after focusing the composer (ChatGPT-style global paste).
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      const pasted = filesFromClipboard(e.clipboardData);
+      if (!pasted.length) return;
+      e.preventDefault();
+      onFiles(pasted);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [onFiles]);
   return (
     <div className="fade-in screen-new">
       <LogoMark size={56} color="#141414" />
@@ -51,14 +90,14 @@ export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (list: FileL
         <span style={{ fontWeight: 600 }}>Перетащите материалы дела или выберите файлы</span>
         <span className="muted-14">PDF, DOCX, DOTX, TXT, MD · до 50 МБ на файл</span>
       </button>
-      <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
+      <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { const files = Array.from(e.target.files ?? []); e.target.value = ''; onFiles(files); }} />
       <div className="sug-grid">
-        {SUGGESTIONS.map(([title, text, bg, icon]) => (
-          <Pressable key={title} type="button" className="sug" onClick={() => onSuggestion ? onSuggestion(title) : onFiles(null)}>
-            <IconTile name={icon} bg={bg} size={36} iconSize={18} />
+        {SUGGESTIONS.map((s) => (
+          <Pressable key={s.title} type="button" className="sug" onClick={() => onSuggestion?.(s.prompt)}>
+            <IconTile name={s.icon} bg={s.bg} size={36} iconSize={18} />
             <span className="sug-text">
-              <span className="sug-title">{title}</span>
-              <span className="sug-sub">{text}</span>
+              <span className="sug-title">{s.title}</span>
+              <span className="sug-sub">{s.sub}</span>
             </span>
           </Pressable>
         ))}
@@ -105,13 +144,7 @@ export function AttachScreen({ files, onRemove, onOpen, disabled = false }: { fi
   );
 }
 
-interface Step {
-  label: string;
-  done: boolean;
-  active: boolean;
-}
-
-export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { prompt?: string; analysis: CaseAnalysis | null; files: CaseFile[]; thinking: boolean; steps: Step[] }) {
+export function ThreadScreen({ analysis, files, thinking, stage, prompt }: { prompt?: string; analysis: CaseAnalysis | null; files: CaseFile[]; thinking: boolean; stage?: string | null }) {
   return (
     <div className="thread">
       <div className="thread-user">
@@ -127,34 +160,43 @@ export function ThreadScreen({ analysis, files, thinking, steps, prompt }: { pro
           </div>
         </div>
       </div>
-      {thinking ? <Thinking steps={steps} /> : analysis && <Result a={analysis} />}
+      {thinking ? <Thinking stage={stage} /> : analysis && <Result a={analysis} />}
     </div>
   );
 }
 
-export function Thinking({ steps, startedAt }: { steps: Step[]; startedAt?: string }) {
+// The order of the work: documents, facts, the law, practice, then the recommendation.
+const STAGES = ['reading', 'extracting', 'checking', 'searching', 'recommending'];
+const LABELS = ['Читаем документы', 'Извлекаем факты', 'Сверяем с законом', 'Ищем похожие дела', 'Готовим рекомендацию'];
+// Analyses started before the update report the old stage names.
+const LEGACY_STAGES: Record<string, string> = {qualifying: 'extracting'};
+
+/** Memoised on primitive props: the 1 Hz poll re-renders the timeline only when
+ *  something actually changed, so the shimmer keeps running between polls. */
+export const Thinking = memo(function Thinking({ stage, startedAt }: { stage?: string | null; startedAt?: string }) {
   const seconds = useElapsedSeconds(startedAt);
+  const current = STAGES.indexOf(LEGACY_STAGES[stage || ''] || stage || 'reading');
   return (
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
       <div className="steps" aria-busy="true">
         <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{formatElapsed(seconds)}</span></div>
-        {steps.map((s) => (
-          <div key={s.label} className="step-row">
-            {s.done && <Icon name="check" size={16} strokeWidth={2.4} />}
-            {s.active && <span className="spin" style={{ margin: '0 2px' }} />}
-            {!s.done && !s.active && (
+        {LABELS.map((label, i) => (
+          <div key={label} className="step-row">
+            {i < current && <Icon name="check" size={16} strokeWidth={2.4} />}
+            {i === current && <span className="spin" style={{ margin: '0 2px' }} />}
+            {i > current && (
               <span className="pending-slot">
                 <span />
               </span>
             )}
-            <span className={s.done ? 'step-done' : s.active ? 'step-active' : 'step-pending'}>{s.label}</span>
+            <span className={i < current ? 'step-done' : i === current ? 'step-active' : 'step-pending'}>{label}</span>
           </div>
         ))}
       </div>
     </div>
   );
-}
+});
 
 function Practice({ p }: { p: PracticeComparison }) {
   const s = practiceSummary(p);
@@ -190,10 +232,12 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
       <LogoMark size={36} color="#141414" />
       <div className="result">
         <span className="result-stats">
-          Проанализировано {documents} {plural(documents, ['документ', 'документа', 'документов'])} · {pages} {plural(pages, ['страница', 'страницы', 'страниц'])} · {seconds}{' '}
-          {plural(seconds, ['секунда', 'секунды', 'секунд'])}
+          {/* Word files have no page count: 0 pages would read as an empty document. */}
+          Проанализировано {documents} {plural(documents, ['документ', 'документа', 'документов'])}
+          {pages > 0 && <> · {pages} {plural(pages, ['страница', 'страницы', 'страниц'])}</>} · {formatElapsed(seconds)}
         </span>
         {(a.warnings ?? []).map(w => <div key={w} className="warn-box" role="note">{w}</div>)}
+        <h2>Разбор</h2>
         <p>{a.fabula}</p>
 
         <div className="grid-2">
@@ -219,8 +263,6 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
           </div>}
         </div>
 
-        {a.scale && <SentenceScale scale={a.scale} legend="plain" />}
-        {a.practice && <Practice p={a.practice} />}
 
         <div className="grid-2">
           <div className="soft-card">
@@ -241,6 +283,29 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
             <span>{a.personality}</span>
           </div>
         </div>
+
+        <h2>Сверка</h2>
+        {(a.legalChecks ?? []).map(check => {
+          const sourceUrl = legalCheckSourceUrl(check.source);
+          return <section key={check.norm} className={`legal-check legal-check--${check.status}`}>
+            <div className="eyebrow">{check.norm} · {legalCheckStatusLabel(check.status)}</div>
+            {check.value && <strong>{check.value.replaceAll('_', ' ')}</strong>}
+            <p>{check.explanation}</p>
+            {check.evidence.map(quote => <blockquote key={quote}>{quote}</blockquote>)}
+            <p className="legal-check-source">
+              Источник: {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">{sourceUrl}</a> : check.source}
+            </p>
+          </section>;
+        })}
+        {(a.practiceEpisodes?.length ?? 0) > 0
+          ? a.practiceEpisodes!.map((p, i) => <div key={i}>
+              <h3>Эпизод {i + 1}: {p.qualification}</h3>
+              <p>Рецидив: {({none: 'отсутствует', simple: 'простой', dangerous: 'опасный', especially_dangerous: 'особо опасный'} as Record<string, string>)[p.recidivism ?? ''] ?? 'не установлен в тексте'}</p>
+              <Practice p={p} />
+            </div>)
+          : a.practice && <Practice p={a.practice} />}
+        <h2>Рекомендация</h2>
+        {a.scale && <SentenceScale scale={a.scale} legend="plain" />}
 
         {current && <div className="variants">
           <div className="variants-head">
@@ -290,18 +355,6 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         </div>
 
         }
-        {(a.legalChecks ?? []).map(check => {
-          const sourceUrl = legalCheckSourceUrl(check.source);
-          return <section key={check.norm} className={`legal-check legal-check--${check.status}`}>
-            <div className="eyebrow">{check.norm} · {legalCheckStatusLabel(check.status)}</div>
-            {check.value && <strong>{check.value.replaceAll('_', ' ')}</strong>}
-            <p>{check.explanation}</p>
-            {check.evidence.map(quote => <blockquote key={quote}>{quote}</blockquote>)}
-            <p className="legal-check-source">
-              Источник: {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">{sourceUrl}</a> : check.source}
-            </p>
-          </section>;
-        })}
 
       </div>
     </div>

@@ -55,7 +55,7 @@ h1, h2, h3, p { margin: 0; }
 @keyframes vk-spin { to { transform: rotate(360deg); } }
 @keyframes vk-caret { 50% { opacity: 0; } }
 @keyframes vk-knock { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-8px); } }
-@keyframes vk-in { from { opacity: 0; transform: translateY(8px); filter: blur(2px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes vk-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .spin {
   flex: none; width: 12px; height: 12px; border-radius: 9999px;
   border: 2px solid var(--line-strong); border-top-color: var(--ink);

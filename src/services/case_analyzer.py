@@ -7,6 +7,7 @@ The LLM only extracts facts (LlmCaseFacts). Everything that is arithmetic over t
 import json
 import logging
 import math
+import re
 import time
 
 from legal_core.entities import (
@@ -16,11 +17,15 @@ from legal_core.entities import (
     ImposedSentence,
     SanctionCeiling,
 )
+from legal_core.rules.aggregate import check_final_term
+from legal_core.rules.art66 import NORMS as ART66_NORMS
+from legal_core.rules.art66 import reduced_maximum
 from legal_core.rules.imposed_term import check_imposed_imprisonment, check_imposed_punishment
 from legal_core.rules.sanction_ceiling import sanction_ceiling_for_part
 from pydantic import ValidationError
 
 from src.application.practice_report import PracticeReport
+from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import (
     AnalysisStats,
     CaseAnalysis,
@@ -31,11 +36,13 @@ from src.schemas.analysis import (
     PracticeComparisonRead,
     PrecedentFilterRead,
     PrecedentMatchRead,
+    PunishmentVariant,
+    Qualification,
     SentenceScale,
     SimilarVerdictRef,
 )
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
-from src.services.legal_checks import build_legal_checks
+from src.services.legal_checks import build_legal_checks, guilt_from_text
 from src.services.llm_client import LLMClient, LLMError
 from src.services.sanction_summary import (
     describe_main_alternatives,
@@ -69,6 +76,13 @@ SYSTEM_PROMPT = """Ты — ассистент судьи по уголовны�
 - legal_facts.imposed_imprisonment_months — срок лишения свободы, назначенный в резолютивной
   части проекта приговора (целые месяцы; при условном осуждении тоже), quote — точный фрагмент
   с этим сроком. legal_facts.art64_applied — true только при явной ссылке на ст. 64 УК РФ.
+- qualification.article — все статьи обвинения или приговора через «; », при покушении или
+  приготовлении — вместе со ст. 30 («ч. 3 ст. 30, ч. 1 ст. 161 УК РФ»).
+- mitigating и aggravating — только обстоятельства, которые суд признал. Если в тексте сказано,
+  что обстоятельство «не усматривается», «не установлено» или «не признаётся», не включай его.
+- В пользовательских текстах не используй служебные имена полей: final_sentence называй
+  «окончательное наказание»; variants[].label — короткое название по-русски (1–3 слова),
+  без ключей вроде offense_1 или aggregate_crimes.
 - Если сведений нет — null или пустой список, ничего не выдумывай."""
 
 
@@ -160,6 +174,10 @@ def _precedent_reads(report: PracticeReport) -> list[PrecedentMatchRead]:
 def _practice_read(report: PracticeReport) -> PracticeComparisonRead:
     c = report.comparison
     return PracticeComparisonRead(
+        qualification=str(report.query.main_qualification)
+        if report.query.main_qualification
+        else None,
+        recidivism=report.query.recidivism.value if report.query.recidivism else None,
         total=c.total,
         with_term=c.with_term,
         enough_data=c.enough_data,
@@ -274,19 +292,31 @@ def assemble_analysis(
             _imposed_term_check(statute, facts.legal_facts, source_text, art62_limit)
         )
     scale = None
-    if sanction_max_months:
-        limit = art62_limit
+    several_counts = per_count and len(sentence.counts) > 1
+    if several_counts and ceiling is not None and ceiling.max_imprisonment_months is not None:
+        # The scale of one sanction cannot hold the final term of several offences.
+        warnings.append(_statute_warning(statute))
+    if sanction_max_months and not several_counts:
+        limit, limit_norm = art62_limit, "ч. 1 ст. 62" if art62_limit is not None else None
+        stage = sentence.counts[0].unfinished if per_count else None
+        if stage is not None:
+            reduced = reduced_maximum(sanction_max_months, stage)
+            limit = art62_part1_limit(
+                math.ceil(reduced), facts.mitigating, facts.aggravating
+            ) or math.floor(reduced)
+            limit_norm = "ч. 1 ст. 62" if limit != math.floor(reduced) else ART66_NORMS[stage]
+            limit_norm = limit_norm.removesuffix(" УК РФ")
         rec = facts.recommended_months
         cap = limit if limit is not None else sanction_max_months
         scale = SentenceScale(
             sanction_max_months=sanction_max_months,
             limit_months=limit,
-            limit_norm="ч. 1 ст. 62" if limit is not None else None,
+            limit_norm=limit_norm,
             recommended_months=rec,
             within_sanction=(rec <= cap) if rec is not None else None,
         )
         comparison = practice.comparison if practice is not None else None
-        if comparison is not None and comparison.enough_data:
+        if comparison is not None and comparison.enough_data and len(practice.query.episodes) <= 1:
             # Half up, not Python's half-to-even: 13.5 and 28.5 must both move outward alike.
             scale.practice_months = (
                 math.floor(comparison.p25_months + 0.5),
@@ -302,12 +332,20 @@ def assemble_analysis(
         if rec is not None and rec > cap:
             warnings.append("Рекомендованный срок выходит за допустимый предел — проверьте.")
 
+    extracted = extract_circumstances("\n\n".join(document_texts or []))
+    text_guilt = guilt_from_text("\n\n".join(document_texts or []))
+    most_serious = _most_serious_ceiling(sentence, count_statutes or {}) if per_count else None
     legal_checks = statute_checks + build_legal_checks(
         facts.legal_facts,
         source_text,
-        statutory_ceiling=ceiling,
+        statutory_ceiling=most_serious or ceiling,
+        extracted_recidivism=extracted.recidivism,
+        recidivism_quote=extracted.recidivism_quote,
+        extracted_source_text="\n\n".join(document_texts or []),
+        text_guilt=text_guilt,
     )
     cited_guilt = facts.legal_facts.guilt if facts.legal_facts is not None else None
+    cited_guilt = cited_guilt or text_guilt
     legal_checks += build_sentence_checks(
         sentence,
         count_statutes or {},
@@ -322,20 +360,112 @@ def assemble_analysis(
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
         prompt=prompt,
         fabula=facts.fabula,
-        qualification=facts.qualification,
+        qualification=_with_all_counts(facts.qualification, sentence),
         scale=scale,
         mitigating=facts.mitigating,
         aggravating="; ".join(f"{c.name} — {c.norm}" for c in facts.aggravating)
         or "Не установлены (ст. 63 УК РФ).",
         personality=facts.personality,
-        variants=facts.variants,
+        variants=[_readable_variant(v) for v in facts.variants],
         similar=_precedent_refs(practice)
         if practice and practice.shown
         else _similar_refs(similar_items),
         precedent_source=precedent_source,
         precedents=_precedent_reads(practice) if practice else [],
-        practice=_practice_read(practice) if practice else None,
+        practice=_practice_read(practice)
+        if practice and len(practice.query.episodes) <= 1
+        else None,
+        practice_episodes=[_practice_read(r) for r in practice.episodes] if practice else [],
         warnings=warnings,
+    )
+
+
+_VARIANT_KEYS = {
+    "final_sentence": "Окончательное",
+    "final": "Окончательное",
+    "aggregate_crimes": "По совокупности преступлений",
+    "aggregate_sentences": "По совокупности приговоров",
+    "aggregate_verdicts": "По совокупности приговоров",
+    "aggregate": "По совокупности",
+    "conditional": "Условно",
+    "real": "Реальное",
+    "recommended": "Рекомендуемое",
+}
+
+
+def _readable_variant(variant: PunishmentVariant) -> PunishmentVariant:
+    """Service keys the model sometimes returns ("offense_1", "final_sentence") become words."""
+
+    def word(text: str) -> str:
+        key = text.strip().lower()
+        episode = re.fullmatch(r"(?:offen[cs]e|count|episode|crime)_?(\d+)", key)
+        if episode:
+            return f"Эпизод {episode.group(1)}"
+        if key in _VARIANT_KEYS:
+            return _VARIANT_KEYS[key]
+        for raw, readable in _VARIANT_KEYS.items():
+            text = text.replace(raw, readable.lower())
+        return text
+
+    updates = {
+        key: word(getattr(variant, key)) for key in ("label", "title", "details", "rationale")
+    }
+    if re.fullmatch(r"[a-z0-9_]+", updates["label"]):
+        updates["label"] = updates["title"]
+    return variant.model_copy(update=updates)
+
+
+def _with_all_counts(
+    qualification: Qualification | None, sentence: ImposedSentence | None
+) -> Qualification | None:
+    """The model sometimes names only the first count; every count read from the operative part
+    is listed so that the heavier offence is not lost."""
+    if sentence is None or not sentence.counts:
+        return qualification
+    article = qualification.article if qualification is not None else ""
+    named = {(r.article, r.part) for r in _article_refs(article)}
+    missing = []
+    for count in sentence.counts:
+        if count.reference is None or not count.qualification:
+            continue
+        key = (count.reference.article, count.reference.part)
+        if key not in named:
+            named.add(key)
+            missing.append(re.sub(r"\s+", " ", count.qualification).strip())
+    if not missing:
+        return qualification
+    joined = "; ".join(([article] if article else []) + missing)
+    return Qualification(article=joined, title=qualification.title if qualification else "")
+
+
+def _article_refs(text: str) -> list[ArticleReference]:
+    refs = []
+    for match in re.finditer(
+        r"(?:ч\.?\s*(?P<part>\d{1,2})\s*)?ст\.?\s*(?P<article>\d{1,3}(?:\.\d{1,2})?)", text or ""
+    ):
+        if int(match["article"].split(".")[0]) >= 105:
+            refs.append(
+                ArticleReference(match["article"], int(match["part"]) if match["part"] else None)
+            )
+    return refs
+
+
+def _most_serious_ceiling(
+    sentence: ImposedSentence | None, statutes: dict[ArticleReference, StatuteSanctionReading]
+) -> SanctionCeiling | None:
+    """Ceiling of the count with the longest statutory maximum: ст. 15 categorises the most
+    serious offence of the verdict, not the first one the model named."""
+    ceilings = [
+        _statutory_ceiling(statutes.get(c.reference))
+        for c in (sentence.counts if sentence else ())
+        if c.reference is not None
+    ]
+    known = [c for c in ceilings if c is not None]
+    if not known:
+        return None
+    return max(
+        known,
+        key=lambda c: (c.harsher_than_imprisonment, c.max_imprisonment_months or 0),
     )
 
 
@@ -389,17 +519,17 @@ def _count_checks(
         if count.reference not in seen_sanctions:
             seen_sanctions.add(count.reference)
             checks.append(_statute_sanction_check(reading))
-        ceiling = _statutory_ceiling(reading)
+        maximum = count_maximum(reading, count)
         limit = None
-        if ceiling is not None and ceiling.max_imprisonment_months:
-            limit = art62_part1_limit(
-                ceiling.max_imprisonment_months, facts.mitigating, facts.aggravating
-            )
+        if maximum is not None:
+            # Unfinished offence: ч. 1 ст. 62 is taken of the reduced maximum (п. 49 ППВС № 58).
+            limit = art62_part1_limit(math.ceil(maximum), facts.mitigating, facts.aggravating)
         result = check_imposed_punishment(
             count.main,
             reading.sanctions,
             source=reading.provenance.source_url,
             art62_limit_months=limit,
+            unfinished=count.unfinished,
         )
         checks.append(
             LegalCheck(
@@ -412,20 +542,48 @@ def _count_checks(
             )
         )
     if sentence.final is not None:
+        result = check_final_term(
+            rule=_aggregation_rule(sentence.aggregation_rule),
+            final_months=sentence.final.imprisonment_months,
+            count_months=[c.main.imprisonment_months for c in sentence.counts],
+            count_max_months=[
+                count_maximum(statutes.get(c.reference) if c.reference else None, c)
+                for c in sentence.counts
+            ],
+        )
         checks.append(
             LegalCheck(
                 norm=f"Окончательное наказание ({sentence.aggregation_rule or 'ст. 69/70 УК РФ'})",
-                status="insufficient_data",
+                status=result.status.value,
                 value=describe_term(sentence.final),
-                source="ст. 69, 70 УК РФ",
-                explanation=(
-                    "Окончательное наказание прочитано из резолютивной части; правила сложения "
-                    "наказаний по ст. 69 и 70 УК РФ пока не проверяются."
-                ),
+                source=result.source,
+                explanation=result.explanation,
                 evidence=[sentence.final_quote] if sentence.final_quote else [],
+                needs_legal_review=result.needs_legal_review,
             )
         )
     return checks
+
+
+def _aggregation_rule(text: str | None) -> str | None:
+    """ "ч. 3 ст. 69 УК РФ" -> "69.3"; "ст. 70 УК РФ" -> "70"; anything else -> None."""
+    if not text:
+        return None
+    if re.search(r"ст\.\s*70(?!\d)", text):
+        return "70"
+    part = re.search(r"ч\.\s*([23])\s+ст\.\s*69(?!\d)", text)
+    return f"69.{part.group(1)}" if part else None
+
+
+def count_maximum(reading: StatuteSanctionReading | None, count: CountSentence) -> float | None:
+    """Imprisonment maximum that binds the court for the count: the sanction's maximum, reduced
+    under ст. 66 for an unfinished offence. None when the sanction is not read."""
+    if not _single_part(reading):
+        return None
+    ceiling = _statutory_ceiling(reading)
+    if ceiling is None or not ceiling.max_imprisonment_months:
+        return None
+    return reduced_maximum(ceiling.max_imprisonment_months, count.unfinished)
 
 
 def _unchecked_count(count: CountSentence) -> LegalCheck:

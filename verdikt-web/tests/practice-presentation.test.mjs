@@ -57,3 +57,14 @@ test('analysis mapping keeps precedents and practice, old results default to emp
   assert.equal(fresh.practice.median_months, 18);
   assert.equal(fresh.precedents[0].card_id, 1);
 });
+
+test('episode comparisons map independently and legacy results remain readable', () => {
+  const minimal = { schema_version: 1, stats: {documents: 1, pages: 0, seconds: 1},
+    prompt: 'x', fabula: 'y', scale: null, mitigating: [], variants: [], similar: [] };
+  assert.deepEqual(mapAnalysis(minimal).practiceEpisodes, []);
+  const result = mapAnalysis({...minimal, practice_episodes: [
+    {...base, qualification: 'ч. 2 ст. 158 УК РФ', draft_months: 24},
+    {...base, qualification: 'ч. 2 ст. 162 УК РФ', draft_months: 60},
+  ]});
+  assert.deepEqual(result.practiceEpisodes.map(p => p.draft_months), [24, 60]);
+});

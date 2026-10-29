@@ -432,7 +432,11 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page.get_by_label("Имя", exact=True).fill("Тест")
                 page.get_by_label("Фамилия", exact=True).fill("Профиль")
                 page.get_by_role("button", name="Сохранить профиль").click()
-                expect(page.get_by_role("status")).to_contain_text("Профиль сохранён")
+                expect(
+                    page.locator(".settings")
+                    .get_by_role("status")
+                    .filter(has_text="Профиль сохранён")
+                ).to_be_visible()
                 page.reload()
                 expect(page.get_by_label("Имя", exact=True)).to_have_value("Тест")
                 for tab, suffix in [

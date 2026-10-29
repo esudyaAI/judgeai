@@ -130,3 +130,116 @@ def test_term_without_preposition_and_attempt_reference_in_words():
     (count,) = extract_imposed_sentence(operative).sentence.counts
     assert count.reference == ArticleReference("228.1", 4)
     assert count.main.imprisonment_months == 96
+
+
+_PREFIX = (
+    "Иванова И.И. признать виновным в совершении преступления, предусмотренного ч. 1 ст. 318 "
+    "УК РФ, и назначить ему наказание "
+)
+
+
+def test_fine_amount_in_practice_wordings():
+    cases = {
+        "в виде штрафа в доход государства в размере 100 000 (сто тысяч) рублей.": 100000,
+        "в виде штрафа, в размере 30.000 руб.": 30000,
+        "в виде штрафа в сумме 15 (пятнадцать) тысяч рублей.": 15000,
+        "в виде штрафа в размере 20 000 /двадцати тысяч/ рублей.": 20000,
+        "в виде штрафа в определенной денежной сумме в размере 25 000 (двадцати пяти тысяч) "
+        "рублей.": 25000,
+        "в виде штрафа в размере 300 000 (триста тысяч) руб. 00 коп.": 300000,
+    }
+    for tail, rubles in cases.items():
+        (count,) = extract_imposed_sentence(_PREFIX + tail).sentence.counts
+        assert (count.main.kind, count.main.amount) == (PunishmentKind.FINE, rubles), tail
+
+
+def test_amount_hidden_by_publication_keeps_the_kind():
+    fine = extract_imposed_sentence(_PREFIX + "в виде штрафа в размере сумма. Реквизиты: УФК.")
+    (count,) = fine.sentence.counts
+    assert (count.main.kind, count.main.amount) == (PunishmentKind.FINE, None)
+    assert fine.ambiguous_windows == ()
+    works = extract_imposed_sentence(
+        _PREFIX + "в виде обязательных работ сроком на <данные изъяты> часов."
+    )
+    (count,) = works.sentence.counts
+    assert (count.main.kind, count.main.amount) == (PunishmentKind.COMPULSORY_WORKS, None)
+
+
+def test_aggregate_by_combination_is_final_without_the_word_finally():
+    operative = (
+        "Иванову И.И. признать виновной в совершении двадцати преступлений, предусмотренных "
+        "ст. 322.3 УК РФ и назначить ей наказание - по каждому из двадцати преступлений в "
+        "отдельности - в виде штрафа в размере 100.000 (ста тысяч) рублей в доход государства. "
+        "В соответствии с ч. 2 ст. 69 УК РФ применяя принцип частичного сложения наказаний – по "
+        "совокупности преступлений – назначить наказание в виде штрафа в размере 500.000 "
+        "(пятьсот тысяч) рублей в доход государства."
+    )
+    sentence = extract_imposed_sentence(operative).sentence
+    assert (sentence.final.kind, sentence.final.amount) == (PunishmentKind.FINE, 500000)
+    assert [c.main.amount for c in sentence.counts] == [100000]
+
+
+def test_term_written_before_the_kind():
+    (count,) = extract_imposed_sentence(
+        _PREFIX
+        + "- 220 (двести двадцать) часов обязательных работ в местах, определяемых органами."
+    ).sentence.counts
+    assert (count.main.kind, count.main.amount) == (PunishmentKind.COMPULSORY_WORKS, 220)
+    final = extract_imposed_sentence(
+        _PREFIX + "в виде лишения свободы на срок один год. На основании ч. 3 ст. 69 УК РФ по "
+        "совокупности преступлений путем частичного сложения назначенных наказаний назначить "
+        "ДВА года ШЕСТЬ месяцев лишения свободы."
+    ).sentence.final
+    assert final.imprisonment_months == 30
+
+
+# Built like the operative part of a real verdict on an attempt and a second offence, with an
+# aggregate by ч. 3 ст. 69, then ст. 70 and the restrictions of ч. 1 ст. 53 (synthetic text).
+TWO_COUNTS_AND_ART70 = (
+    "ИВАНОВА Ивана Ивановича признать виновным в совершении преступлений, предусмотренных "
+    "ч.3 ст.30, ч.1 ст.161 УК РФ и пп. «а, з» ч.2 ст.111 УК РФ, на основании которых назначить "
+    "ему наказание:\n"
+    "- по ч.3 ст.30, ч.1 ст.161 УК РФ – в виде лишения свободы сроком на один год шесть месяцев;\n"
+    "- по пп. «а,з» ч.2 ст.111 УК РФ – в виде лишения свободы сроком на четыре года с "
+    "ограничением свободы сроком на один год. На основании ч.1 ст.53 УК РФ установить Иванову "
+    "И.И. на период назначенного ему наказания в виде ограничения свободы следующие "
+    "ограничения: не изменять места жительства, являться для регистрации в орган, "
+    "осуществляющий надзор за отбыванием осужденными наказания в виде ограничения свободы.\n"
+    "По совокупности совершённых преступлений, согласно ч.3 ст.69 УК РФ, назначить ИВАНОВУ "
+    "Ивану Ивановичу наказание путём частичного сложения назначенных наказаний - в виде лишения "
+    "свободы сроком на четыре года шесть месяцев с ограничением свободы сроком на один год.\n"
+    "В соответствии со ст. 70 и ч.1 ст.71 УК РФ, по совокупности приговоров, к назначенному "
+    "Иванову И.И. наказанию частично, в виде трех месяцев лишения свободы, присоединить "
+    "неотбытое наказание в виде ограничения свободы по приговору районного суда от 20.08.2015, "
+    "и окончательное наказание назначить ИВАНОВУ Ивану Ивановичу путём частичного сложения "
+    "назначенных наказаний - в виде лишения свободы сроком на четыре года девять месяцев с "
+    "отбыванием наказания в исправительной колонии особого режима, с ограничением свободы "
+    "сроком на один год.\n"
+    "Срок отбывания наказания в виде лишения свободы Иванову И.И. исчислять со дня вступления "
+    "приговора в законную силу."
+)
+
+
+def test_final_sentence_is_the_one_imposed_finally_under_art70():
+    sentence = extract_imposed_sentence(TWO_COUNTS_AND_ART70).sentence
+    assert sentence.final.imprisonment_months == 57
+    assert sentence.aggregation_rule == "ст. 70 УК РФ"
+    assert "окончательное наказание назначить" in sentence.final_quote
+
+
+def test_restrictions_execution_and_unserved_terms_are_not_counts_or_windows():
+    extraction = extract_imposed_sentence(TWO_COUNTS_AND_ART70)
+    counts = extraction.sentence.counts
+    assert [c.main.imprisonment_months for c in counts] == [18, 48]
+    assert [len(c.additional) for c in counts] == [0, 1]
+    assert extraction.ambiguous_windows == ()
+
+
+def test_attempt_is_read_from_the_count_qualification():
+    from legal_core.entities import Unfinished
+
+    attempt, completed = extract_imposed_sentence(TWO_COUNTS_AND_ART70).sentence.counts
+    assert attempt.unfinished is Unfinished.ATTEMPT
+    assert attempt.reference == ArticleReference("161", 1)
+    assert attempt.qualification.startswith("ч. 3 ст. 30, ")
+    assert completed.unfinished is None

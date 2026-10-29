@@ -24,7 +24,7 @@ try {
   }
   await mkdir(resolve(root,'acceptance-screenshots'),{recursive:true});
   browser=await chromium.launch({headless:true,...(process.env.UI_BROWSER_CHANNEL ? {channel:process.env.UI_BROWSER_CHANNEL} : {})});
-  for(const filename of ['sidebar-row-flow.js','ui-states-flow.js','ui-races-flow.js','thinking-flow.js','document-panel-flow.js','text-lifecycle-flow.js']) {
+  for(const filename of ['sidebar-row-flow.js','ui-states-flow.js','ui-races-flow.js','thinking-flow.js','document-panel-flow.js','text-lifecycle-flow.js','composer-flow.js','avatar-profile-flow.js']) {
     const context=await browser.newContext();
     const page=await context.newPage(); page.setDefaultTimeout(10000);
     const errors=[]; page.on('pageerror',error=>errors.push(error.message));

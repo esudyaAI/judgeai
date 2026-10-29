@@ -5,7 +5,8 @@ cannot be read is not guessed: its text window is returned for a separate LLM st
 """
 
 import re
-from dataclasses import dataclass, field
+from collections import deque
+from dataclasses import dataclass, field, replace
 
 from legal_core.entities import (
     ArticleReference,
@@ -14,6 +15,7 @@ from legal_core.entities import (
     MeasureUnit,
     PunishmentKind,
     PunishmentTerm,
+    Unfinished,
 )
 from legal_core.precedents import QualificationCitation, qualification_citations
 
@@ -41,20 +43,47 @@ _TERM_AFTER = re.compile(r"\s*(?:(?:на\s+)?срок(?:ом)?(?:\s+на)?|в\s+
 # "с лишением права заниматься деятельностью …, сроком на 2 года": the term trails the right
 _TERM_AHEAD = re.compile(r"(?:на\s+срок|сроком(?:\s+на)?)\s+", re.IGNORECASE)
 _TERM_AHEAD_REACH = 200
+_FINE_AFTER = re.compile(
+    r"[\s,]*(?:(?:в\s+доход\s+государства|в\s+определ\w*\s+денежн\w*\s+сумм\w*)[\s,]*)?"
+    r"в\s+(?:размере|сумме)\s+",
+    re.IGNORECASE,
+)
+# an amount removed when the verdict was published: "в размере сумма", "<данные изъяты> часов"
+_HIDDEN_AMOUNT = re.compile(r"\s*(?:сумма(?![а-яё])|<[^>]{0,20}>|№(?!\s*\d))", re.IGNORECASE)
+# "наказание - 220 часов обязательных работ", "назначить ДВА года ШЕСТЬ месяцев лишения свободы"
+_TERM_BEFORE_PREFIX = re.compile(
+    r"(?:в\s+виде|(?<![а-яё])к|наказани\w*\s*[-–—:]|назначить)\s+", re.IGNORECASE
+)
 _TERM_STOP = re.compile(r"[,;.]|\s(?:с|со|условно|без|и|в)\s", re.IGNORECASE)
 _EXPLICIT_IMPOSITION = re.compile(r"в\s+виде\s*$", re.IGNORECASE)
-_TERM_BEFORE = re.compile(r"(?:в\s+виде|(?<![а-яё])к)\s+(?P<term>[^,;:]{1,60}?)\s*$", re.IGNORECASE)
 _UNIT = re.compile(r"(?<![а-яё])(?P<unit>год\w*|лет|месяц\w*|час\w*)(?![а-яё])", re.IGNORECASE)
 _PARENS = re.compile(r"\([^)]*\)")
 _DIGITS = re.compile(r"\d[\d\s]*\d|\d")
 _RUBLES = re.compile(
-    r"(?P<num>\d[\d\s]*\d|\d)?\s*(?:\((?P<words>[^)]*)\))?\s*(?P<thousand>тыс\w*\.?)?\s*рубл",
+    r"(?P<num>\d{1,3}(?:[\s.]\d{3})+|\d+)?\s*(?:[(/](?P<words>[^)/]*)[)/])?\s*"
+    r"(?P<thousand>тыс\w*\.?)?\s*руб(?:л|\.|(?![а-яё]))",
     re.IGNORECASE,
 )
 
 # A dot ends a sentence unless it follows an initial ("К.") and the next word is capitalised.
 _SENTENCE_END = re.compile(r"(?<![\s(][А-ЯЁ])\.\s+(?=[А-ЯЁ])|\n\s*\n")
-_FINAL = re.compile(r"окончательн", re.IGNORECASE)
+# The aggregate sentence. "окончательно назначить" outranks an earlier "по совокупности …
+# назначить": an aggregate by ч. 3 ст. 69 may be followed by the final one by ст. 70.
+_FINALLY = re.compile(r"окончательн", re.IGNORECASE)
+_AGGREGATE = re.compile(r"по\s+совокупности", re.IGNORECASE)
+# A punishment named but not imposed here: restrictions of ч. 1 ст. 53 "на период назначенного
+# ему наказания в виде …", its supervision and execution, an unserved term joined under ст. 70.
+_NOT_IMPOSED_BEFORE = re.compile(
+    r"(?:назначенного\s+(?:ему\s+|ей\s+)?наказани|надзор|неотбыт|срок\w*\s+отбывани|исчисл"
+    r"|зачесть|зачет)[^.;]*$",
+    re.IGNORECASE,
+)
+_NOT_IMPOSED_AFTER = re.compile(r"^[^.;]{0,20}?присоедин", re.IGNORECASE)
+# ч. 1 ст. 30 (preparation) or ч. 3 ст. 30 (attempt) right before the count's article.
+_UNFINISHED = re.compile(
+    r"(?:ч\.?\s*|част\w*\s+)(?P<part>[13])\s*,?\s*(?:ст\.?|стать\w*)\s*30(?![\d.])",
+    re.IGNORECASE,
+)
 _AGGREGATION = re.compile(
     r"(?:ч\.\s*(?P<part>\d)\s*)?ст\.\s*(?P<article>69|70)(?!\d)", re.IGNORECASE
 )
@@ -76,7 +105,7 @@ class _Imposition:
     start: int
     end: int
     additional: bool
-    final: bool
+    final: int  # 0 — a count, 1 — an aggregate "по совокупности", 2 — "окончательно"
     kind_end: int
 
 
@@ -119,7 +148,7 @@ def _parse_rubles(text: str) -> float | None:
     if not match:
         return None
     if match["num"]:
-        value = int(re.sub(r"\s", "", match["num"]))
+        value = int(re.sub(r"[\s.]", "", match["num"]))
     elif match["words"]:
         value = parse_russian_number(match["words"])
     else:
@@ -151,10 +180,26 @@ def _sentence_bounds(text: str, position: int) -> tuple[int, int]:
 def _read_term(kind: PunishmentKind, after: str) -> PunishmentTerm | None:
     if kind is PunishmentKind.FINE:
         rubles = _parse_rubles(after)
-        return PunishmentTerm(kind, rubles, MeasureUnit.RUBLES) if rubles else None
-    stop = _TERM_STOP.search(after)
-    amount, unit = parse_term(after[: stop.start()] if stop else after)
-    return PunishmentTerm(kind, amount, unit) if amount else None
+        if rubles:
+            return PunishmentTerm(kind, rubles, MeasureUnit.RUBLES)
+    else:
+        stop = _TERM_STOP.search(after)
+        amount, unit = parse_term(after[: stop.start()] if stop else after)
+        if amount:
+            return PunishmentTerm(kind, amount, unit)
+    # The kind is known even when publication removed the amount; nothing is left to resolve.
+    return PunishmentTerm(kind) if _HIDDEN_AMOUNT.match(after) else None
+
+
+def _term_before(before: str) -> tuple[float | None, MeasureUnit | None]:
+    """The term written ahead of the kind, after the nearest "в виде", "к", "наказание -"."""
+    prefixes = deque(_TERM_BEFORE_PREFIX.finditer(before), maxlen=1)
+    if not prefixes:
+        return None, None
+    term = before[prefixes[0].end() :].strip()
+    if not term or len(term) > 60 or re.search(r"[,;:]", term):
+        return None, None
+    return parse_term(term)
 
 
 def _trailing_term(kind: PunishmentKind, text: str, start: int) -> PunishmentTerm | None:
@@ -171,7 +216,13 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
     for match in _KIND_REGEX.finditer(text):
         kind = _kind_of(match)
         before = text[max(0, match.start() - 80) : match.start()]
+        if _NOT_IMPOSED_BEFORE.search(text[max(0, match.start() - 90) : match.start()]) or (
+            _NOT_IMPOSED_AFTER.match(text, match.end(), match.end() + 40)
+        ):
+            continue
         after_match = _TERM_AFTER.match(text, match.end())
+        if after_match is None and kind is PunishmentKind.FINE:
+            after_match = _FINE_AFTER.match(text, match.end())
         term = None
         end = match.end()
         additional = bool(re.search(r"(?:^|\s)(?:с|со)\s*$", before[-4:], re.IGNORECASE))
@@ -184,18 +235,17 @@ def _impositions(text: str) -> tuple[list[_Imposition], list[str]]:
             term = _trailing_term(kind, text, match.end())
         # The words before an additional punishment are the main one's term, never its own.
         if term is None and kind is not PunishmentKind.FINE and not additional:
-            before_match = _TERM_BEFORE.search(before)
-            if before_match:
-                amount, unit = parse_term(before_match["term"])
-                if amount:
-                    term = PunishmentTerm(kind, amount, unit)
+            amount, unit = _term_before(before)
+            if amount:
+                term = PunishmentTerm(kind, amount, unit)
         if term is None:
             if _EXPLICIT_IMPOSITION.search(before) or after_match:
                 start = max(0, match.start() - WINDOW_RADIUS)
                 windows.append(text[start : match.end() + WINDOW_RADIUS].strip())
             continue
         sentence_start, sentence_end = _sentence_bounds(text, match.start())
-        final = bool(_FINAL.search(text[sentence_start : match.start()]))
+        prefix = text[sentence_start : match.start()]
+        final = 2 if _FINALLY.search(prefix) else 1 if _AGGREGATE.search(prefix) else 0
         found.append(
             _Imposition(term, match.start(), min(end, sentence_end), additional, final, match.end())
         )
@@ -220,34 +270,36 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
     impositions, windows = _impositions(operative)
     citations = qualification_citations(operative)
     counts: list[CountSentence] = []
-    final_term, final_quote, extra_final = None, "", []
+    final_term, final_quote, extra_final, final_rank = None, "", [], 0
     floor = 0
     for item in impositions:
         if item.final:
             if item.additional and final_term is not None:
-                extra_final.append(item.term)
-            elif final_term is None:
-                final_term = item.term
+                if item.final == final_rank:
+                    extra_final.append(item.term)
+            elif final_term is None or item.final > final_rank:
+                final_term, final_rank, extra_final = item.term, item.final, []
                 start, end = _sentence_bounds(operative, item.start)
                 final_quote = operative[start:end].strip()
             continue
         if item.additional and counts:
-            last = counts[-1]
-            counts[-1] = CountSentence(
-                last.qualification,
-                last.reference,
-                last.main,
-                last.additional + (item.term,),
-                last.quote,
-            )
+            counts[-1] = replace(counts[-1], additional=counts[-1].additional + (item.term,))
             continue
         found = _reference_before(citations, item.start, floor)
-        reference, qualification, quote_start = None, "", item.start
+        reference, qualification, quote_start, unfinished = None, "", item.start, None
         if found is not None:
             first = found.qualifications[0]
             reference = ArticleReference(first.article, first.part)
             qualification = operative[found.start : found.end].strip() + " УК РФ"
             quote_start = found.start
+            last = deque(
+                _UNFINISHED.finditer(operative, max(floor, found.start - 30), found.start),
+                maxlen=1,
+            )
+            stage = last[0] if last else None
+            if stage is not None:
+                unfinished = Unfinished.ATTEMPT if stage["part"] == "3" else Unfinished.PREPARATION
+                qualification = f"ч. {stage['part']} ст. 30, {qualification}"
         counts.append(
             CountSentence(
                 qualification,
@@ -255,6 +307,7 @@ def extract_imposed_sentence(operative: str) -> SentenceExtraction:
                 item.term,
                 (),
                 operative[quote_start : item.end].strip(),
+                unfinished,
             )
         )
         # The next count's reference may start right after this term; the quote end (item.end)

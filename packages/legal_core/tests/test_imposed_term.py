@@ -84,3 +84,34 @@ def test_imposed_punishment_of_other_kinds():
         check(PunishmentKind.FINE, 70_000, MeasureUnit.RUBLES, art62_limit_months=16).status
         is CheckStatus.OK
     )
+
+
+def test_attempt_is_bounded_by_three_quarters_and_named_in_the_norm():
+    from legal_core.entities import PunishmentTerm, Unfinished
+    from legal_core.rules.imposed_term import check_imposed_punishment
+
+    def check(months, **kwargs):
+        term = PunishmentTerm(PunishmentKind.IMPRISONMENT, months, MeasureUnit.MONTHS)
+        return check_imposed_punishment(term, [_sanction(max_value=48)], source="s", **kwargs)
+
+    over = check(40, unfinished=Unfinished.ATTEMPT)
+    assert over.status is CheckStatus.POSSIBLE_VIOLATION
+    assert "36 мес." in over.explanation and "ч. 3 ст. 66" in over.explanation
+    assert over.norm == "Назначенное наказание: пределы санкции и ч. 3 ст. 66 УК РФ"
+    assert check(18, unfinished=Unfinished.ATTEMPT).status is CheckStatus.OK
+    prepared = check(30, unfinished=Unfinished.PREPARATION)
+    assert prepared.status is CheckStatus.POSSIBLE_VIOLATION and "24 мес." in prepared.explanation
+    assert check(40).status is CheckStatus.OK
+
+
+def test_norm_names_only_the_limits_that_apply():
+    from legal_core.entities import PunishmentTerm, Unfinished
+    from legal_core.rules.imposed_term import check_imposed_punishment
+
+    term = PunishmentTerm(PunishmentKind.IMPRISONMENT, 12, MeasureUnit.MONTHS)
+    plain = check_imposed_punishment(term, [_sanction()], source="s")
+    assert plain.norm == "Назначенное наказание: пределы санкции статьи УК РФ"
+    both = check_imposed_punishment(
+        term, [_sanction()], source="s", art62_limit_months=30, unfinished=Unfinished.ATTEMPT
+    )
+    assert both.norm == "Назначенное наказание: пределы санкции, ч. 3 ст. 66 и ч. 1 ст. 62 УК РФ"

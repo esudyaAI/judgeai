@@ -50,7 +50,7 @@ async page => {
       if (await page.locator('.cab-main').evaluate(el=>el.inert)) throw Error('Drawer left background inert');
     }
     await page.getByRole('button',{name:'Проверить квалификацию',exact:false}).click();
-    if (await page.getByRole('textbox',{name:'Задача по делу'}).inputValue()!=='Проверить квалификацию') throw Error('Suggestion ignored');
+    await page.waitForFunction(()=>{const value=document.querySelector('.composer-field input').value;return value.startsWith('Проверь квалификацию') && value.endsWith('состава.');});
     listFail=true; await page.goto(`${base}/app`);
     if (width<761) await page.getByRole('button',{name:'Открыть боковое меню',exact:true}).click();
     await page.getByRole('alert').filter({hasText:'Тестовая ошибка списка'}).waitFor();
