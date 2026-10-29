@@ -78,3 +78,17 @@ test('a running message never shows the queue state', () => {
   assert.doesNotMatch(html, /В очереди/);
   assert.match(html, /step-active">Читаем документы</);
 });
+
+test('a stale analysis shows the recalculate banner; a fresh one does not', () => {
+  const analysis = () => ({stats: {documents: 1, pages: 0, seconds: 2}, fabula: 'Фабула', qualification: null,
+    draft: null, scale: null, mitigating: [], aggravating: '', personality: '', legalChecks: [], variants: [], similar: []});
+  const base = {id: 1, role: 'assistant', status: 'completed', stage: null, error: null, attachments: [], created_at: new Date().toISOString()};
+  const stale = render('ChatTimeline', {messages: [{...base, result: analysis(), stale: true}], onOpen() {}, onRecalculate() {}});
+  assert.match(stale, /stale-notice/);
+  assert.match(stale, /Анализ выполнен прежней версией правил/);
+  assert.match(stale, /Пересчитать/);
+  const fresh = render('ChatTimeline', {messages: [{...base, result: analysis(), stale: false}], onOpen() {}, onRecalculate() {}});
+  assert.doesNotMatch(fresh, /stale-notice|прежней версией/);
+  const noHandler = render('ChatTimeline', {messages: [{...base, result: analysis(), stale: true}], onOpen() {}});
+  assert.doesNotMatch(noHandler, /Пересчитать/);
+});

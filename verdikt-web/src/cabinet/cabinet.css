@@ -215,6 +215,7 @@
 
 .cab-knowledge { display: flex; align-items: center; gap: 8px; padding: 8px 24px; font-size: 13px; color: var(--muted); }
 .cab-scroll > .warn-box { margin: 16px 24px; }
+.stale-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line, #e5e5e5); border-radius: 12px; font-size: 13px; color: var(--muted); background: var(--surface, #f3f3f3); }
 .cab-scroll > p { padding: 24px; }
 .legal-check { border-top: 1px solid var(--line, #e5e5e5); padding: 20px 0; }
 .legal-check p, .legal-check blockquote { margin: 8px 0; }
