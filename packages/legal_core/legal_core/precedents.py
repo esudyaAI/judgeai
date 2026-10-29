@@ -65,7 +65,9 @@ _QUALIFICATION = re.compile(
     r'(?:(?:п(?:\.\s*п)?\.|пункт\w*)\s*[«"“]?'
     r'(?P<points>[а-яё](?:\s*,\s*[а-яё])*)[»"”)]?\s*)?'
     r"(?:(?:ч\.|част\w*)\s*(?P<part>\d{1,2})\s*)?(?:ст\.|стать\w*)\s*"
-    r"(?P<article>\d{1,3}(?:\.\d{1,2})?)(?!\d)"
+    # \d{4} is a sudact/OCR form with the article dot dropped: "ст. 2281" -> 228.1;
+    # the Special Part has no plain four-digit articles, so the dot is restored below.
+    r"(?P<article>\d{1,3}(?:\.\d{1,2})?|\d{4})(?!\d)"
     r"(?:\s*(?:ч\.|част\w*)\s*(?P<part_after>\d{1,2}))?",
     re.IGNORECASE,
 )
@@ -88,7 +90,10 @@ def qualification_citations(text: str) -> tuple[QualificationCitation, ...]:
     """Criminal references with their exact spans; another code affects only its own citation."""
     found = []
     for match in _QUALIFICATION.finditer(text):
-        if int(match["article"].split(".")[0]) < FIRST_SPECIAL_PART_ARTICLE:
+        article = match["article"]
+        if len(article) == 4 and "." not in article:
+            article = f"{article[:3]}.{article[3:]}"
+        if int(article.split(".")[0]) < FIRST_SPECIAL_PART_ARTICLE:
             continue
         code = _CITATION_CODE.match(text, match.end())
         if code and code["code"].upper() != "УК":
@@ -100,7 +105,7 @@ def qualification_citations(text: str) -> tuple[QualificationCitation, ...]:
         if part is not None and part <= 0:
             continue
         points = re.findall(r"[а-яё]", (match["points"] or "").lower()) or [None]
-        qualifications = tuple(Qualification(match["article"], part, point) for point in points)
+        qualifications = tuple(Qualification(article, part, point) for point in points)
         found.append(QualificationCitation(match.start(), match.end(), qualifications))
     return tuple(found)
 
