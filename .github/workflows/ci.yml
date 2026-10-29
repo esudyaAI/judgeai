@@ -103,6 +103,10 @@ jobs:
       - run: |
           . /tmp/acceptance-python/bin/activate
           python tests_browser/auth_smoke.py
+      - name: UI states and edge cases
+        run: |
+          export PLAYWRIGHT_MODULE="$(/tmp/acceptance-python/bin/python -c 'import pathlib, playwright; print(pathlib.Path(playwright.__file__).parent / "driver" / "package")')"
+          node verdikt-web/tools/check-ui-states.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

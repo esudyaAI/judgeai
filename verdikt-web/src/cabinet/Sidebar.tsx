@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { Profile } from '../api/client';
 import { useChatSearch } from './useChatSearch';
 import type { CaseSummary } from '../api/types';
@@ -6,9 +6,15 @@ import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { ActionMenu } from './ActionMenu';
 import { Link } from '../router';
+import {useSidebarBoundary} from './useSidebarBoundary';
+import {StateNotice} from '../components/UiState';
 
 interface Props {
   cases: CaseSummary[];
+  listLoading?: boolean;
+  listError?: string;
+  onRetryList?: () => void;
+  signingOut?: boolean;
   username: string;
   profile?: Profile | null;
   activeId: string | null;
@@ -31,17 +37,11 @@ interface Props {
   onSettings: () => void;
 }
 
-export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
+export function Sidebar({ listLoading = false, listError = '', onRetryList, signingOut = false, onPin, pinningId, pinError, collapsed, onSignOut, onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
   const {query, setQuery, results, searching, searchError, retry: retrySearch} = useChatSearch(cases);
   const asideRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    asideRef.current?.querySelector<HTMLElement>('button, a, input')?.focus();
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useSidebarBoundary(asideRef, open, onClose);
 
   const currentCases = new Map(cases.map(chat => [chat.id,chat]));
   const visibleCases = query.trim() ? results.filter(chat => currentCases.has(chat.id)).map(chat => currentCases.get(chat.id)!) : cases;
@@ -69,10 +69,15 @@ export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDe
         </label>
 
         {query && <button type="button" className="btn btn-soft btn-xs" onClick={() => setQuery('')}>Сбросить поиск</button>}
+        {pinningId && <p className="cab-operation" role="status"><span className="spin" aria-hidden="true" />Обновляем закрепление…</p>}
+        {signingOut && <p className="cab-operation" role="status"><span className="spin" aria-hidden="true" />Выходим из аккаунта…</p>}
         {pinError && <p className="cab-search-status" role="alert">{pinError}</p>}
         {deleteError && <p className="cab-search-status" role="alert">{deleteError}</p>}
         {deleteNotice && <p className="cab-search-status" role="status">{deleteNotice}</p>}
-        <nav className="cab-list" aria-label="Список дел" aria-busy={searching}>
+        <nav className="cab-list" aria-label="Список дел" aria-busy={searching || listLoading}>
+          {listLoading && !cases.length && <div className="cab-list-placeholder" role="status">Загружаем дела…<span className="cab-skeleton shimmer" aria-hidden="true" /><span className="cab-skeleton shimmer" aria-hidden="true" /></div>}
+          {listError && <StateNotice error busy={listLoading} onRetry={onRetryList}>{listError}</StateNotice>}
+          {!listLoading && !listError && !query.trim() && !cases.length && <p className="cab-list-placeholder" role="status">Здесь появятся ваши дела. Начните новое дело.</p>}
           {searching && <p className="cab-search-status" role="status">Ищем по названию, сообщениям и файлам…</p>}
           {searchError && <div className="cab-search-status" role="alert">{searchError}<button type="button" onClick={retrySearch}>Повторить</button></div>}
           {query.trim() && !searching && !searchError && !results.length && <p className="cab-search-status" role="status">Ничего не найдено. Попробуйте другой запрос.</p>}
@@ -100,9 +105,9 @@ export function Sidebar({ onPin, pinningId, pinError, collapsed, onSignOut, onDe
           ])}
         </nav>
 
-        <ActionMenu className={`cab-row cab-profile ${settingsActive ? 'on' : ''}`} label="Аккаунт" actions={[
-            {label:'Настройки аккаунта',icon:<Icon name="gear" size={17} />,run:onSettings},
-            {label:'Выйти',icon:<Icon name="logout" size={17} />,run:onSignOut},
+        <ActionMenu placement="above" matchTriggerWidth className={`cab-row cab-profile ${settingsActive ? 'on' : ''}`} label="Аккаунт" actions={[
+            {label:'Настройки аккаунта',disabled:signingOut,icon:<Icon name="gear" size={17} />,run:onSettings},
+            {label:'Выйти',disabled:signingOut,icon:<Icon name="logout" size={17} />,run:onSignOut},
           ]}>
           <span className="avatar" aria-hidden="true">
             {profile?.avatar ? <img src={profile.avatar} alt="" /> : (profile?.firstName || username).slice(0, 2).toUpperCase()}

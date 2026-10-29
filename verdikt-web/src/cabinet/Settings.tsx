@@ -2,6 +2,10 @@ import { useRef, useState, type ReactNode } from 'react';
 import { accountApi, type AuthUser, type Profile } from '../api/client';
 import { Link } from '../router';
 import { readAvatar, useAccount } from './useAccount';
+import {BusyButton, StateNotice} from '../components/UiState';
+import {canChangePassword} from '../auth/formValidity';
+import {AnimatePresence} from 'motion/react';
+import {PresenceSurface} from '../components/PresenceSurface';
 
 type Tab = 'profile' | 'security' | 'data';
 const TABS: [Tab, string][] = [['profile', 'Профиль'], ['security', 'Безопасность'], ['data', 'Данные']];
@@ -32,24 +36,31 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
   return <div className="fade-in settings">
     <h1 className="screen-h2">Настройки аккаунта</h1>
     <div role="tablist" aria-label="Разделы настроек" className="seg">
-      {TABS.map(([id, label]) => <button key={id} type="button" role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id}
+      {TABS.map(([id, label]) => <button key={id} type="button" role="tab" id={`tab-${id}`} aria-controls={`panel-${id}`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} disabled={busy}
+        onKeyDown={event => {
+          const index = TABS.findIndex(([value]) => value === id);
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length-1 : event.key === 'ArrowRight' ? (index+1)%TABS.length : event.key === 'ArrowLeft' ? (index+TABS.length-1)%TABS.length : -1;
+          if (next < 0) return;
+          event.preventDefault(); setTab(TABS[next][0]); state.setError(''); setStatus('');
+          document.getElementById(`tab-${TABS[next][0]}`)?.focus();
+        }}
         onClick={() => { setTab(id); state.setError(''); setStatus(''); }}>{label}</button>)}
     </div>
-    {loading && <p role="status">Загружаем настройки…</p>}
+    {loading && <StateNotice busy>Загружаем настройки…</StateNotice>}
     {error && <div className="warn-box" role="alert">{error}<button type="button" disabled={busy} onClick={state.reload}>Загрузить заново</button></div>}
     {status && <p role="status">{status}</p>}
-    {!loading && state.loaded && <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab}>
+    <AnimatePresence mode="wait" initial={false}>{!loading && state.loaded && <PresenceSurface role="tabpanel" tabIndex={0} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab}>
       {tab === 'profile' && <form className="set-profile" onSubmit={e => {
-        e.preventDefault(); void run(async () => { const saved = await accountApi.saveProfile(profile); setProfile(saved); onProfileSaved(saved); setStatus('Профиль сохранён'); });
+        e.preventDefault(); void run(async () => { const saved = await accountApi.saveProfile(profile); setProfile(saved); onProfileSaved(saved); setStatus('Профиль сохранён'); }, 'profile');
       }}>
         <p className="muted-14">Имя пользователя: <strong>{user.username}</strong>. Данные профиля видны только вам.</p>
         <div className="set-avatar-row">
           <span className="avatar avatar-lg" aria-hidden="true">{profile.avatar ? <img src={profile.avatar} alt="" /> : (profile.firstName || user.username).slice(0, 2).toUpperCase()}</span>
           <input ref={photo} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => {
             const file = e.target.files?.[0]; e.target.value = '';
-            if (file) void run(async () => { const avatar = await readAvatar(file); setProfile(p => ({...p, avatar})); setStatus('Фото выбрано. Нажмите «Сохранить профиль».'); });
+            if (file) void run(async () => { const avatar = await readAvatar(file); setProfile(p => ({...p, avatar})); setStatus('Фото выбрано. Нажмите «Сохранить профиль».'); }, 'avatar');
           }} />
-          <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => photo.current?.click()}>Изменить фото</button>
+          <BusyButton type="button" className="btn btn-soft btn-sm" disabled={busy} pending={state.pendingAction === 'avatar'} pendingLabel="Читаем фото…" onClick={() => photo.current?.click()}>Изменить фото</BusyButton>
           {profile.avatar && <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => { setProfile(p => ({...p, avatar:''})); setStatus('Фото убрано. Нажмите «Сохранить профиль».'); }}>Убрать фото</button>}
         </div>
         <p className="muted-14">PNG, JPEG или WebP, до 256 КБ. Электронная почта — контактное поле, уведомления на него не отправляются.</p>
@@ -57,32 +68,36 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
           <input type={name === 'email' ? 'email' : 'text'} name={name} maxLength={LIMITS[name]} placeholder={placeholder} value={profile[name]} disabled={busy}
             onChange={e => { setProfile(p => ({...p, [name]: e.target.value})); setStatus(''); }} />
         </label>)}</div>
-        <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy}>Сохранить профиль</button>
+        <div className="set-actions"><BusyButton type="submit" className="btn btn-ink btn-md" disabled={busy} pending={state.pendingAction === 'profile'} pendingLabel="Сохраняем…">Сохранить профиль</BusyButton>
           <button type="button" className="btn btn-soft btn-md" disabled={busy} onClick={onCancel}>Отмена</button></div>
       </form>}
       {tab === 'security' && <div className="set-list">
         <form className="set-profile" onSubmit={e => {
           e.preventDefault();
-          if (newPassword !== repeatPassword) { state.setError('Новые пароли не совпадают'); return; }
+          if (!canChangePassword(oldPassword,newPassword,repeatPassword)) { state.setError('Новые пароли не совпадают'); return; }
           void run(async () => { await accountApi.changePassword(oldPassword, newPassword);
             setOldPassword(''); setNewPassword(''); setRepeatPassword('');
-            state.setSessions(await accountApi.sessions()); setStatus('Пароль изменён. Остальные сеансы завершены.'); });
+            state.setSessions(await accountApi.sessions()); setStatus('Пароль изменён. Остальные сеансы завершены.'); }, 'password');
         }}>
           <h2 className="set-title">Изменить пароль</h2>
+          <input type="text" autoComplete="username" value={user.username} readOnly hidden />
+          <p className="muted-14">Новый пароль — не меньше 12 символов. Повторите его в обоих полях.</p>
           <div className="set-fields">
             <label className="set-field"><span>Текущий пароль</span><input type="password" autoComplete="current-password" required maxLength={1024} value={oldPassword} disabled={busy} onChange={e => setOldPassword(e.target.value)} /></label>
             <label className="set-field"><span>Новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={newPassword} disabled={busy} onChange={e => setNewPassword(e.target.value)} /></label>
             <label className="set-field"><span>Повторите новый пароль</span><input type="password" autoComplete="new-password" required minLength={12} maxLength={1024} value={repeatPassword} disabled={busy} onChange={e => setRepeatPassword(e.target.value)} /></label>
           </div>
-          <div className="set-actions"><button type="submit" className="btn btn-ink btn-md" disabled={busy}>Изменить пароль</button></div>
+          {repeatPassword && newPassword !== repeatPassword && <p className="auth-error" role="status">Новые пароли не совпадают.</p>}
+          <div className="set-actions"><BusyButton type="submit" className="btn btn-ink btn-md" pending={state.pendingAction === 'password'} pendingLabel="Изменяем пароль…" disabled={busy || !canChangePassword(oldPassword,newPassword,repeatPassword)}>Изменить пароль</BusyButton></div>
         </form>
         <div className="set-sessions"><h2 className="set-title">Активные сеансы</h2>
           <p className="muted-14">Открытые входы в аккаунт. Названия устройств и геолокация не собираются.</p>
+          {!sessions.length && <StateNotice>Нет доступных сеансов. Обновите настройки, чтобы проверить список.</StateNotice>}
           {sessions.map(s => <div key={s.id} className="session"><div className="session-details"><strong>{s.current ? 'Этот сеанс' : 'Другой сеанс'}</strong>
             <span>Вход: {new Date(s.created_at).toLocaleString('ru-RU')}</span><span>Действует до: {new Date(s.expires_at).toLocaleString('ru-RU')}</span></div>
-            <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => void run(async () => {
+            <BusyButton type="button" className="btn btn-line btn-sm" disabled={busy} pending={state.pendingAction === `session:${s.id}`} pendingLabel={s.current ? 'Выходим…' : 'Завершаем…'} onClick={() => void run(async () => {
               if (s.current) await onSignOut(); else { await accountApi.revoke(s.id); state.setSessions(await accountApi.sessions()); setStatus('Сеанс завершён'); }
-            })}>{s.current ? 'Выйти' : 'Завершить'}</button>
+            }, `session:${s.id}`)}>{s.current ? 'Выйти' : 'Завершить'}</BusyButton>
           </div>)}
         </div>
       </div>}
@@ -95,16 +110,16 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
               const result = await accountApi.deleteCases(deletePassword, confirmation);
               setDeletePassword(''); setConfirmation(''); setConfirming(false); await onDeleted();
               setStatus(`Удалено дел: ${result.deleted}.${result.files_pending ? ' Часть исходных файлов требует очистки оператором.' : ''}`);
-            });
+            }, 'delete');
           }}>
             <p>Удаление необратимо. Сначала скачайте данные, если они вам нужны. Во время анализа удаление недоступно.</p>
             <label className="set-field"><span>Введите УДАЛИТЬ</span><input value={confirmation} required pattern="УДАЛИТЬ" disabled={busy} onChange={e => setConfirmation(e.target.value)} /></label>
             <label className="set-field"><span>Пароль аккаунта</span><input type="password" autoComplete="current-password" required maxLength={1024} value={deletePassword} disabled={busy} onChange={e => setDeletePassword(e.target.value)} /></label>
-            <div className="set-actions"><button type="submit" className="btn btn-danger btn-sm" disabled={busy || confirmation !== 'УДАЛИТЬ'}>Удалить безвозвратно</button>
+            <div className="set-actions"><BusyButton type="submit" className="btn btn-danger btn-sm" pending={state.pendingAction === 'delete'} pendingLabel="Удаляем дела…" disabled={busy || confirmation !== 'УДАЛИТЬ' || !deletePassword}>Удалить безвозвратно</BusyButton>
               <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={() => { setConfirming(false); setConfirmation(''); setDeletePassword(''); }}>Отмена</button></div>
           </form>}
         </div>
       </div>}
-    </div>}
+    </PresenceSurface>}</AnimatePresence>
   </div>;
 }

@@ -40,7 +40,7 @@ async page => {
     if (await page.locator('.pdf-pages').evaluate(el => el.scrollTop) <= 0) throw Error('Pages did not scroll vertically');
     await page.locator('[data-pdf-page="1"]').scrollIntoViewIfNeeded();
     await page.locator('[data-pdf-page="1"] canvas[data-rendered="true"]').waitFor();
-    const panel = await page.locator('.document-panel').boundingBox();
+    const panel = await page.locator('.document-panel:not([inert])').boundingBox();
     if (width > 900 && panel.x < width/2) throw Error('Desktop document not on right');
     if (width <= 900 && (panel.x !== 0 || panel.width !== width)) throw Error('Mobile panel not full screen');
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Horizontal overflow');
@@ -52,7 +52,7 @@ async page => {
     await page.screenshot({path:'acceptance-screenshots/'+label+'-word-preview.png',fullPage:true});
     await page.getByRole('button',{name:'Закрыть документ',exact:true}).focus();
     await page.keyboard.press('Escape');
-    if (await page.locator('.document-panel').count()) throw Error('Escape did not close preview');
+    await page.waitForFunction(()=>document.querySelectorAll('.document-panel').length === 0);
     if (await page.getByRole('button',{name:'Открыть Word judgment.docx',exact:true}).evaluate(el => el !== document.activeElement)) throw Error('Focus was not restored');
     await page.reload();
     await page.locator('[data-message-id="6"]').waitFor();

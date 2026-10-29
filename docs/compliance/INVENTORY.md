@@ -3,18 +3,19 @@
 Source inventory only; not a resolved runtime SBOM or legal approval.
 
 - Python declared packages (runtime/dev/build, deduplicated): **20**; exact installed versions: **0 verified**.
-- npm lock entries: **134**; development entries: **118**.
+- npm lock entries: **139**; development entries: **118**.
 - Official legal archives: **8**; image declarations: **2**; model: **sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2**, revision unresolved.
 
 ## npm license metadata
 
 | Declaration | Entries |
 |---|---:|
+| 0BSD | 1 |
 | Apache-2.0 | 3 |
 | BSD-3-Clause | 1 |
 | CC-BY-4.0 | 1 |
 | ISC | 5 |
-| MIT | 124 |
+| MIT | 128 |
 
 ## Python declarations
 

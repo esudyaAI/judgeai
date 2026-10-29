@@ -50,3 +50,10 @@ test('pin action persists a boolean and listing maps the account pin', async () 
     assert.equal((await api.listCases())[0].pinned,true);
   } finally { globalThis.fetch = original; }
 });
+
+test('network failure is translated into a Russian recovery message', async()=> {
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>{throw new TypeError('Failed to fetch');};
+  try {await assert.rejects(api.listCases(),/Нет связи с сервером/);}
+  finally {globalThis.fetch=original;}
+});

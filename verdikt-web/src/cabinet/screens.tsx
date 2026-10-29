@@ -7,6 +7,7 @@ import { SentenceScale } from '../components/SentenceScale';
 import { plural } from '../lib/format';
 import { fileReadingLabel, fileReadingWarning } from './fileReadingPresentation';
 import { ACCEPT } from './Composer';
+import {Pressable} from '../components/UiState';
 import { formatElapsed, useElapsedSeconds } from './useElapsedSeconds';
 import { legalCheckSourceUrl, legalCheckStatusLabel } from './legalCheckPresentation';
 import { practiceSummary, precedentSourceNote, shareLabel } from './practicePresentation';
@@ -18,7 +19,7 @@ const SUGGESTIONS: [string, string, string, IconName][] = [
   ['Оценить позицию защиты', 'Смягчающие обстоятельства и риски', '#0f8a52', 'shield'],
 ];
 
-export function NewCaseScreen({ onFiles }: { onFiles: (list: FileList | null) => void }) {
+export function NewCaseScreen({ onFiles, onSuggestion }: { onFiles: (list: FileList | null) => void; onSuggestion?: (value: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const onDrop = (e: DragEvent) => {
@@ -50,16 +51,16 @@ export function NewCaseScreen({ onFiles }: { onFiles: (list: FileList | null) =>
         <span style={{ fontWeight: 600 }}>Перетащите материалы дела или выберите файлы</span>
         <span className="muted-14">PDF, DOCX, DOTX, TXT, MD · до 50 МБ на файл</span>
       </button>
-      <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => onFiles(e.target.files)} />
+      <input ref={input} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
       <div className="sug-grid">
         {SUGGESTIONS.map(([title, text, bg, icon]) => (
-          <button key={title} type="button" className="sug" onClick={() => onFiles(null)}>
+          <Pressable key={title} type="button" className="sug" onClick={() => onSuggestion ? onSuggestion(title) : onFiles(null)}>
             <IconTile name={icon} bg={bg} size={36} iconSize={18} />
             <span className="sug-text">
               <span className="sug-title">{title}</span>
               <span className="sug-sub">{text}</span>
             </span>
-          </button>
+          </Pressable>
         ))}
       </div>
     </div>
@@ -67,7 +68,7 @@ export function NewCaseScreen({ onFiles }: { onFiles: (list: FileList | null) =>
 }
 
 
-export function AttachScreen({ files, onRemove, onOpen }: { files: CaseFile[]; onRemove: (name: string) => void; onOpen?: (index: number) => void }) {
+export function AttachScreen({ files, onRemove, onOpen, disabled = false }: { files: CaseFile[]; onRemove: (index: number) => void; onOpen?: (index: number) => void; disabled?: boolean }) {
   const pages = files.reduce((s, f) => s + f.pages, 0);
   const limited = files.filter((f) => fileReadingWarning(f.recognition));
   return (
@@ -80,13 +81,13 @@ export function AttachScreen({ files, onRemove, onOpen }: { files: CaseFile[]; o
       </div>
       <ul className="file-list">
         {files.map((f, index) => (
-          <li key={f.name} className="file-row">
+          <li key={`${index}:${f.name}`} className="file-row">
             <FileTile ext={f.ext} size={40} />
             <div className="file-text">
-              <button type="button" className="file-name document-filename" onClick={() => onOpen?.(index)} aria-label={`Открыть ${f.name}`}>{f.name}</button>
+              <button type="button" className="file-name document-filename" disabled={!onOpen} onClick={() => onOpen?.(index)} aria-label={`Открыть ${f.name}`}>{f.name}</button>
               <span className={`file-meta ${fileReadingWarning(f.recognition) ? 'warn' : ''}`}>{fileReadingLabel(f)}</span>
             </div>
-            <button type="button" aria-label={`Удалить файл ${f.name}`} className="btn btn-soft btn-icon" onClick={() => onRemove(f.name)}>
+            <button type="button" aria-label={`Удалить файл ${f.name}`} className="btn btn-soft btn-icon" disabled={disabled} onClick={() => onRemove(index)}>
               <Icon name="close" size={16} strokeWidth={2} />
             </button>
           </li>
@@ -224,6 +225,7 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         <div className="grid-2">
           <div className="soft-card">
             <span className="eyebrow">Смягчающие обстоятельства</span>
+            {!a.mitigating.length && <span>Сведения не выделены. Проверьте исходные материалы.</span>}
             {a.mitigating.map((m) => (
               <span key={m.name}>
                 <strong>{m.name}</strong> — {m.norm}

@@ -106,3 +106,23 @@ h1, h2, h3, p { margin: 0; }
   .spin { animation-duration: .8s !important; animation-iteration-count: infinite !important; }
   html { scroll-behavior: auto; }
 }
+
+/* Interaction states apply consistently to native and custom controls. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+:where(button):disabled { opacity: .48; cursor: not-allowed; transform: none; }
+.btn:disabled:hover, .btn:disabled:active { transform: none; }
+.btn-ink:disabled:hover { background: var(--ink); color: #fff; }
+.btn-soft:disabled:hover { background: var(--surface); color: var(--ink); }
+.btn-line:disabled:hover { background: #fff; color: var(--ink); }
+.btn-danger:hover:not(:disabled) { background: #fff4f2; }
+button[aria-busy='true'] { cursor: wait; }
+button .spin { border-color: currentColor; border-right-color: transparent; }
+:where(button:not(.btn)):active:not(:disabled) { filter: brightness(.94); }
+:where(input, select, textarea):disabled { opacity: .65; cursor: not-allowed; }
+:where(input, select, textarea):hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.state-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 16px; font-size: 14px; color: var(--muted); }
+.seg > button:hover:not(:disabled) { color: var(--ink); background: #ffffff80; }
+@media (prefers-reduced-motion: reduce) {
+  .btn:active, .sug:active { transform: none; }
+  .spin { animation: none !important; border-style: dotted; }
+}

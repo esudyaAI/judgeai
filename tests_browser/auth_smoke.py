@@ -564,7 +564,9 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 username = f"new-judge-{label}"
                 page.get_by_label("Имя пользователя", exact=True).fill(username)
                 page.get_by_label("Пароль", exact=True).fill("short")
-                page.get_by_role("button", name="Зарегистрироваться", exact=True).first.click()
+                expect(
+                    page.locator("form").get_by_role("button", name="Зарегистрироваться")
+                ).to_be_disabled()
                 # The browser blocks a password under 12 characters before any request.
                 self.assertEqual(
                     page.locator("#password").evaluate("el => el.validity.tooShort"), True

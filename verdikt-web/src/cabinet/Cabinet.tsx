@@ -13,6 +13,8 @@ import { useChatPin } from './useChatPin';
 import { useDeleteChat } from './useDeleteChat';
 import { DeleteChatDialog } from './DeleteChatDialog';
 import './cabinet.css';
+import {StateNotice} from '../components/UiState';
+import {AnimatePresence} from 'motion/react';
 
 export type CabinetView = 'new' | 'attach' | 'thinking' | 'result' | 'settings';
 export interface CabinetRoute { view: CabinetView; caseId: string }
@@ -46,6 +48,14 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [analysis, setAnalysis] = useState<CaseAnalysis | null>(null);
   const [error, setError] = useState('');
   const [listError, setListError] = useState('');
+  const [listLoading, setListLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
+  const signOutLock = useRef(false);
+  const signOut = async () => {
+    if (signOutLock.current) return;
+    signOutLock.current = true; setSigningOut(true);
+    try { await onSignOut(); } finally { signOutLock.current = false; setSigningOut(false); }
+  };
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
   // Practice comparison is on by default: the shared base is open to every user.
@@ -67,8 +77,10 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const listRequest = useRef(0);
   const refreshCases = useCallback(async () => {
     const request = ++listRequest.current;
+    setListLoading(true);
     try { const next = await api.listCases(); if (request === listRequest.current) { setCases(next); setListError(''); } }
-    catch (e) { setListError(e instanceof Error ? e.message : 'Не удалось загрузить список дел'); }
+    catch (e) { if (request === listRequest.current) setListError(e instanceof Error ? e.message : 'Не удалось загрузить список дел'); }
+    finally { if (request === listRequest.current) setListLoading(false); }
   }, []);
   useEffect(() => { void refreshCases(); }, [refreshCases]);
   const pin = useChatPin(refreshCases);
@@ -114,7 +126,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     draftId.current = null; setSelectedFiles([]); setPrompt(''); setError(''); go('/app');
   };
   const deletion = useDeleteChat(id => {
-    listRequest.current += 1;
+    listRequest.current += 1; setListLoading(false);
     setCases(current => current.filter(c => c.id !== id));
     if (draftId.current === id) draftId.current = null;
     if (caseId === id) { setMessages([]); setAnalysis(null); startNew(); }
@@ -147,9 +159,9 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     <div className={`cab ${documentPanel.state ? 'cab-with-document' : ''} ${sidebarCollapsed ? 'cab-sidebar-collapsed' : ''}`}>
       {deletion.pendingChat && <DeleteChatDialog chat={deletion.pendingChat} busy={deletion.deletingId !== null}
         error={deletion.deleteError} onCancel={deletion.cancel} onConfirm={() => { void deletion.confirm(); }} />}
-      <Sidebar collapsed={sidebarCollapsed} pinningId={pin.pendingId} pinError={pin.error}
+      <Sidebar listLoading={listLoading} listError={listError} onRetryList={() => void refreshCases()} signingOut={signingOut} collapsed={sidebarCollapsed} pinningId={pin.pendingId} pinError={pin.error}
         onPin={chat => { void pin.toggle(chat); }}
-        onSignOut={() => { void onSignOut().catch(() => setError('Не удалось выйти. Попробуйте ещё раз.')); }}
+        onSignOut={() => { void signOut().catch(() => setError('Не удалось выйти. Попробуйте ещё раз.')); }}
         deletingId={deletion.deletingId} deleteError="" deleteNotice={deletion.deleteNotice}
         onDelete={deletion.remove} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
         open={sidebarOpen} onClose={closeSidebar} onNew={startNew}
@@ -165,25 +177,25 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
           </div>
         </header>
         <div ref={scroll} className="cab-scroll">
-          {listError && <div className="warn-box" role="alert">{listError}<button type="button" onClick={() => void refreshCases()}>Повторить</button></div>}
+
           {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
-          {loading && <p role="status" aria-busy="true">Загружаем дело…</p>}
-          {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={onSignOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
+          {loading && <StateNotice busy>Загружаем дело…</StateNotice>}
+          {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={signOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
               {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={attachment => documentPanel.open({name:attachment.filename,chatId:caseId,attachmentId:attachment.id})}
                 onOpenVerdict={verdict => { if (verdict.verdict_id != null) documentPanel.open({name:`Приговор · ${verdict.court}.txt`, verdictId:verdict.verdict_id}); }} /> :
                 !loading && !error && <p>Задайте вопрос или прикрепите материалы дела.</p>}
-              {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} />}
+              {selectedFiles.length > 0 && <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} />}
             </>
-          ) : view === 'attach' || selectedFiles.length ? <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} onRemove={name => setSelectedFiles(p => p.filter(f => f.name !== name))} /> : <NewCaseScreen onFiles={addFiles} />}
+          ) : view === 'attach' || selectedFiles.length ? <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} /> : <NewCaseScreen onFiles={addFiles} onSuggestion={value => { setPrompt(value); document.querySelector<HTMLInputElement>('.composer-field input')?.focus(); }} />}
         </div>
         {view !== 'settings' && <>
-          <Composer mode={busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}
+          <Composer mode={sending ? 'sending' : busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}
             value={prompt} onChange={setPrompt} onFiles={addFiles} onSend={() => void send()}
             onStop={() => go('/app')} />
         </>}
       </main>
-      {documentPanel.state && <DocumentPanel {...documentPanel.state} onClose={documentPanel.close} onRetry={documentPanel.retry} />}
+      <AnimatePresence>{documentPanel.state && <DocumentPanel key={`document-panel:${documentPanel.generation}`} returnFocus={documentPanel.opener} {...documentPanel.state} onClose={documentPanel.close} onRetry={documentPanel.retry} />}</AnimatePresence>
     </div>
   );
 }

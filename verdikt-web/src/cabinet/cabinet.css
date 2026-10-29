@@ -234,9 +234,12 @@
   .session { flex-wrap: wrap; }
 }
 
-.cab-chat-row { display: flex; align-items: center; border-radius: 10px; }
+.cab-chat-row { display: flex; align-items: center; border-radius: 14px; }
+.cab-chat-row:hover { background: var(--surface-hover); }
+.cab-chat-row:has(> :focus-visible) { outline: 2px solid var(--blue); outline-offset: -2px; }
 .cab-chat-row.on { background: #fff; }
-.cab-chat-row > .cab-row { flex: 1; min-width: 0; }
+.cab-chat-row > .cab-row { flex: 1; min-width: 0; background: transparent; }
+.cab-chat-row > .cab-row:focus-visible { outline: none; }
 .cab-delete { display: grid; place-items: center; flex: none; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
 .cab-delete:hover:not(:disabled) { color: #b42318; background: #fef3f2; }
 .cab-delete:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
@@ -323,9 +326,9 @@
 .cab-side-head .cab-brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cab-side-head > button { flex-shrink: 0; }
 .cab-chat-actions { flex: none; width: 36px; height: 40px; border: 0; border-radius: 10px; color: var(--muted); background: transparent; display: grid; place-items: center; cursor: pointer; }
-.cab-chat-actions:hover, .cab-chat-actions[aria-expanded="true"] { background: var(--surface-hover); color: var(--ink); }
-.cab-chat-actions:focus-visible { outline: 2px solid var(--blue); }
-.cab-action-menu { position: fixed; z-index: 200; width: 210px; padding: 6px; border: 1px solid var(--line-strong); background: white; border-radius: 14px; box-shadow: 0 8px 32px #00000018; }
+.cab-chat-actions:hover, .cab-chat-actions[aria-expanded="true"] { color: var(--ink); }
+.cab-chat-actions:focus-visible { outline: none; }
+.cab-action-menu { overflow-y: auto; overscroll-behavior: contain; position: fixed; z-index: 200; width: 210px; padding: 6px; border: 1px solid var(--line-strong); background: white; border-radius: 14px; box-shadow: 0 8px 32px #00000018; }
 .cab-action-menu button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; background: transparent; border-radius: 8px; font: inherit; font-size: 14px; color: var(--ink); text-align: left; cursor: pointer; }
 .cab-action-menu button:hover, .cab-action-menu button:focus-visible { background: var(--surface); outline: none; }
 .cab-action-menu button.danger { color: var(--red); }
@@ -338,3 +341,24 @@
 .chat-file-download { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 9999px; background: #fff; font-size: 12px; font-weight: 600; color: var(--ink); text-decoration: none; }
 .chat-file-download:hover { background: var(--line); }
 .chat-file-download:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.cab-list-placeholder { padding: 12px; color: var(--muted); font-size: 13px; }
+.cab-operation { display: flex; gap: 8px; align-items: center; padding: 8px 12px; font-size: 12px; color: var(--muted); }
+.cab-skeleton { display: block; height: 50px; margin: 8px 0; border-radius: 14px; background: var(--surface-hover); }
+.text-document { width: 100%; min-width: 0; overflow: auto; padding: 20px; background: #fff; }
+.text-document pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 14px; line-height: 1.65; margin: 0; }
+.composer-submit:disabled:hover { background: var(--disabled); }
+.composer-submit[aria-busy='true'] { background: var(--ink); opacity: .7; }
+.cab-action-menu button:hover:disabled { background: transparent; }
+.set-field input { min-width: 0; width: 100%; }
+[role='tabpanel']:focus-visible { outline-offset: 6px; border-radius: 8px; }
+.cab { min-height: 0; }
+@media (max-width: 760px) {
+  .cab-side { width: min(272px, calc(100vw - 32px)); }
+  .cab-composer-wrap { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+.cab { position: relative; }
+.document-panel[inert] { pointer-events: none; }
+@media (min-width: 901px) {
+  .document-panel[inert] { position: absolute; right: 0; top: 0; }
+}

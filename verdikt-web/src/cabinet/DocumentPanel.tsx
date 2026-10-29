@@ -2,6 +2,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { FileTile } from '../components/FileTile';
 import { fileExt } from '../api/client';
+import {motion, useIsPresent, useReducedMotion} from 'motion/react';
+import { TextDocument } from './TextDocument';
+import {acquireInert} from './inertLayers';
 
 const PdfDocument = lazy(() => import('./PdfDocument'));
 
@@ -13,7 +16,10 @@ export interface DocumentPanelState {
   error?: string;
 }
 
-export function DocumentPanel({name, status, url, downloadUrl, error, onClose, onRetry}: DocumentPanelState & {onClose: () => void; onRetry: () => void}) {
+export function DocumentPanel({name, status, url, downloadUrl, error, onClose, onRetry, returnFocus}: DocumentPanelState & {onClose: () => void; onRetry: () => void; returnFocus?: HTMLElement | null}) {
+  const present = useIsPresent();
+  const reduce = useReducedMotion();
+  const previousFocus = useRef<HTMLElement | null>(null);
   const panel = useRef<HTMLElement>(null);
   const close = useRef<HTMLButtonElement>(null);
   const releaseBackground = useRef<() => void>(() => {});
@@ -25,21 +31,33 @@ export function DocumentPanel({name, status, url, downloadUrl, error, onClose, o
     return () => media.removeEventListener('change', update);
   }, []);
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!present) return;
+    previousFocus.current = returnFocus || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     close.current?.focus();
-    return () => { releaseBackground.current(); if (previous?.isConnected) previous.focus(); };
-  }, []);
+  }, [present, returnFocus]);
+  useEffect(() => () => { releaseBackground.current(); }, []);
   useEffect(() => {
-    if (!mobile) return;
+    if (!mobile || !present) return;
     const siblings = Array.from(panel.current?.parentElement?.children || []).filter(el => el !== panel.current && el instanceof HTMLElement) as HTMLElement[];
-    const before = siblings.map(el => el.inert);
-    siblings.forEach(el => { el.inert = true; });
+    const releases = siblings.map(acquireInert);
     let released = false;
-    const release = () => { if (!released) { siblings.forEach((el,i) => { el.inert = before[i]; }); released = true; } };
+    const release = () => { if (!released) { releases.forEach(release => release()); released = true; } };
     releaseBackground.current = release;
     return release;
-  }, [mobile]);
-  return <aside ref={panel} className="document-panel" role={mobile ? 'dialog' : 'region'} aria-modal={mobile || undefined} aria-label="Просмотр документа"
+  }, [mobile, present]);
+  useEffect(() => {
+    if (!present) { releaseBackground.current(); if (previousFocus.current?.isConnected) previousFocus.current.focus(); }
+  }, [present]);
+  useEffect(() => {
+    if (!present) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('dialog[open]')) { event.preventDefault(); onClose(); }
+    };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [present, onClose]);
+  return <motion.aside ref={panel} inert={!present} aria-hidden={!present || undefined}
+    initial={reduce ? false : {opacity:0,x:18}} animate={{opacity:1,x:0}} exit={{opacity:0,x:reduce ? 0 : 12,transition:{duration:reduce ? 0 : .12}}} className="document-panel" role={mobile ? 'dialog' : 'region'} aria-modal={mobile && present || undefined} aria-label="Просмотр документа"
     onKeyDown={event => {
       if (event.key === 'Escape') { event.stopPropagation(); event.preventDefault(); onClose(); }
       if (mobile && event.key === 'Tab') {
@@ -56,7 +74,7 @@ export function DocumentPanel({name, status, url, downloadUrl, error, onClose, o
       <button ref={close} type="button" className="btn btn-soft btn-icon" aria-label="Закрыть документ" onClick={onClose}><Icon name="close" size={18} /></button>
     </header>
     <div className="document-panel-body">
-      {status === 'ready' && url ? fileExt(name) === 'TXT' ? <iframe key={url} title={name} src={url} referrerPolicy="no-referrer" sandbox="" /> : <Suspense fallback={<p role="status">Загружаем просмотр PDF…</p>}><PdfDocument key={url} url={url} name={name} /></Suspense> :
+      {status === 'ready' && url ? fileExt(name) === 'TXT' ? <TextDocument key={url} url={url} name={name} /> : <Suspense fallback={<p role="status">Загружаем просмотр PDF…</p>}><PdfDocument key={url} url={url} name={name} /></Suspense> :
         <div className="document-panel-placeholder" role={status === 'failed' ? 'alert' : 'status'}>
           {status === 'failed' ? <Icon name="warning" size={32} /> : <span className="spin" />}
           <strong>{status === 'failed' ? 'Просмотр недоступен' : 'Подготавливаем документ'}</strong>
@@ -65,5 +83,5 @@ export function DocumentPanel({name, status, url, downloadUrl, error, onClose, o
         </div>}
     </div>
     <footer className="document-panel-footer"><a className="btn btn-ink btn-sm document-download" href={downloadUrl} download={name}><Icon name="download" size={16} />Скачать</a></footer>
-  </aside>;
+  </motion.aside>;
 }
