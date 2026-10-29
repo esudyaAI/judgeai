@@ -1,6 +1,7 @@
 """Transient model failures (429, 5xx, timeouts) are retried with a pause; others are not."""
 
 import json
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -108,17 +109,15 @@ async def test_user_prompt_preserves_existing_json_word(pauses):
     assert user_msg == "верни ответ в JSON формате"
 
 
-async def test_error_status_logs_response_text(pauses, caplog):
-    import logging
-
+async def test_error_status_logs_response_text(pauses):
     requests: list = []
     error_body = '{"error": {"message": "invalid request", "code": "invalid_request"}}'
     client = _client([httpx.Response(400, text=error_body)], requests)
-    with caplog.at_level(logging.WARNING):
+    with patch.object(llm_client.logger, "warning") as mock_warning:
         with pytest.raises(LLMError):
             await client.complete_json("s", "u")
 
-    assert any(
-        "LLM API error 400" in record.message and "invalid request" in record.message
-        for record in caplog.records
-    )
+    mock_warning.assert_called_once()
+    _, status_code, message = mock_warning.call_args[0]
+    assert status_code == 400
+    assert "invalid request" in message
