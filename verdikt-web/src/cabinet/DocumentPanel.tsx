@@ -64,6 +64,6 @@ export function DocumentPanel({name, status, url, downloadUrl, error, onClose, o
           {status === 'failed' && <button type="button" className="btn btn-line" onClick={onRetry}>Повторить</button>}
         </div>}
     </div>
-    <footer className="document-panel-footer"><a className="btn btn-line btn-sm" href={downloadUrl} download={name}>Скачать оригинал</a></footer>
+    <footer className="document-panel-footer"><a className="btn btn-ink btn-sm document-download" href={downloadUrl} download={name}><Icon name="download" size={16} />Скачать</a></footer>
   </aside>;
 }

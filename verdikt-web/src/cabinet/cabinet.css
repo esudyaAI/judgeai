@@ -153,7 +153,8 @@
 .practice-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 .similar { border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
 .similar-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
-.similar-all { font-size: 13px; font-weight: 600; }
+.similar-all { font-size: 13px; font-weight: 600; background: none; border: 0; padding: 0; color: var(--blue); cursor: pointer; }
+.similar-hint { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
 .similar-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .similar-open { width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); font: inherit; color: inherit; cursor: pointer; border-radius: 8px; }
 .similar-open:hover { background: var(--line); }
@@ -288,6 +289,7 @@
 .document-panel-placeholder p { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 0; }
 .document-panel-footer { border-top: 1px solid var(--line-strong); padding: 12px 16px; display: flex; gap: 12px; justify-content: flex-end; align-items: center; background: var(--bg); }
 .document-panel-footer a { flex-shrink: 0; text-decoration: none; }
+.document-download { display: inline-flex; align-items: center; gap: 6px; }
 .cab-with-document .cab-scroll { padding-left: 20px; padding-right: 20px; }
 @media (min-width: 901px) and (max-width: 1250px) {
   .cab-with-document .cab-side { width: 210px; }
@@ -333,5 +335,6 @@
   .cab-sidebar-collapsed .cab-menu { display: inline-flex; }
 }
 
-.chat-file-download { display: inline-block; margin-top: 5px; font-size: 12px; color: var(--muted); text-underline-offset: 3px; }
-.chat-file-download:hover { color: var(--ink); }
+.chat-file-download { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 9999px; background: #fff; font-size: 12px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.chat-file-download:hover { background: var(--line); }
+.chat-file-download:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

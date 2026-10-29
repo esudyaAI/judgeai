@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { accountApi, type AuthUser, type Profile } from '../api/client';
 import { Link } from '../router';
-import { downloadAccountData, readAvatar, useAccount } from './useAccount';
+import { readAvatar, useAccount } from './useAccount';
 
 type Tab = 'profile' | 'security' | 'data';
 const TABS: [Tab, string][] = [['profile', 'Профиль'], ['security', 'Безопасность'], ['data', 'Данные']];
@@ -87,11 +87,6 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
         </div>
       </div>}
       {tab === 'data' && <div className="set-list">
-        <Row title="Экспорт данных" hint="JSON: профиль, запросы, извлечённый текст и результаты анализа. Без оригиналов файлов.">
-          <button type="button" className="btn btn-line btn-sm" disabled={busy} onClick={() => void run(async () => {
-            downloadAccountData(await accountApi.exportData()); setStatus('Файл экспорта подготовлен');
-          })}>Скачать данные</button>
-        </Row>
         <Row title="Обработка данных" hint="Узнайте, как разделены личные дела и общая база практики."><Link href="/privacy">Конфиденциальность</Link></Row>
         <div className="danger-box"><div><div className="set-title">Удалить все мои дела</div><p className="muted-14">Запросы, результаты и вложения будут удалены. Аккаунт и документы, отдельно сохранённые в базе практики, сохранятся.</p></div>
           {!confirming && <button type="button" className="btn btn-danger btn-sm" disabled={busy} onClick={() => setConfirming(true)}>Удалить дела</button>}

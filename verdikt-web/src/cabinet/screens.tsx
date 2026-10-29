@@ -177,8 +177,11 @@ function Practice({ p }: { p: PracticeComparison }) {
   );
 }
 
+const SIMILAR_SHOWN = 5;
+
 export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: (verdict: SimilarVerdict) => void }) {
   const [variant, setVariant] = useState(0);
+  const [allSimilar, setAllSimilar] = useState(false);
   const current = a.variants[variant];
   const { documents, pages, seconds } = a.stats;
   return (
@@ -259,12 +262,11 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         {a.similar.length > 0 && <div className="similar">
           <div className="similar-head">
             <span className="eyebrow">Схожие приговоры</span>
-            {/* TODO(api): full list page */}
-            <a href="#" onClick={(e) => e.preventDefault()} className="similar-all">
-              Показать все
-            </a>
+            {a.similar.length > SIMILAR_SHOWN && <button type="button" className="similar-all" aria-expanded={allSimilar}
+              onClick={() => setAllSimilar(v => !v)}>{allSimilar ? 'Свернуть' : `Показать все (${a.similar.length})`}</button>}
           </div>
-          {a.similar.map((s, i) => {
+          <p className="similar-hint">Приговоры из базы практики с похожей квалификацией и обстоятельствами; процент — степень сходства. {onOpenVerdict ? 'Нажмите на строку, чтобы открыть текст приговора справа и скачать его.' : ''}</p>
+          {(allSimilar ? a.similar : a.similar.slice(0, SIMILAR_SHOWN)).map((s, i) => {
             const body = <>
               <div className="similar-text">
                 <span className="similar-title">{s.punishment}</span>
