@@ -1,1 +1,133 @@
-IiIiQ29udmljdGlvbiArINGB0YIuIDg2OiB3aGV0aGVyIGEgcHJpb3IgcmVjb3JkIGV4aXN0cyBvbiB0aGUgZGF5IG9mIHRoZSBuZXcgb2ZmZW5jZSAoVDMuMSkuIiIiCgppbXBvcnQgdW5pdHRlc3QKZnJvbSBkYXRldGltZSBpbXBvcnQgZGF0ZQoKZnJvbSBsZWdhbF9jb3JlLmNyaW1pbmFsX3JlY29yZCBpbXBvcnQgQ29udmljdGlvbiwgQ3JpbWluYWxSZWNvcmQsIGFjdGl2ZV9hdCwgY2xhc3NpZnlfcmVjb3JkCmZyb20gbGVnYWxfY29yZS5lbnRpdGllcyBpbXBvcnQgQ2F0ZWdvcnksIEd1aWx0CmZyb20gbGVnYWxfY29yZS5ydWxlcy5hcnQxOCBpbXBvcnQgQ3VycmVudE9mZmVuY2UsIFJlY2lkaXZpc20KZnJvbSBsZWdhbF9jb3JlLnJ1bGVzLmFydDg2IGltcG9ydCBEaXNwb3NpdGlvbiwgU2VudGVuY2VGb3JFeHB1bmdlbWVudAoKR1JBVkVfUkVBTCA9IEN1cnJlbnRPZmZlbmNlKEd1aWx0LklOVEVOVElPTkFMLCBDYXRlZ29yeS5HUkFWRSwgVHJ1ZSkKCgpkZWYgc2VudGVuY2UoKiprd2FyZ3MpOgogICAgIyDQvy4gwqvQssK7INGHLiAzINGB0YIuIDg2OiDRgdGA0LXQtNC90LXQuSDRgtGP0LbQtdGB0YLQuCwg0LvQuNGI0LXQvdC40LUg0YHQstC+0LHQvtC00Ysg4oCUINGC0YDQuCDQs9C+0LTQsCDQv9C+0YHQu9C1INC+0YLQsdGL0YLQuNGPLgogICAgdmFsdWVzID0gZGljdCgKICAgICAgICBjYXRlZ29yeT1DYXRlZ29yeS5NRURJVU0sCiAgICAgICAgZGlzcG9zaXRpb249RGlzcG9zaXRpb24uSU1QUklTT05NRU5ULAogICAgICAgIG9mZmVuY2VfZGF0ZT1kYXRlKDIwMTgsIDEsIDE1KSwKICAgICAgICBtaW5vcl9hdF9vZmZlbmNlPUZhbHNlLAogICAgICAgIGxlZ2FsX2ZvcmNlX2RhdGU9ZGF0ZSgyMDE4LCA2LCAxKSwKICAgICAgICBzZXJ2ZWRfb249ZGF0ZSgyMDIwLCA2LCAxKSwKICAgICkKICAgIHZhbHVlcy51cGRhdGUoa3dhcmdzKQogICAgcmV0dXJuIFNlbnRlbmNlRm9yRXhwdW5nZW1lbnQoKip2YWx1ZXMpCgoKZGVmIGNvbnZpY3Rpb24oYWN0aXZlPU5vbmUsIGV4cHVuZ2VtZW50PU5vbmUsICoqa3dhcmdzKToKICAgIHZhbHVlcyA9IGRpY3QoCiAgICAgICAganVkZ21lbnRfaWQ9Im9uZSIsCiAgICAgICAgZ3VpbHQ9R3VpbHQuSU5URU5USU9OQUwsCiAgICAgICAgY2F0ZWdvcnk9Q2F0ZWdvcnkuTUVESVVNLAogICAgICAgIG9mZmVuY2VfZGF0ZT1kYXRlKDIwMTgsIDEsIDE1KSwKICAgICAgICBsZWdhbF9mb3JjZV9kYXRlPWRhdGUoMjAxOCwgNiwgMSksCiAgICAgICAgaW1wcmlzb25lZF9ieV9zZW50ZW5jZT1UcnVlLAogICAgICAgIGNvbmRpdGlvbmFsX29yX2RlZmVycmVkPUZhbHNlLAogICAgICAgIHNlbnRfdG9fcHJpc29uX29uPU5vbmUsCiAgICAgICAgYWN0aXZlX2F0X29mZmVuY2U9YWN0aXZlLAogICAgICAgIGV4cHVuZ2VtZW50PWV4cHVuZ2VtZW50LAogICAgKQogICAgdmFsdWVzLnVwZGF0ZShrd2FyZ3MpCiAgICByZXR1cm4gQ29udmljdGlvbigqKnZhbHVlcykKCgpjbGFzcyBBY3RpdmVBdFRlc3QodW5pdHRlc3QuVGVzdENhc2UpOgogICAgZGVmIHRlc3Rfd2l0aG91dF9zZW50ZW5jZV9mYWN0c190aGVfY2FsbGVyX3ZhbHVlX2lzX3VzZWQoc2VsZik6CiAgICAgICAgZm9yIHZhbHVlIGluIChUcnVlLCBGYWxzZSwgTm9uZSk6CiAgICAgICAgICAgIHdpdGggc2VsZi5zdWJUZXN0KHZhbHVlPXZhbHVlKToKICAgICAgICAgICAgICAgIHNlbGYuYXNzZXJ0SXMoYWN0aXZlX2F0KGNvbnZpY3Rpb24oYWN0aXZlPXZhbHVlKSwgZGF0ZSgyMDIyLCAxLCAxKSksIHZhbHVlKQoKICAgIGRlZiB0ZXN0X3JlY29yZF9jb21wdXRlZF9ieV9hcnQ4Nl9iZWZvcmVfZXhwdW5nZW1lbnQoc2VsZik6CiAgICAgICAgIyDQntGC0LHRi9GC0L4gMDEuMDYuMjAyMCwg0L/QvtCz0LDRiNCw0LXRgtGB0Y8gMDEuMDYuMjAyMzog0L3QsCAxMC4wNS4yMDIyINGB0YPQtNC40LzQvtGB0YLRjCDQtdGB0YLRjC4KICAgICAgICBzZWxmLmFzc2VydElzKGFjdGl2ZV9hdChjb252aWN0aW9uKGV4cHVuZ2VtZW50PXNlbnRlbmNlKCkpLCBkYXRlKDIwMjIsIDUsIDEwKSksIFRydWUpCgogICAgZGVmIHRlc3RfcmVjb3JkX2NvbXB1dGVkX2J5X2FydDg2X2FmdGVyX2V4cHVuZ2VtZW50KHNlbGYpOgogICAgICAgIHNlbGYuYXNzZXJ0SXMoYWN0aXZlX2F0KGNvbnZpY3Rpb24oZXhwdW5nZW1lbnQ9c2VudGVuY2UoKSksIGRhdGUoMjAyMywgNiwgMikpLCBGYWxzZSkKCiAgICBkZWYgdGVzdF9sYXN0X2RheV9vZl90aGVfdGVybV9pc191bmRlY2lkZWQoc2VsZik6CiAgICAgICAgc2VsZi5hc3NlcnRJc05vbmUoYWN0aXZlX2F0KGNvbnZpY3Rpb24oZXhwdW5nZW1lbnQ9c2VudGVuY2UoKSksIGRhdGUoMjAyMywgNiwgMSkpKQoKICAgIGRlZiB0ZXN0X3Vua25vd25fc2VydmVkX2RhdGVfaXNfdW5kZWNpZGVkKHNlbGYpOgogICAgICAgIGZhY3RzID0gc2VudGVuY2Uoc2VydmVkX29uPU5vbmUpCiAgICAgICAgc2VsZi5hc3NlcnRJc05vbmUoYWN0aXZlX2F0KGNvbnZpY3Rpb24oZXhwdW5nZW1lbnQ9ZmFjdHMpLCBkYXRlKDIwMjIsIDUsIDEwKSkpCgogICAgZGVmIHRlc3RfbWF0Y2hpbmdfY2FsbGVyX3ZhbHVlX2lzX2tlcHQoc2VsZik6CiAgICAgICAgc2VsZi5hc3NlcnRJcygKICAgICAgICAgICAgYWN0aXZlX2F0KGNvbnZpY3Rpb24oYWN0aXZlPVRydWUsIGV4cHVuZ2VtZW50PXNlbnRlbmNlKCkpLCBkYXRlKDIwMjIsIDUsIDEwKSksIFRydWUKICAgICAgICApCgogICAgZGVmIHRlc3RfY29uZmxpY3Rfd2l0aF9jYWxsZXJfdmFsdWVfaXNfdW5kZWNpZGVkKHNlbGYpOgogICAgICAgICMgQ2FsbGVyIHNheXMgdGhlIHJlY29yZCB3YXMgZXhwdW5nZWQsINGB0YIuIDg2IHNheXMgaXQgc3RpbGwgZXhpc3RzOiBubyBzaWxlbnQgY2hvaWNlLgogICAgICAgIHNlbGYuYXNzZXJ0SXNOb25lKAogICAgICAgICAgICBhY3RpdmVfYXQoY29udmljdGlvbihhY3RpdmU9RmFsc2UsIGV4cHVuZ2VtZW50PXNlbnRlbmNlKCkpLCBkYXRlKDIwMjIsIDUsIDEwKSkKICAgICAgICApCgogICAgZGVmIHRlc3RfY2FsbGVyX3ZhbHVlX2ZpbGxzX2FfYm91bmRhcnlfdGhlX3J1bGVfY2Fubm90X2RlY2lkZShzZWxmKToKICAgICAgICAjIEUuZy4gYW4g0JjQpiDQnNCS0JQgY2VydGlmaWNhdGUgZXN0YWJsaXNoZWQgdGhlIGZhY3Q7IHRoZSBydWxlIGFsb25lIHJldHVybnMgTm9uZS4KICAgICAgICBzZWxmLmFzc2VydElzKAogICAgICAgICAgICBhY3RpdmVfYXQoY29udmljdGlvbihhY3RpdmU9VHJ1ZSwgZXhwdW5nZW1lbnQ9c2VudGVuY2UoKSksIGRhdGUoMjAyMywgNiwgMSkpLCBUcnVlCiAgICAgICAgKQoKICAgIGRlZiB0ZXN0X3JlbGVhc2VkX2Zyb21fcHVuaXNobWVudF9pc19ub3RfYV9yZWNvcmQoc2VsZik6CiAgICAgICAgZmFjdHMgPSBzZW50ZW5jZShyZWxlYXNlZF9mcm9tX3B1bmlzaG1lbnQ9VHJ1ZSkKICAgICAgICBzZWxmLmFzc2VydElzKGFjdGl2ZV9hdChjb252aWN0aW9uKGV4cHVuZ2VtZW50PWZhY3RzKSwgZGF0ZSgyMDIyLCA1LCAxMCkpLCBGYWxzZSkKCgpjbGFzcyBDb25zaXN0ZW5jeVRlc3QodW5pdHRlc3QuVGVzdENhc2UpOgogICAgZGVmIHRlc3RfY2F0ZWdvcnlfbXVzdF9tYXRjaChzZWxmKToKICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzKFZhbHVlRXJyb3IpOgogICAgICAgICAgICBjb252aWN0aW9uKGV4cHVuZ2VtZW50PXNlbnRlbmNlKGNhdGVnb3J5PUNhdGVnb3J5LkdSQVZFKSkKCiAgICBkZWYgdGVzdF9sZWdhbF9mb3JjZV9kYXRlX211c3RfbWF0Y2goc2VsZik6CiAgICAgICAgd2l0aCBzZWxmLmFzc2VydFJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICAgICAgY29udmljdGlvbihleHB1bmdlbWVudD1zZW50ZW5jZShsZWdhbF9mb3JjZV9kYXRlPWRhdGUoMjAxOCwgNywgMSkpKQoKICAgIGRlZiB0ZXN0X3Vua25vd25fbGVnYWxfZm9yY2VfZGF0ZV9vbl9vbmVfc2lkZV9pc19hbGxvd2VkKHNlbGYpOgogICAgICAgIGNvbnZpY3Rpb24obGVnYWxfZm9yY2VfZGF0ZT1Ob25lLCBleHB1bmdlbWVudD1zZW50ZW5jZSgpKQogICAgICAgIGNvbnZpY3Rpb24oZXhwdW5nZW1lbnQ9c2VudGVuY2UobGVnYWxfZm9yY2VfZGF0ZT1Ob25lKSkKCiAgICBkZWYgdGVzdF9vZmZlbmNlX2RhdGVfbXVzdF9tYXRjaChzZWxmKToKICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzKFZhbHVlRXJyb3IpOgogICAgICAgICAgICBjb252aWN0aW9uKGV4cHVuZ2VtZW50PXNlbnRlbmNlKG9mZmVuY2VfZGF0ZT1kYXRlKDIwMTgsIDIsIDEpKSkKCiAgICBkZWYgdGVzdF9jb25kaXRpb25hbF9mbGFnX211c3RfbWF0Y2hfZGlzcG9zaXRpb24oc2VsZik6CiAgICAgICAgd2l0aCBzZWxmLmFzc2VydFJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICAgICAgY29udmljdGlvbigKICAgICAgICAgICAgICAgIGV4cHVuZ2VtZW50PXNlbnRlbmNlKAogICAgICAgICAgICAgICAgICAgIGRpc3Bvc2l0aW9uPURpc3Bvc2l0aW9uLkNPTkRJVElPTkFMLCBzZXJ2ZWRfb249Tm9uZSwgcHJvYmF0aW9uX21vbnRocz0yNAogICAgICAgICAgICAgICAgKQogICAgICAgICAgICApCgoKY2xhc3MgUmVjaWRpdmlzbVdpdGhFeHB1bmdlbWVudFRlc3QodW5pdHRlc3QuVGVzdENhc2UpOgogICAgZGVmIHJlY29yZChzZWxmLCBmYWN0cyk6CiAgICAgICAgcmV0dXJuIENyaW1pbmFsUmVjb3JkKAogICAgICAgICAgICBiaXJ0aF9kYXRlPWRhdGUoMTk5MCwgMywgMyksIGNvbnZpY3Rpb25zPShjb252aWN0aW9uKGV4cHVuZ2VtZW50PWZhY3RzKSwpLCBjb21wbGV0ZT1UcnVlCiAgICAgICAgKQoKICAgIGRlZiB0ZXN0X2FjdGl2ZV9yZWNvcmRfZ2l2ZXNfc2ltcGxlX3JlY2lkaXZpc20oc2VsZik6CiAgICAgICAgcmVzdWx0ID0gY2xhc3NpZnlfcmVjb3JkKHNlbGYucmVjb3JkKHNlbnRlbmNlKCkpLCBHUkFWRV9SRUFMLCBkYXRlKDIwMjIsIDUsIDEwKSkKICAgICAgICBzZWxmLmFzc2VydEVxdWFsKHJlc3VsdCwgUmVjaWRpdmlzbS5TSU1QTEUpCgogICAgZGVmIHRlc3RfZXhwdW5nZWRfcmVjb3JkX2dpdmVzX25vX3JlY2lkaXZpc20oc2VsZik6CiAgICAgICAgcmVzdWx0ID0gY2xhc3NpZnlfcmVjb3JkKHNlbGYucmVjb3JkKHNlbnRlbmNlKCkpLCBHUkFWRV9SRUFMLCBkYXRlKDIwMjMsIDYsIDIpKQogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocmVzdWx0LCBSZWNpZGl2aXNtLk5PTkUpCgogICAgZGVmIHRlc3RfYm91bmRhcnlfZGF5X2dpdmVzX3Vua25vd24oc2VsZik6CiAgICAgICAgcmVzdWx0ID0gY2xhc3NpZnlfcmVjb3JkKHNlbGYucmVjb3JkKHNlbnRlbmNlKCkpLCBHUkFWRV9SRUFMLCBkYXRlKDIwMjMsIDYsIDEpKQogICAgICAgIHNlbGYuYXNzZXJ0RXF1YWwocmVzdWx0LCBSZWNpZGl2aXNtLlVOS05PV04pCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHVuaXR0ZXN0Lm1haW4oKQo=
+"""Conviction + ст. 86: whether a prior record exists on the day of the new offence (T3.1)."""
+
+import unittest
+from datetime import date
+
+from legal_core.criminal_record import Conviction, CriminalRecord, active_at, classify_record
+from legal_core.entities import Category, Guilt
+from legal_core.rules.art18 import CurrentOffence, Recidivism
+from legal_core.rules.art86 import Disposition, SentenceForExpungement
+
+GRAVE_REAL = CurrentOffence(Guilt.INTENTIONAL, Category.GRAVE, True)
+
+
+def sentence(**kwargs):
+    # п. «в» ч. 3 ст. 86: средней тяжести, лишение свободы — три года после отбытия.
+    values = dict(
+        category=Category.MEDIUM,
+        disposition=Disposition.IMPRISONMENT,
+        offence_date=date(2018, 1, 15),
+        minor_at_offence=False,
+        legal_force_date=date(2018, 6, 1),
+        served_on=date(2020, 6, 1),
+    )
+    values.update(kwargs)
+    return SentenceForExpungement(**values)
+
+
+def conviction(active=None, expungement=None, **kwargs):
+    values = dict(
+        judgment_id="one",
+        guilt=Guilt.INTENTIONAL,
+        category=Category.MEDIUM,
+        offence_date=date(2018, 1, 15),
+        legal_force_date=date(2018, 6, 1),
+        imprisoned_by_sentence=True,
+        conditional_or_deferred=False,
+        sent_to_prison_on=None,
+        active_at_offence=active,
+        expungement=expungement,
+    )
+    values.update(kwargs)
+    return Conviction(**values)
+
+
+class ActiveAtTest(unittest.TestCase):
+    def test_without_sentence_facts_the_caller_value_is_used(self):
+        for value in (True, False, None):
+            with self.subTest(value=value):
+                self.assertIs(active_at(conviction(active=value), date(2022, 1, 1)), value)
+
+    def test_record_computed_by_art86_before_expungement(self):
+        # Отбыто 01.06.2020, погашается 01.06.2023: на 10.05.2022 судимость есть.
+        self.assertIs(active_at(conviction(expungement=sentence()), date(2022, 5, 10)), True)
+
+    def test_record_computed_by_art86_after_expungement(self):
+        self.assertIs(active_at(conviction(expungement=sentence()), date(2023, 6, 2)), False)
+
+    def test_last_day_of_the_term_is_undecided(self):
+        self.assertIsNone(active_at(conviction(expungement=sentence()), date(2023, 6, 1)))
+
+    def test_unknown_served_date_is_undecided(self):
+        facts = sentence(served_on=None)
+        self.assertIsNone(active_at(conviction(expungement=facts), date(2022, 5, 10)))
+
+    def test_matching_caller_value_is_kept(self):
+        self.assertIs(
+            active_at(conviction(active=True, expungement=sentence()), date(2022, 5, 10)), True
+        )
+
+    def test_conflict_with_caller_value_is_undecided(self):
+        # Caller says the record was expunged, ст. 86 says it still exists: no silent choice.
+        self.assertIsNone(
+            active_at(conviction(active=False, expungement=sentence()), date(2022, 5, 10))
+        )
+
+    def test_caller_value_fills_a_boundary_the_rule_cannot_decide(self):
+        # E.g. an ИЦ МВД certificate established the fact; the rule alone returns None.
+        self.assertIs(
+            active_at(conviction(active=True, expungement=sentence()), date(2023, 6, 1)), True
+        )
+
+    def test_released_from_punishment_is_not_a_record(self):
+        facts = sentence(released_from_punishment=True)
+        self.assertIs(active_at(conviction(expungement=facts), date(2022, 5, 10)), False)
+
+
+class ConsistencyTest(unittest.TestCase):
+    def test_category_must_match(self):
+        with self.assertRaises(ValueError):
+            conviction(expungement=sentence(category=Category.GRAVE))
+
+    def test_legal_force_date_must_match(self):
+        with self.assertRaises(ValueError):
+            conviction(expungement=sentence(legal_force_date=date(2018, 7, 1)))
+
+    def test_unknown_legal_force_date_on_one_side_is_allowed(self):
+        conviction(legal_force_date=None, expungement=sentence())
+        conviction(expungement=sentence(legal_force_date=None))
+
+    def test_offence_date_must_match(self):
+        with self.assertRaises(ValueError):
+            conviction(expungement=sentence(offence_date=date(2018, 2, 1)))
+
+    def test_conditional_flag_must_match_disposition(self):
+        with self.assertRaises(ValueError):
+            conviction(
+                expungement=sentence(
+                    disposition=Disposition.CONDITIONAL, served_on=None, probation_months=24
+                )
+            )
+
+
+class RecidivismWithExpungementTest(unittest.TestCase):
+    def record(self, facts):
+        return CriminalRecord(
+            birth_date=date(1990, 3, 3), convictions=(conviction(expungement=facts),), complete=True
+        )
+
+    def test_active_record_gives_simple_recidivism(self):
+        result = classify_record(self.record(sentence()), GRAVE_REAL, date(2022, 5, 10))
+        self.assertEqual(result, Recidivism.SIMPLE)
+
+    def test_expunged_record_gives_no_recidivism(self):
+        result = classify_record(self.record(sentence()), GRAVE_REAL, date(2023, 6, 2))
+        self.assertEqual(result, Recidivism.NONE)
+
+    def test_boundary_day_gives_unknown(self):
+        result = classify_record(self.record(sentence()), GRAVE_REAL, date(2023, 6, 1))
+        self.assertEqual(result, Recidivism.UNKNOWN)
+
+
+if __name__ == "__main__":
+    unittest.main()
