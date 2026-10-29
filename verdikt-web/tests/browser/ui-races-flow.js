@@ -1,4 +1,9 @@
 async page => {
+  const waitRoute = async read => {
+    const deadline = Date.now() + 10000;
+    while (!read()) { if (Date.now() > deadline) throw Error('Synthetic request did not reach the route handler'); await page.waitForTimeout(10); }
+    return read();
+  };
   const base='http://127.0.0.1:5185';
   let chats=[{id:1,title:'Первое дело',status:'ready',updated_at:'2026-10-29T12:00:00Z'}, {id:2,title:'Второе дело',status:'ready',updated_at:'2026-10-29T12:00:00Z'}];
   let holdList=false, stale=null, holdSend=false, sendRoute=null, sendCount=0, holdLogout=false, logoutRoute=null;
@@ -28,7 +33,7 @@ async page => {
   await page.getByRole('dialog').getByRole('button',{name:'Удалить чат',exact:true}).click();
   await first.waitFor({state:'detached'});
   if (await page.getByLabel('Список дел',{exact:true}).getAttribute('aria-busy')!=='false') throw Error('Deleted chat left list loading forever');
-  holdList=false; await stale.fulfill({json:[{id:1,title:'Первое дело',status:'ready',updated_at:''},...chats]});
+  await waitRoute(()=>stale); holdList=false; await stale.fulfill({json:[{id:1,title:'Первое дело',status:'ready',updated_at:''},...chats]});
   await page.getByText('Обновляем закрепление…',{exact:true}).waitFor({state:'detached'});
   if (await first.count()) throw Error('Stale list resurrected deleted chat');
   await page.getByRole('button',{name:'Свернуть боковое меню',exact:true}).click();
@@ -49,8 +54,9 @@ async page => {
   await page.getByRole('button',{name:'Отправляем запрос',exact:true}).waitFor();
   if (!await input.isDisabled() || !await page.getByRole('button',{name:'Прикрепить файлы',exact:true}).isDisabled()) throw Error('Pending send can mutate draft');
   await page.keyboard.press('Enter');
+  await waitRoute(()=>sendRoute);
   if (sendCount!==1) throw Error('Duplicate send');
-  holdSend=false; await sendRoute.fulfill({status:503,json:{detail:'Тестовая ошибка отправки'}});
+  holdSend=false; await (await waitRoute(()=>sendRoute)).fulfill({status:503,json:{detail:'Тестовая ошибка отправки'}});
   await page.getByRole('alert').filter({hasText:'Тестовая ошибка отправки'}).waitFor();
   if(await input.inputValue()!=='Сохранить этот запрос при ошибке') throw Error('Send failure lost draft');
   if(sendCount!==1) throw Error('Ambiguous mutation retried automatically');
@@ -61,7 +67,7 @@ async page => {
   await page.getByRole('button',{name:'Аккаунт',exact:true}).click();
   if (!await page.getByRole('menuitem',{name:'Выйти',exact:true}).isDisabled()) throw Error('Duplicate logout enabled');
   await page.keyboard.press('Escape');
-  holdLogout=false; await logoutRoute.fulfill({status:503,json:{detail:'Нет связи'}});
+  await waitRoute(()=>logoutRoute); holdLogout=false; await logoutRoute.fulfill({status:503,json:{detail:'Нет связи'}});
   await page.getByRole('alert').filter({hasText:'Не удалось выйти'}).waitFor();
   await page.screenshot({path:'acceptance-screenshots/ui-races.png',fullPage:true});
   return {staleList:true,deleteLoading:true,overlappingInert:true,resize:true,pendingSend:true,preservedDraft:true,noAutoRetry:true,logoutPending:true};

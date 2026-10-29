@@ -1,4 +1,9 @@
 async page => {
+  const waitRoute = async read => {
+    const deadline = Date.now() + 10000;
+    while (!read()) { if (Date.now() > deadline) throw Error('Synthetic request did not reach the route handler'); await page.waitForTimeout(10); }
+    return read();
+  };
   const base='http://127.0.0.1:5185';
   let mode='delayed', held=null;
   await page.route(`${base}/api/**`,route=>{
@@ -19,6 +24,7 @@ async page => {
   await page.goto(`${base}/app/case/1/result`);
   await page.getByRole('button',{name:'Открыть Первый.txt',exact:true}).click();
   await page.getByText('Загружаем текст…',{exact:true}).waitFor();
+  await waitRoute(()=>held);
   await page.getByRole('button',{name:'Закрыть документ',exact:true}).click();
   await page.getByRole('button',{name:'Открыть Второй.txt',exact:true}).click();
   await page.getByText('Текст второго документа',{exact:true}).waitFor();

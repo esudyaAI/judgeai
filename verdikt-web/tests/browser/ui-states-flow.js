@@ -1,14 +1,20 @@
 async page => {
+  const waitRoute = async read => {
+    const deadline = Date.now() + 10000;
+    while (!read()) { if (Date.now() > deadline) throw Error('Synthetic request did not reach the route handler'); await page.waitForTimeout(10); }
+    return read();
+  };
   await page.unrouteAll({behavior:'ignoreErrors'});
   const base='http://127.0.0.1:5185';
   let logged=true, listFail=false, chats=[], hold='', held=null, failText=true;
   const calls={};
+  let releaseList; let listGate=Promise.resolve();
   const profile={firstName:'Анна',lastName:'',email:'',position:'',org:'',region:'',avatar:''};
   await page.route(`${base}/api/**`, route=>{
     const path=route.request().url().replace(/^https?:\/\/[^/]+/,'').split('?')[0];
     calls[path]=(calls[path]||0)+1;
     if (hold===path && route.request().method() !== 'GET') { held=route; return; }
-    if (hold==='list' && path==='/api/chats') { held=route; return; }
+    if (hold==='list' && path==='/api/chats') return listGate.then(()=>route.fulfill({json:[]}));
     if (path==='/api/auth/me') return route.fulfill(logged ? {json:{id:1,username:'помощник',is_admin:false,csrf_token:'synthetic'}} : {status:401,json:{detail:'Требуется вход'}});
     if (path==='/api/account/profile') return route.fulfill({json:profile});
     if (path==='/api/account/sessions') return route.fulfill({json:[]});
@@ -32,14 +38,14 @@ async page => {
     hold='/api/auth/login'; held=null; await submit.click();
     await page.getByRole('button',{name:'Входим…',exact:true}).waitFor();
     if (!await page.getByRole('button',{name:'Входим…',exact:true}).isDisabled()) throw Error('Pending login unlocked');
-    hold=''; await held.fulfill({status:401,json:{detail:'Неверный пароль'}});
+    await waitRoute(()=>held); hold=''; await held.fulfill({status:401,json:{detail:'Неверный пароль'}});
     await page.getByRole('alert').waitFor();
     if (await page.getByLabel('Пароль',{exact:true}).inputValue()!=='') throw Error('Password not cleared');
-    logged=true; hold='list'; held=null; chats=[];
+    logged=true; hold='list'; held=null; chats=[]; listGate=new Promise(resolve=>{releaseList=resolve;});
     await page.goto(`${base}/app`);
     if (width<761) await page.getByRole('button',{name:'Открыть боковое меню',exact:true}).click();
     await page.getByText('Загружаем дела…',{exact:true}).waitFor();
-    hold=''; await held.fulfill({json:[]});
+    hold=''; releaseList();
     await page.getByText('Здесь появятся ваши дела. Начните новое дело.',{exact:true}).waitFor();
     if (width<761) {
       if (!await page.locator('.cab-main').evaluate(el=>el.inert)) throw Error('Drawer background not inert');
@@ -62,7 +68,7 @@ async page => {
     await page.getByRole('button',{name:'Сохранить профиль',exact:true}).click();
     await page.getByRole('button',{name:'Сохраняем…',exact:true}).waitFor();
     if (!await page.getByRole('tab',{name:'Безопасность',exact:true}).isDisabled()) throw Error('Pending settings can switch tab');
-    hold=''; await held.fulfill({status:503,json:{detail:'Тестовая ошибка сохранения'}});
+    await waitRoute(()=>held); hold=''; await held.fulfill({status:503,json:{detail:'Тестовая ошибка сохранения'}});
     await page.getByRole('alert').filter({hasText:'Тестовая ошибка сохранения'}).waitFor();
     await page.getByRole('button',{name:'Сохранить профиль',exact:true}).click();
     await page.getByText('Профиль сохранён',{exact:true}).waitFor();
