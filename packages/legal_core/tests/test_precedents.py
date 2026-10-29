@@ -44,6 +44,23 @@ def test_parse_qualifications_ignores_other_codes_and_duplicates():
     assert parse_qualifications("") == ()
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # sudact/OCR texts drop the article dot: "ст. 2281" is ст. 228.1.
+        ("ч. 2 ст. 3141 УК РФ", (Qualification("314.1", 2),)),
+        ("ПРИГОВОРИЛ: …предусмотренного ч. 3 ст. 2581 УК РФ…", (Qualification("258.1", 3),)),
+        ("пунктом «г» части 4 статьи 2281 УК РФ", (Qualification("228.1", 4, "г"),)),
+        ("ст. 1581 УК РФ", (Qualification("158.1", None),)),
+        # dotted and plain forms are unaffected
+        ("ч. 4 ст. 228.1 УК РФ", (Qualification("228.1", 4),)),
+        ("ч. 1 ст. 158 УК РФ", (Qualification("158", 1),)),
+    ],
+)
+def test_parse_qualifications_restores_dropped_article_dot(text, expected):
+    assert parse_qualifications(text) == expected
+
+
 def _card(**kw):
     base = dict(
         episodes=(PrecedentEpisode(Qualification("158", 2, "в"), None),),
