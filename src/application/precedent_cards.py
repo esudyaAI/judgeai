@@ -8,7 +8,7 @@ A ruling of a higher court restates the sentences of several convicted persons; 
 base keeps one card per person (defendant_no) together with the higher court's outcome.
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Protocol
 
 from legal_core.entities import ImposedSentence, PunishmentTerm
@@ -21,7 +21,7 @@ from legal_core.precedents import (
 
 from src.domain.extraction import ExtractedField, ExtractionMethod, input_hash
 
-CARD_EXTRACTOR_VERSION = "precedent-card/8"
+CARD_EXTRACTOR_VERSION = "precedent-card/10"
 
 
 @dataclass(frozen=True)
@@ -105,6 +105,7 @@ def _extraction(reading: VerdictReading, text: str, defendant_no: int) -> CardEx
         final=sentence.final,
         conditional=sentence.conditional,
         fabula=reading.fabula,
+        fine_credits=sentence.fine_credits,
     )
     source = input_hash(text)
     version = CARD_EXTRACTOR_VERSION
@@ -146,6 +147,14 @@ def _extraction(reading: VerdictReading, text: str, defendant_no: int) -> CardEx
         ),
         found("fabula", reading.fabula or None, reading.fabula[:300]),
     )
+    if sentence.fine_credits:
+        fields += (
+            found(
+                "fine_credits",
+                [asdict(c) for c in sentence.fine_credits],
+                " … ".join(c.quote for c in sentence.fine_credits),
+            ),
+        )
     if reading.outcome is not None:
         fields += (found("ruling_outcome", reading.outcome, reading.outcome_quote),)
     return CardExtraction(card, fields, source, defendant_no, reading.outcome)

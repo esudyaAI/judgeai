@@ -6,8 +6,9 @@ than asked, while an exact scan over tens of thousands of cards takes tens of mi
 """
 
 import re
+from dataclasses import replace
 
-from legal_core.entities import MeasureUnit, PunishmentKind, PunishmentTerm
+from legal_core.entities import FineCredit, MeasureUnit, PunishmentKind, PunishmentTerm
 from legal_core.precedents import PrecedentCard, PrecedentEpisode, Qualification, Recidivism
 from sqlalchemy import String, cast, func, literal, select, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
@@ -362,7 +363,8 @@ class SqlPrecedentStore:
         if not ids:
             return {}
         rows = await self.db.scalars(select(PrecedentCardRow).where(PrecedentCardRow.id.in_(ids)))
-        return {row.id: _stored(row) for row in rows}
+        stored = await self._with_fine_credits(list(rows))
+        return {item.id: item for item in stored}
 
     async def has_cards(self) -> bool:
         return await self.db.scalar(select(PrecedentCardRow.id).limit(1)) is not None
@@ -377,4 +379,24 @@ class SqlPrecedentStore:
                 PrecedentCardRow.defendant_no == 0,
             )
         )
-        return {row.knowledge_verdict_id: _stored(row) for row in rows}
+        stored = await self._with_fine_credits(list(rows))
+        return {item.knowledge_verdict_id: item for item in stored}
+
+    async def _with_fine_credits(self, rows: list[PrecedentCardRow]) -> list[StoredCard]:
+        if not rows:
+            return []
+        fields = await self.db.scalars(
+            select(PrecedentCardField)
+            .join(PrecedentCardRow, PrecedentCardField.card_id == PrecedentCardRow.id)
+            .where(
+                PrecedentCardRow.id.in_([row.id for row in rows]),
+                PrecedentCardField.name == "fine_credits",
+                PrecedentCardField.extractor_version == PrecedentCardRow.extractor_version,
+                PrecedentCardField.input_hash == PrecedentCardRow.text_sha256,
+            )
+        )
+        credits = {field.card_id: tuple(FineCredit(**c) for c in field.value) for field in fields}
+        return [
+            replace(_stored(row), card=replace(_card(row), fine_credits=credits.get(row.id, ())))
+            for row in rows
+        ]

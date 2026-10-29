@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
-from legal_core.entities import PunishmentTerm
+from legal_core.entities import FineCredit, PunishmentTerm
 
 # Articles 1-104 form the General Part of УК РФ and are never a qualification of a count.
 FIRST_SPECIAL_PART_ARTICLE = 105
@@ -134,6 +134,7 @@ class PrecedentCard:
     final: PunishmentTerm | None
     conditional: bool
     fabula: str
+    fine_credits: tuple[FineCredit, ...] = ()
 
     def __post_init__(self) -> None:
         for code in self.mitigating | self.aggravating:

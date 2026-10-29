@@ -247,7 +247,7 @@ function CheckList({ checks }: { checks: NonNullable<CaseAnalysis['legalChecks']
         })}</>;
 }
 
-function SentenceDetails({ sentence }: {sentence: CaseAnalysis['imposed_sentence']}) {
+export function SentenceDetails({ sentence }: {sentence: CaseAnalysis['imposed_sentence']}) {
   if (!sentence) return null;
   return <div className="soft-card" aria-label="Назначенные наказания">
     {sentence.counts.map((c,i) => <div key={i}><strong>{c.qualification}</strong>: {c.punishment}
@@ -258,6 +258,16 @@ function SentenceDetails({ sentence }: {sentence: CaseAnalysis['imposed_sentence
     {sentence.prior_judgment_date && <div>Прежний приговор: {sentence.prior_judgment_date}</div>}
     {sentence.credited && <div>Зачёт отбытого: {sentence.credited}</div>}
     {sentence.final && <div>Окончательно ({sentence.aggregation_rule}): {sentence.final}</div>}
+    {sentence.fine_credits?.map((credit, i) => <div key={`fine-credit-${i}`}>
+      <strong>Смягчение штрафа по ч. 5 ст. 72 УК РФ</strong>
+      <div>{credit.scope === 'final' ? 'Итоговое наказание' : credit.scope === 'count' && credit.count_index !== null
+        ? `Эпизод ${credit.count_index + 1}` : 'Связь с эпизодом не установлена'}</div>
+      <div>Назначенный штраф: {credit.original_amount === null ? 'сумма не установлена' : `${credit.original_amount.toLocaleString('ru-RU')} ₽`}</div>
+      <div>{credit.released ? 'Суд указал полное освобождение от отбывания штрафа' : credit.reduced_amount === null
+        ? 'Сумма после смягчения не установлена' : `Указано судом после смягчения: ${credit.reduced_amount.toLocaleString('ru-RU')} ₽`}</div>
+      <div>{credit.status === 'requires_review' ? 'Чтение требует проверки. ' : ''}Законность зачёта автоматически не проверена.</div>
+      <blockquote>{credit.quote}</blockquote>
+    </div>)}
     {sentence.final_additional?.map((extra,i) => <div key={i}>Итоговое дополнительное: {extra}</div>)}
   </div>;
 }
