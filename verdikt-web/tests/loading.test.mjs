@@ -64,3 +64,17 @@ test('analysis steps follow the order of the work', () => {
   assert.match(html, /step-active">Сверяем с законом</);
   assert.match(html, /step-pending">Ищем похожие дела</);
 });
+
+test('a queued message says "В очереди" instead of reading documents', () => {
+  const messages = [{id:1, role:'assistant', status:'pending', stage:null, content:'', error:null, result:null, attachments:[], created_at:new Date().toISOString()}];
+  const html = render('ChatTimeline', {messages, onOpen() {}});
+  assert.match(html, /step-active">В очереди</);
+  assert.doesNotMatch(html, /step-active">Читаем документы</);
+  assert.match(html, /step-pending">Читаем документы</);
+});
+
+test('a running message never shows the queue state', () => {
+  const html = render('ThreadScreen', {thinking:true, files:[], stage:'reading', status:'running', analysis:null});
+  assert.doesNotMatch(html, /В очереди/);
+  assert.match(html, /step-active">Читаем документы</);
+});

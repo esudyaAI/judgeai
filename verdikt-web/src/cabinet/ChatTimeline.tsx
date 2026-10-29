@@ -22,7 +22,7 @@ export const ChatTimeline = memo(function ChatTimeline({messages, onOpen, onOpen
             <div className="file-meta">{fileReadingLabel({pages:a.page_count || 0, recognition:a.extraction_status})}</div>
             {chatId && <a className="chat-file-download" href={api.attachmentUrl(chatId,a.id,true)} download={a.filename} aria-label={`Скачать «${a.filename}»`}><Icon name="download" size={14} />Скачать</a>}
           </div>)}</div>
-        </div></div> : busy ? <div aria-busy="true"><Thinking stage={message.stage} startedAt={message.created_at} /></div> : message.status === 'failed' ?
+        </div></div> : busy ? <div aria-busy="true"><Thinking stage={message.stage} status={message.status} startedAt={message.created_at} /></div> : message.status === 'failed' ?
           <div className="warn-box" role="alert">{message.error || 'Анализ не выполнен. Отправьте уточнение, чтобы повторить попытку.'}</div> :
           message.result ? <Result a={mapAnalysis(message.result)} onOpenVerdict={onOpenVerdict} /> : <div className="thread-ai chat-message-text">{message.content}</div>}
       </section>;
