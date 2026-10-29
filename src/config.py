@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     UPLOAD_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.dotx,.txt,.md"
 
     # "openai" = any OpenAI-compatible /chat/completions endpoint; "deepseek_web" = DeepSeek
-    # web proxy (deepseek-stateful-wrapper); "fake" = fixed sample case for tests only.
-    LLM_PROVIDER: Literal["openai", "deepseek_web", "fake"] = "openai"
+    # web proxy (deepseek-stateful-wrapper); "fallback" = primary OpenAI with deepseek_web fallback;
+    # "fake" = fixed sample case for tests only.
+    LLM_PROVIDER: Literal["openai", "deepseek_web", "fallback", "fake"] = "openai"
     # The fake provider is refused unless this flag is set (tests, local UI work), so a
     # misconfigured server reports an error instead of showing a sample verdict.
     LLM_ALLOW_FAKE: bool = False
@@ -30,6 +31,13 @@ class Settings(BaseSettings):
     LLM_API_KEY: str | None = None
     LLM_MODEL: str = "gpt-4o-mini"
     LLM_TIMEOUT_SECONDS: float = 120.0
+
+    # Fallback configuration (used when primary OpenAI-compatible gateway fails).
+    # "deepseek_web" = proxy (services/deepseek-stateful-wrapper); "none" = disabled.
+    LLM_FALLBACK_PROVIDER: Literal["deepseek_web", "none"] = "deepseek_web"
+    LLM_FALLBACK_API_BASE: str = "http://localhost:28080/v1"
+    LLM_FALLBACK_API_KEY: str | None = None
+    LLM_FALLBACK_MODEL: str = "deepseek-chat"
 
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     EMBEDDING_DIM: int = 384

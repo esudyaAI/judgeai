@@ -87,3 +87,38 @@ async def test_connection_errors_are_retried(pauses):
     client = _client([httpx.ConnectError("down"), _ok()], requests)
     assert await client.complete_json("s", "u") == {"answer": 4}
     assert len(requests) == 2
+
+
+async def test_user_prompt_guarantees_json_word_for_json_object_format(pauses):
+    requests: list = []
+    client = _client([_ok()], requests)
+    await client.complete_json("система", "вопрос без специального слова")
+    body = json.loads(requests[0].content)
+    user_msg = body["messages"][1]["content"]
+    assert "Ответь в формате JSON." in user_msg
+    assert "json" in user_msg.lower()
+
+
+async def test_user_prompt_preserves_existing_json_word(pauses):
+    requests: list = []
+    client = _client([_ok()], requests)
+    await client.complete_json("система", "верни ответ в JSON формате")
+    body = json.loads(requests[0].content)
+    user_msg = body["messages"][1]["content"]
+    assert user_msg == "верни ответ в JSON формате"
+
+
+async def test_error_status_logs_response_text(pauses, caplog):
+    import logging
+
+    requests: list = []
+    error_body = '{"error": {"message": "invalid request", "code": "invalid_request"}}'
+    client = _client([httpx.Response(400, text=error_body)], requests)
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(LLMError):
+            await client.complete_json("s", "u")
+
+    assert any(
+        "LLM API error 400" in record.message and "invalid request" in record.message
+        for record in caplog.records
+    )

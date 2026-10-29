@@ -613,3 +613,23 @@
 - [~] Публикация в существующую ветку PR13 и обязательный GitHub CI; main/production не менялись. Ограничение: до получения assistant message при отправке файлов секундомер ещё не отображается; таймер показывает ожидание с момента создания ответа, включая очередь.
 
 - [x]0495f9b опубликован в PR13; CI https://github.com/esudyaAI/judgeai/actions/runs/40776222487: все4 обязательных checks success (inventory,api-tests,browser-auth,document-preview). Build/deploy штатно skipped для feature PR. Реализация и проверка закончены; merge/deploy не выполнялись.
+
+### Добавление fallback провайдера deepseek-stateful-wrapper — 29.10.2026
+
+- [x] Запрос пользователя: добавить провайдер https://github.com/shoshkovs/deepseek-stateful-wrapper.git в качестве фолбэка при недоступности основного openapi (OpenAI-compatible) шлюза; склонировать репо и перенести код в проект.
+- [x] Репозиторий https://github.com/shoshkovs/deepseek-stateful-wrapper.git склонирован и перенесён в `services/deepseek-stateful-wrapper/` (Dockerfile, stateful_server.py, deepseek_chat.py, apply_upstream_patch.py, Makefile, docker-compose.yml, tests/test_client.py, лицензии и документация); unit-тесты `python3 -m unittest discover tests` в папке сервиса прошли (3 tests OK).
+- [x] Реализован `FallbackLLMClient`, добавлена параметризация `OpenAICompatibleClient` и `DeepSeekWebClient` по api_base/model/api_key/timeout, обновлена фабрика `get_llm_client()`: при `LLM_PROVIDER=openai` (или `fallback`) и активном `LLM_FALLBACK_PROVIDER=deepseek_web` возвращается клиент с автоматическим переключением на DeepSeek web proxy при сбое основного шлюза.
+- [x] Конфигурация расширена в `src/config.py` (LLM_FALLBACK_PROVIDER, LLM_FALLBACK_API_BASE, LLM_FALLBACK_API_KEY, LLM_FALLBACK_MODEL) и задокументирована в `.env.example`.
+- [x] Написаны тесты в `tests/test_llm_fallback.py` (9 тестов): успех основного без вызова фолбэка, сбой основного (429 / transport / missing key) -> переключение на фолбэк, сбой обоих с объединённым описанием, отключение фолбэка (`LLM_FALLBACK_PROVIDER=none`), фабрика по умолчанию и параметры настроек.
+- [x] Все проверки пройдены: 36/36 LLM тестов passed, 25/25 tests_unit passed, 183/183 legal_core passed (cov 99.03%), `python3 tools/dependency_inventory.py --check` passed (exit code 0), `ruff check src tests packages tools` — all checks passed. Коммит `d8917fc`.
+
+### Фиксы базового OpenAI-совместимого LLM-шлюза (HTTP 400 и логирование) — 29.10.2026
+
+- [x] Запрос пользователя:
+  1. Провайдеры (LiteLLM/OneAPI/clodex) требуют наличия слова "json" в user-сообщениях при `response_format: {"type": "json_object"}`; гарантировать наличие слова "json" в `user` внутри `OpenAICompatibleClient.complete_json`.
+  2. Добавить логирование `response.text` при `status >= 400` перед вызовом `_final_status_error` для прозрачной диагностики ошибок в логах.
+- [x] Реализовано в `OpenAICompatibleClient.complete_json`: проверка `"json" not in user_content.lower()` с автоматическим добавлением `\n\nОтветь в формате JSON.`, а также `logger.warning("LLM API error %d: %s", status, response.text)` при `status >= 400`.
+- [x] Написаны тесты в `tests/test_llm_retries.py`: `test_user_prompt_guarantees_json_word_for_json_object_format`, `test_user_prompt_preserves_existing_json_word`, `test_error_status_logs_response_text`.
+- [x] Все проверки пройдены: 39/39 LLM тестов passed, ruff check clean, dependency_inventory clean. Коммит `d8917fc`.
+
+
