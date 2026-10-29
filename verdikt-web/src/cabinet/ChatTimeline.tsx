@@ -5,15 +5,18 @@ import { Icon } from '../components/Icon';
 import { fileReadingLabel } from './fileReadingPresentation';
 import { Result, Thinking } from './screens';
 
-const STAGES = ['reading', 'searching', 'qualifying', 'checking'];
-const LABELS = ['Читаем документы', 'Ищем похожие дела', 'Извлекаем факты', 'Проверяем нормы закона'];
+// The order of the work: documents, facts, the law, practice, then the recommendation.
+const STAGES = ['reading', 'extracting', 'checking', 'searching', 'recommending'];
+const LABELS = ['Читаем документы', 'Извлекаем факты', 'Сверяем с законом', 'Ищем похожие дела', 'Готовим рекомендацию'];
+// Analyses started before the update report the old stage names.
+const LEGACY_STAGES: Record<string, string> = {qualifying: 'extracting'};
 export type ChatAttachment = Message['attachments'][number];
 
 export function ChatTimeline({messages, onOpen, onOpenVerdict, chatId}: {chatId?: string; messages: Message[]; onOpen: (attachment: ChatAttachment) => void; onOpenVerdict?: (verdict: SimilarVerdict) => void}) {
   return <div className="thread chat-timeline" aria-label="История переписки">
     {messages.map(message => {
       const busy = message.status === 'pending' || message.status === 'running';
-      const stage = STAGES.indexOf(message.stage || 'reading');
+      const stage = STAGES.indexOf(LEGACY_STAGES[message.stage || ''] || message.stage || 'reading');
       return <section key={message.id} data-message-id={message.id} className={`chat-message chat-message-${message.role}`} aria-label={message.role === 'user' ? 'Ваше сообщение' : 'Ответ помощника'}>
         {message.role === 'user' ? <div className="thread-user"><div className="bubble">
           {message.content && <p className="chat-message-text">{message.content}</p>}

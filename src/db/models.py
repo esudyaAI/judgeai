@@ -11,7 +11,7 @@ from src.db.base import Base
 #   pending -> running -> completed | failed
 MESSAGE_STATUSES = ("pending", "running", "completed", "failed")
 # Message.stage while running (drives the "analysis steps" UI):
-ANALYSIS_STAGES = ("reading", "searching", "qualifying", "checking")
+ANALYSIS_STAGES = ("reading", "extracting", "checking", "searching", "recommending")
 # Attachment.extraction_status:
 #   ok | partial (some PDF pages had no text layer) | empty | unsupported | error
 EXTRACTION_STATUSES = ("ok", "partial", "empty", "unsupported", "error")

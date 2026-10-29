@@ -55,3 +55,15 @@ test('elapsed time reads as minutes and seconds', () => {
   assert.match(html, /role="timer"[^>]*>1 мин 3[01] сек</);
   assert.doesNotMatch(html, />9[01] с/);
 });
+
+test('analysis steps follow the order of the work', () => {
+  const messages = [{id:1, role:'assistant', status:'running', stage:'checking', content:'', error:null, result:null, attachments:[], created_at:new Date().toISOString()}];
+  const html = render('ChatTimeline', {messages, onOpen() {}});
+  const order = ['Читаем документы', 'Извлекаем факты', 'Сверяем с законом', 'Ищем похожие дела', 'Готовим рекомендацию'];
+  const positions = order.map(label => html.indexOf(label));
+  assert.ok(positions.every(p => p >= 0), positions.join(','));
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+  assert.match(html, /step-done">Извлекаем факты</);
+  assert.match(html, /step-active">Сверяем с законом</);
+  assert.match(html, /step-pending">Ищем похожие дела</);
+});
