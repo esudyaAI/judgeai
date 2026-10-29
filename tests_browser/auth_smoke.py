@@ -297,9 +297,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 expect(page.get_by_text("Synthetic conversion failure", exact=True)).to_be_visible(
                     timeout=10000
                 )
-                expect(
-                    page.get_by_role("link", name="Скачать", exact=True)
-                ).to_be_visible()
+                expect(page.get_by_role("link", name="Скачать", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Повторить", exact=True).click()
                 expect(page.get_by_text("Synthetic conversion failure", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Закрыть документ", exact=True).focus()
