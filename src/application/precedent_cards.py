@@ -21,7 +21,7 @@ from legal_core.precedents import (
 
 from src.domain.extraction import ExtractedField, ExtractionMethod, input_hash
 
-CARD_EXTRACTOR_VERSION = "precedent-card/4"
+CARD_EXTRACTOR_VERSION = "precedent-card/5"
 
 
 @dataclass(frozen=True)

@@ -130,3 +130,64 @@ def test_term_without_preposition_and_attempt_reference_in_words():
     (count,) = extract_imposed_sentence(operative).sentence.counts
     assert count.reference == ArticleReference("228.1", 4)
     assert count.main.imprisonment_months == 96
+
+
+_PREFIX = (
+    "Иванова И.И. признать виновным в совершении преступления, предусмотренного ч. 1 ст. 318 "
+    "УК РФ, и назначить ему наказание "
+)
+
+
+def test_fine_amount_in_practice_wordings():
+    cases = {
+        "в виде штрафа в доход государства в размере 100 000 (сто тысяч) рублей.": 100000,
+        "в виде штрафа, в размере 30.000 руб.": 30000,
+        "в виде штрафа в сумме 15 (пятнадцать) тысяч рублей.": 15000,
+        "в виде штрафа в размере 20 000 /двадцати тысяч/ рублей.": 20000,
+        "в виде штрафа в определенной денежной сумме в размере 25 000 (двадцати пяти тысяч) "
+        "рублей.": 25000,
+        "в виде штрафа в размере 300 000 (триста тысяч) руб. 00 коп.": 300000,
+    }
+    for tail, rubles in cases.items():
+        (count,) = extract_imposed_sentence(_PREFIX + tail).sentence.counts
+        assert (count.main.kind, count.main.amount) == (PunishmentKind.FINE, rubles), tail
+
+
+def test_amount_hidden_by_publication_keeps_the_kind():
+    fine = extract_imposed_sentence(_PREFIX + "в виде штрафа в размере сумма. Реквизиты: УФК.")
+    (count,) = fine.sentence.counts
+    assert (count.main.kind, count.main.amount) == (PunishmentKind.FINE, None)
+    assert fine.ambiguous_windows == ()
+    works = extract_imposed_sentence(
+        _PREFIX + "в виде обязательных работ сроком на <данные изъяты> часов."
+    )
+    (count,) = works.sentence.counts
+    assert (count.main.kind, count.main.amount) == (PunishmentKind.COMPULSORY_WORKS, None)
+
+
+def test_aggregate_by_combination_is_final_without_the_word_finally():
+    operative = (
+        "Иванову И.И. признать виновной в совершении двадцати преступлений, предусмотренных "
+        "ст. 322.3 УК РФ и назначить ей наказание - по каждому из двадцати преступлений в "
+        "отдельности - в виде штрафа в размере 100.000 (ста тысяч) рублей в доход государства. "
+        "В соответствии с ч. 2 ст. 69 УК РФ применяя принцип частичного сложения наказаний – по "
+        "совокупности преступлений – назначить наказание в виде штрафа в размере 500.000 "
+        "(пятьсот тысяч) рублей в доход государства."
+    )
+    sentence = extract_imposed_sentence(operative).sentence
+    assert (sentence.final.kind, sentence.final.amount) == (PunishmentKind.FINE, 500000)
+    assert [c.main.amount for c in sentence.counts] == [100000]
+
+
+def test_term_written_before_the_kind():
+    (count,) = extract_imposed_sentence(
+        _PREFIX
+        + "- 220 (двести двадцать) часов обязательных работ в местах, определяемых органами."
+    ).sentence.counts
+    assert (count.main.kind, count.main.amount) == (PunishmentKind.COMPULSORY_WORKS, 220)
+    final = extract_imposed_sentence(
+        _PREFIX + "в виде лишения свободы на срок один год. На основании ч. 3 ст. 69 УК РФ по "
+        "совокупности преступлений путем частичного сложения назначенных наказаний назначить "
+        "ДВА года ШЕСТЬ месяцев лишения свободы."
+    ).sentence.final
+    assert final.imprisonment_months == 30
