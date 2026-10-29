@@ -63,7 +63,7 @@ jobs:
           docker exec judgeai_db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F " | " -c "select count(*) as cards from precedent_cards" -c "select model, count(*) from precedent_embeddings group by model" -c "select coalesce(embedding_model, chr(45)), count(*) from knowledge_chunks group by 1"'
           docker exec judgeai_api python -c "from src.config import settings as s; print('effective', s.EMBEDDING_PROVIDER, s.EMBEDDING_MODEL, s.EMBEDDING_DIM)"
           echo "== precedent cards: punishment recognition"
-          docker exec judgeai_db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F " | " -c "select count(*) as total, count(*) filter (where final is not null or (jsonb_array_length(episodes) = 1 and jsonb_typeof(episodes->0->\$\$punishment\$\$) = \$\$object\$\$)) as recognized, count(imprisonment_months) as with_months from precedent_cards" -c "select extractor_version, count(distinct card_id) from precedent_card_fields group by 1 order by 1"'
+          docker exec judgeai_db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F " | " -c "select count(*) as total, count(*) filter (where jsonb_typeof(final) = \$\$object\$\$ or (jsonb_array_length(episodes) = 1 and jsonb_typeof(episodes->0->\$\$punishment\$\$) = \$\$object\$\$)) as recognized, count(imprisonment_months) as with_months from precedent_cards" -c "select extractor_version, count(distinct card_id) from precedent_card_fields group by 1 order by 1"'
           echo "== host resources"
           nproc; free -m; df -h / | tail -1
           docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" judgeai_api judgeai_db
