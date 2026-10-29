@@ -16,7 +16,7 @@ import { DeleteChatDialog } from './DeleteChatDialog';
 import { messagesFingerprint } from './messagesFingerprint';
 import { createTypewriter, prefersReducedMotion } from './typewriter';
 import './cabinet.css';
-import {StateNotice} from '../components/UiState';
+import { CaseSkeleton } from './CaseSkeleton';
 import {AnimatePresence} from 'motion/react';
 
 export type CabinetView = 'new' | 'attach' | 'thinking' | 'result' | 'settings';
@@ -225,7 +225,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   }, [panelOpen]);
 
   return (
-    <div className={`cab ${documentPanel.state ? 'cab-with-document' : ''} ${sidebarCollapsed ? 'cab-sidebar-collapsed' : ''}`}>
+    <div className={`cab ${documentPanel.visible ? 'cab-with-document' : ''} ${sidebarCollapsed ? 'cab-sidebar-collapsed' : ''}`}>
       {deletion.pendingChat && <DeleteChatDialog chat={deletion.pendingChat} busy={deletion.deletingId !== null}
         error={deletion.deleteError} onCancel={deletion.cancel} onConfirm={() => { void deletion.confirm(); }} />}
       <Sidebar listLoading={listLoading} listError={listError} onRetryList={() => void refreshCases()} signingOut={signingOut} collapsed={sidebarCollapsed} pinningId={pin.pendingId} pinError={pin.error}
@@ -249,7 +249,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
 
           {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
           {fileNotice && <div className="warn-box" role="alert">{fileNotice}<button type="button" onClick={() => setFileNotice('')}>Понятно</button></div>}
-          {loading && <StateNotice busy>Загружаем дело…</StateNotice>}
+          {loading && <CaseSkeleton />}
           {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={signOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
               {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={openAttachment} onOpenVerdict={openVerdict} /> :
@@ -264,7 +264,9 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
             onStop={() => go('/app')} inputRef={composerInput} />
         </>}
       </main>
-      <AnimatePresence>{documentPanel.state && <DocumentPanel key={`document-panel:${documentPanel.generation}`} returnFocus={documentPanel.opener} {...documentPanel.state} onClose={documentPanel.close} onRetry={documentPanel.retry} />}</AnimatePresence>
+      {/* Stable key: switching documents must not unmount the panel — the previous
+          viewer stays on screen while the next one prepares (useDocumentPanel). */}
+      <AnimatePresence>{documentPanel.visible && documentPanel.state && <DocumentPanel returnFocus={documentPanel.opener} {...documentPanel.state} onClose={documentPanel.close} onRetry={documentPanel.retry} />}</AnimatePresence>
     </div>
   );
 }

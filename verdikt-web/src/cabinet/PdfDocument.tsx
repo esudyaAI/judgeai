@@ -48,7 +48,7 @@ function PdfPage({document, number, width, root}: {document: PDFDocumentProxy; n
       textPromise = textLayer.render();
       await textPromise;
       if (!cancelled) setRendered(true);
-    }).catch(() => { if (!cancelled) setError('Не удалось показать эту страницу. Продолжите прокрутку или скачайте оригинал.'); });
+    }).catch(error => { console.error('PDF page render failed:', error); if (!cancelled) setError('Не удалось показать эту страницу. Продолжите прокрутку или скачайте оригинал.'); });
     return () => {
       cancelled = true; rendering?.cancel(); textLayer?.cancel();
       void Promise.allSettled([rendering?.promise,textPromise]).then(() => { target.width = 0; target.height = 0; loadedPage?.cleanup(); });

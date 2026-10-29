@@ -31,6 +31,31 @@ test('panel provides Word progress, failure retry and original download', () => 
   assert.doesNotMatch(ready,/<iframe/);
 });
 
+test('switching documents keeps the previous viewer on screen while the next prepares', () => {
+  const common = {name:'Второй.docx', downloadUrl:'/private/second', onClose:()=>{}, onRetry:()=>{}};
+  const retained = {name:'Первый.txt', url:'/private/first.txt', kind:'txt', downloadUrl:'/private/first'};
+  const preparing = render('DocumentPanel', {...common, status:'converting', retained});
+  assert.match(preparing, /document-panel-progress/);
+  assert.match(preparing, /Подготавливаем документ Второй\.docx/);
+  assert.doesNotMatch(preparing, /Преобразуем страницы Word/);
+  assert.match(preparing, /aria-label="Первый\.txt"/);
+  assert.match(preparing, /href="\/private\/first" download="Первый\.txt"/);
+  const failed = render('DocumentPanel', {...common, status:'failed', error:'Сбой конвертации', retained});
+  assert.match(failed, /Сбой конвертации/);
+  assert.match(failed, /Повторить/);
+  assert.match(failed, /aria-label="Первый\.txt"/);
+});
+
+test('case loading is a thread skeleton, not a flash of plain text', () => {
+  const html = render('CaseSkeleton', {});
+  assert.match(html, /role="status" aria-busy="true"/);
+  assert.match(html, /Загружаем дело…/);
+  assert.match(html, /class="sk-bubble"/);
+  assert.ok((html.match(/sk-line/g) ?? []).length >= 5);
+  assert.match(html, /class="sk-avatar"/);
+  assert.doesNotMatch(html, /state-notice/);
+});
+
 
 test('document controls and status messages use Russian', () => {
   const html = render('DocumentPanel', {name:'Документ.docx',status:'converting',downloadUrl:'/private/original',onClose:()=>{},onRetry:()=>{}});

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState, type DragEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { CaseAnalysis, CaseFile, PracticeComparison, SimilarVerdict } from '../api/types';
 import { FileChip, FileTile } from '../components/FileTile';
 import { Icon, IconTile, type IconName } from '../components/Icon';
@@ -230,6 +231,24 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
   const [allSimilar, setAllSimilar] = useState(false);
   const current = a.variants[variant];
   const { documents, pages, seconds } = a.stats;
+  const similarRow = (s: SimilarVerdict, i: number) => {
+    const body = <>
+      <div className="similar-text">
+        <span className="similar-title">{s.punishment}</span>
+        <span className="similar-meta">
+          {s.court} · {s.match}
+        </span>
+      </div>
+      <span className="similar-bar" aria-hidden="true">
+        <span style={{ width: `${s.score}%` }} />
+      </span>
+      <span className="similar-score">{s.score}%</span>
+    </>;
+    return s.verdict_id != null && onOpenVerdict
+      ? <button key={`${i}-${s.punishment}`} type="button" className="similar-row similar-open"
+          aria-label={`Открыть приговор: ${s.punishment}, ${s.court}`} onClick={() => onOpenVerdict(s)}>{body}</button>
+      : <div key={`${i}-${s.punishment}`} className="similar-row">{body}</div>;
+  };
   return (
     <div className="fade-in thread-ai">
       <LogoMark size={36} color="#141414" />
@@ -336,25 +355,17 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
               onClick={() => setAllSimilar(v => !v)}>{allSimilar ? 'Свернуть' : `Показать все (${a.similar.length})`}</button>}
           </div>
           <p className="similar-hint">Приговоры из базы практики с похожей квалификацией и обстоятельствами; процент — степень сходства. {onOpenVerdict ? 'Нажмите на строку, чтобы открыть текст приговора справа и скачать его.' : ''}</p>
-          {(allSimilar ? a.similar : a.similar.slice(0, SIMILAR_SHOWN)).map((s, i) => {
-            const body = <>
-              <div className="similar-text">
-                <span className="similar-title">{s.punishment}</span>
-                <span className="similar-meta">
-                  {s.court} · {s.match}
-                </span>
-              </div>
-              <span className="similar-bar" aria-hidden="true">
-                <span style={{ width: `${s.score}%` }} />
-              </span>
-              <span className="similar-score">{s.score}%</span>
-            </>;
-            const verdictId = s.verdict_id;
-            return verdictId != null && onOpenVerdict
-              ? <button key={`${i}-${s.punishment}`} type="button" className="similar-row similar-open"
-                  aria-label={`Открыть приговор: ${s.punishment}, ${s.court}`} onClick={() => onOpenVerdict(s)}>{body}</button>
-              : <div key={`${i}-${s.punishment}`} className="similar-row">{body}</div>;
-          })}
+          {a.similar.slice(0, SIMILAR_SHOWN).map((s, i) => similarRow(s, i))}
+          {a.similar.length > SIMILAR_SHOWN && (
+            // Height-animated reveal keeps «Показать все»/«Свернуть» from jumping;
+            // collapsed rows are absent from the DOM and the tab order.
+            <AnimatePresence initial={false}>
+              {allSimilar && <motion.div key="more" className="similar-more" initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}}
+                exit={{height: 0, opacity: 0}} transition={{duration: 0.24, ease: [0.22, 1, 0.36, 1]}} style={{overflow: 'hidden'}}>
+                {a.similar.slice(SIMILAR_SHOWN).map((s, i) => similarRow(s, i + SIMILAR_SHOWN))}
+              </motion.div>}
+            </AnimatePresence>
+          )}
         </div>
 
         }

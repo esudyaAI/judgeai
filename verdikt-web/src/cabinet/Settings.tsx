@@ -4,8 +4,6 @@ import { Link } from '../router';
 import { readAvatar, useAccount } from './useAccount';
 import {BusyButton, StateNotice} from '../components/UiState';
 import {canChangePassword} from '../auth/formValidity';
-import {AnimatePresence} from 'motion/react';
-import {PresenceSurface} from '../components/PresenceSurface';
 
 type Tab = 'profile' | 'security' | 'data';
 const TABS: [Tab, string][] = [['profile', 'Профиль'], ['security', 'Безопасность'], ['data', 'Данные']];
@@ -49,7 +47,9 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
     {loading && <StateNotice busy>Загружаем настройки…</StateNotice>}
     {error && <div className="warn-box" role="alert">{error}<button type="button" disabled={busy} onClick={state.reload}>Загрузить заново</button></div>}
     {status && <p role="status">{status}</p>}
-    <AnimatePresence mode="wait" initial={false}>{!loading && state.loaded && <PresenceSurface role="tabpanel" tabIndex={0} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab}>
+    {/* Tabs swap instantly; a 120 ms opacity fade is the only transition — no
+        slide/scale entrances that slow the switch down. */}
+    {!loading && state.loaded && <div role="tabpanel" tabIndex={0} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} key={tab} className="set-panel">
       {tab === 'profile' && <form className="set-profile" onSubmit={e => {
         e.preventDefault(); void run(async () => { const saved = await accountApi.saveProfile(profile); setProfile(saved); onProfileSaved(saved); setStatus('Профиль сохранён'); }, 'profile');
       }}>
@@ -119,6 +119,6 @@ export function SettingsScreen({user, onCancel, onDeleted, onSignOut, onProfileS
           </form>}
         </div>
       </div>}
-    </PresenceSurface>}</AnimatePresence>
+    </div>}
   </div>;
 }
