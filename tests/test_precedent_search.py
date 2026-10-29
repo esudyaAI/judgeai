@@ -183,3 +183,22 @@ async def test_api_without_embedding_model_still_answers(client):
     )
     body = (await client.get(f"/api/chats/{chat_id}/precedents")).json()
     assert body["vector_used"] is False and len(body["items"]) == 1
+
+
+async def test_cards_of_an_older_extractor_are_rebuilt_in_place(monkeypatch):
+    await _add_verdicts(PRACTICE_THEFT, PRACTICE_ROBBERY)
+    old = "precedent-card/old"
+    monkeypatch.setattr("src.application.precedent_cards.CARD_EXTRACTOR_VERSION", old)
+    async with async_session_factory() as db:
+        use_case = IndexPrecedents(SqlPrecedentStore(db), RegexVerdictReader(), HashingEmbedder())
+        await use_case.execute(old)
+    monkeypatch.undo()
+    rebuilt = await _index()
+    again = await _index()
+    # the fabula did not change, so its vectors are reused and no model call is made
+    assert (rebuilt.cards, rebuilt.duplicates, rebuilt.vectors) == (2, 0, 0)
+    assert again.cards == 0
+    assert await _count(PrecedentCardRow) == 2
+    async with async_session_factory() as db:
+        versions = set(await db.scalars(select(PrecedentCardField.extractor_version)))
+    assert versions == {CARD_EXTRACTOR_VERSION}

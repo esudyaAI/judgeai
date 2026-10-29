@@ -9,7 +9,7 @@ import re
 
 from legal_core.entities import MeasureUnit, PunishmentKind, PunishmentTerm
 from legal_core.precedents import PrecedentCard, PrecedentEpisode, Qualification, Recidivism
-from sqlalchemy import String, cast, func, literal, select, update
+from sqlalchemy import String, cast, delete, func, literal, select, update
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,7 +83,12 @@ class SqlPrecedentStore:
         self.db = db
 
     async def pending_verdicts(self, extractor_version: str) -> list[VerdictSource]:
-        has_card = select(PrecedentCardRow.knowledge_verdict_id)
+        # A verdict is pending until it has a card read by this extractor version.
+        has_card = (
+            select(PrecedentCardRow.knowledge_verdict_id)
+            .join(PrecedentCardField, PrecedentCardField.card_id == PrecedentCardRow.id)
+            .where(PrecedentCardField.extractor_version == extractor_version)
+        )
         rows = await self.db.scalars(
             select(KnowledgeVerdict)
             .where(
@@ -108,6 +113,15 @@ class SqlPrecedentStore:
             )
             for v in rows
         ]
+
+    async def drop_cards(self, knowledge_verdict_id: int) -> None:
+        """Remove the verdict's cards; their fields go by cascade, fabula vectors stay shared."""
+        await self.db.execute(
+            delete(PrecedentCardRow).where(
+                PrecedentCardRow.knowledge_verdict_id == knowledge_verdict_id
+            )
+        )
+        await self.db.commit()
 
     async def mark_not_practice(self, knowledge_verdict_id: int) -> None:
         await self.db.execute(

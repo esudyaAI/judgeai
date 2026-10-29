@@ -66,6 +66,8 @@ class PrecedentStore(Protocol):
 
     async def mark_not_practice(self, knowledge_verdict_id: int) -> None: ...
 
+    async def drop_cards(self, knowledge_verdict_id: int) -> None: ...
+
     async def save_card(
         self, source: VerdictSource, extraction: CardExtraction, embedding_text: str
     ) -> int: ...
@@ -118,6 +120,8 @@ class IndexPrecedents:
     async def build_cards(self, extractor_version: str) -> CardsReport:
         cards = duplicates = 0
         for source in await self.store.pending_verdicts(extractor_version):
+            # a card read by an older extractor is replaced, not kept next to the new one
+            await self.store.drop_cards(source.knowledge_verdict_id)
             extractions = build_cards(self.reader, source.text)
             if not extractions:  # an annulled sentence or an acquittal: never read it again
                 await self.store.mark_not_practice(source.knowledge_verdict_id)
