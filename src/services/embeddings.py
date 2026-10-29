@@ -181,6 +181,8 @@ async def embed_texts(texts: list[str], prefix: str = "") -> list[list[float]]:
 async def embed_query(text: str) -> list[float] | None:
     if not text.strip():
         return None
+    if not settings.EMBEDDING_ENABLED:
+        return None
     if settings.EMBEDDING_PROVIDER == "jina":
         return (await _jina().embed([_clean_text(text)], "retrieval.query"))[0]
 
@@ -192,6 +194,8 @@ async def embed_query(text: str) -> list[float] | None:
 
 async def embed_passages(texts: list[str]) -> list[list[float]]:
     if not texts:
+        return []
+    if not settings.EMBEDDING_ENABLED:
         return []
     if settings.EMBEDDING_PROVIDER == "jina":
         return await _jina().embed([_clean_text(text) for text in texts], "retrieval.passage")

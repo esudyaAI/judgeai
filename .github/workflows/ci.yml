@@ -87,6 +87,9 @@ jobs:
       LLM_PROVIDER: fake
       LLM_ALLOW_FAKE: "true"
       DB_NULL_POOL: "true"
+      # The browser acceptance asserts UI flows, not the vector channel; a fresh runner
+      # otherwise races the ~40s first-use model download and the 20s .result wait.
+      EMBEDDING_ENABLED: "false"
       AUTH_COOKIE_SECURE: "false"
       UPLOAD_DIR: /tmp/judgeai-browser-uploads
       CORS_ORIGINS: http://127.0.0.1:5179
