@@ -117,3 +117,38 @@ def test_rrf_rewards_agreement_between_channels():
 
 def test_rrf_empty():
     assert reciprocal_rank_fusion([]) == []
+
+
+def test_matching_second_count_is_not_penalised_as_another_part():
+    query = _card()
+    candidate = _card(quals=(("161", 1), ("158", 2, "в")))
+    result = evaluate_candidate(query, candidate, None, MatchConfig())
+    assert _state(result.filters, "same_part").state is FilterState.PASSED
+    assert result.score == 1.0
+    assert result == evaluate_candidate(
+        query, _card(quals=(("158", 2, "в"), ("161", 1))), None, MatchConfig()
+    )
+
+
+def test_same_part_second_count_uses_existing_other_point_score():
+    result = evaluate_candidate(
+        _card(), _card(quals=(("161", 1), ("158", 2, "г"))), None, MatchConfig()
+    )
+    assert _state(result.filters, "same_part").state is FilterState.PASSED
+    assert result.breakdown["qualification"]["score"] == 0.85
+    assert result.score > 0.6
+
+
+def test_unknown_part_on_matching_article_stays_uncertain():
+    result = evaluate_candidate(
+        _card(), _card(quals=(("161", 1), ("158", None))), None, MatchConfig()
+    )
+    assert _state(result.filters, "same_part").state is FilterState.UNCERTAIN
+    assert result.breakdown["qualification"]["score"] == 0.5
+
+
+def test_other_article_with_same_part_does_not_supply_a_match():
+    result = evaluate_candidate(_card(), _card(quals=(("161", 2), ("158", 1))), None, MatchConfig())
+    assert _state(result.filters, "same_part").state is FilterState.FAILED
+    assert result.breakdown["qualification"]["score"] == 0.5
+    assert result.score <= 0.6
