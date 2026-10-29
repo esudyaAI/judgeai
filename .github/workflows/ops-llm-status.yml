@@ -89,3 +89,12 @@ jobs:
           asyncio.run(main())
           PY
           REMOTE
+      - name: Refresh precedent cards
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'bash -s' <<'REMOTE'
+          cd /opt/judgeai || exit 1
+          echo "== refresh-cards (dry-run)"
+          docker compose --env-file deploy.env -f docker-compose.prod.yml run --rm -T api python -m src.cli.precedents refresh-cards 2>&1 | tail -5
+          echo "== cards after"
+          docker exec judgeai_db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F " | " -c "select count(*), count(*) filter (where jsonb_typeof(final) = \$\$object\$\$ or (jsonb_array_length(episodes) = 1 and jsonb_typeof(episodes->0->\$\$punishment\$\$) = \$\$object\$\$)), count(imprisonment_months) from precedent_cards"'
+          REMOTE
