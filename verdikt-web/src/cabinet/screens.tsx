@@ -148,7 +148,7 @@ export function AttachScreen({ files, onRemove, onOpen, disabled = false }: { fi
   );
 }
 
-export function ThreadScreen({ analysis, files, thinking, stage, prompt }: { prompt?: string; analysis: CaseAnalysis | null; files: CaseFile[]; thinking: boolean; stage?: string | null }) {
+export function ThreadScreen({ analysis, files, thinking, stage, status, prompt }: { prompt?: string; analysis: CaseAnalysis | null; files: CaseFile[]; thinking: boolean; stage?: string | null; status?: string | null }) {
   return (
     <div className="thread">
       <div className="thread-user">
@@ -164,7 +164,7 @@ export function ThreadScreen({ analysis, files, thinking, stage, prompt }: { pro
           </div>
         </div>
       </div>
-      {thinking ? <Thinking stage={stage} /> : analysis && <Result a={analysis} />}
+      {thinking ? <Thinking stage={stage} status={status} /> : analysis && <Result a={analysis} />}
     </div>
   );
 }
@@ -177,14 +177,22 @@ const LEGACY_STAGES: Record<string, string> = {qualifying: 'extracting'};
 
 /** Memoised on primitive props: the 1 Hz poll re-renders the timeline only when
  *  something actually changed, so the shimmer keeps running between polls. */
-export const Thinking = memo(function Thinking({ stage, startedAt }: { stage?: string | null; startedAt?: string }) {
+export const Thinking = memo(function Thinking({ stage, status, startedAt }: { stage?: string | null; status?: string | null; startedAt?: string }) {
   const seconds = useElapsedSeconds(startedAt);
-  const current = STAGES.indexOf(LEGACY_STAGES[stage || ''] || stage || 'reading');
+  // A pending message is queued, not read yet: no step is active, the queue is named honestly.
+  const queued = status === 'pending' && !(LEGACY_STAGES[stage || ''] || stage);
+  const current = queued ? -1 : STAGES.indexOf(LEGACY_STAGES[stage || ''] || stage || 'reading');
   return (
     <div className="fade-in thread-ai" aria-live="polite">
       <LogoMark size={36} color="#141414" knocking />
       <div className="steps" aria-busy="true">
         <div className="thinking-heading"><span className="steps-title text-shimmer">Анализирую материалы дела</span><span className="analysis-timer text-shimmer" role="timer" aria-label="Прошло времени" aria-live="off">{formatElapsed(seconds)}</span></div>
+        {queued && (
+          <div className="step-row">
+            <span className="spin" style={{ margin: '0 2px' }} />
+            <span className="step-active">В очереди</span>
+          </div>
+        )}
         {LABELS.map((label, i) => (
           <div key={label} className="step-row">
             {i < current && <Icon name="check" size={16} strokeWidth={2.4} />}
