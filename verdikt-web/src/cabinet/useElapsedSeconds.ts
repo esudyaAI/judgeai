@@ -11,3 +11,12 @@ export function useElapsedSeconds(startedAt?: string) {
   }, []);
   return Math.max(0, Math.floor((now - start) / 1000));
 }
+
+/** 30 → «30 сек», 119 → «1 мин 59 сек», 120 → «2 мин». */
+export function formatElapsed(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  if (total < 60) return `${total} сек`;
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return rest ? `${minutes} мин ${rest} сек` : `${minutes} мин`;
+}

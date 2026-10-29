@@ -1,6 +1,8 @@
 import logging
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import func, or_, select
 
 from src.api.deps import AdminUser, CurrentUser, DbSession
@@ -186,6 +188,36 @@ async def get_verdict(verdict_id: int, db: DbSession, user: CurrentUser):
         structured=verdict.structured,
         chunks_count=chunks_count or 0,
     )
+
+
+@router.get("/verdicts/{verdict_id}/text")
+async def get_verdict_text(
+    verdict_id: int, db: DbSession, user: CurrentUser, download: bool = False
+):
+    """Plain text of a shared practice verdict for the document panel (similar verdicts).
+
+    Only the stored text is served (the practice base keeps no original files); private case
+    documents saved from chats are never returned, the same rule as for the detail.
+    """
+    verdict = await db.get(KnowledgeVerdict, verdict_id)
+    if (
+        not verdict
+        or verdict.source_type in PRIVATE_SOURCE_TYPES
+        or not (verdict.raw_text or "").strip()
+    ):
+        raise HTTPException(status_code=404, detail="Приговор не найден")
+    title = f"Приговор {verdict.case_number or verdict.id}.txt"
+    disposition = "attachment" if download else "inline"
+    headers = {
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; sandbox",
+        "Referrer-Policy": "no-referrer",
+        "Content-Disposition": (
+            f"{disposition}; filename=\"verdict-{verdict.id}.txt\"; filename*=UTF-8''{quote(title)}"
+        ),
+    }
+    return PlainTextResponse(verdict.raw_text, headers=headers)
 
 
 @router.delete("/verdicts/{verdict_id}")

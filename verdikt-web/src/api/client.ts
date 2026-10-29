@@ -64,6 +64,9 @@ export const api = {
   attachmentUrl(chatId: string, attachmentId: number, download = false): string {
     return `/api/chats/${encodeURIComponent(chatId)}/attachments/${attachmentId}/file${download ? '?download=true' : ''}`;
   },
+  verdictTextUrl(id: number, download = false): string {
+    return `/api/knowledge/verdicts/${id}/text${download ? '?download=true' : ''}`;
+  },
   previewUrl(id: string): string { return `/api/document-previews/${encodeURIComponent(id)}/file`; },
   previewStatus(id: string, signal?: AbortSignal): Promise<PreviewJob> {
     return request(`/document-previews/${encodeURIComponent(id)}`, {signal});
