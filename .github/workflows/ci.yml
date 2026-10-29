@@ -235,6 +235,10 @@ jobs:
           docker compose --env-file deploy.env -f docker-compose.prod.yml exec -T db \
             pg_restore --list < "$backup" > /dev/null
           echo "Pre-deploy database backup verified"
+          # Every push to main deploys and makes a full dump; without rotation they
+          # filled the VPS disk on 29.10 and crashed PostgreSQL mid-analysis.
+          ls -1t backups/predeploy_*.dump 2>/dev/null | tail -n +4 | xargs -r rm --
+          echo "Kept only the 3 newest pre-deploy backups"
           REMOTE
       - name: Deploy
         env:

@@ -85,6 +85,29 @@ async def test_llm_failure_marks_message_failed(client, monkeypatch):
     assert (await client.get(f"/api/chats/{chat_id}")).json()["status"] == "failed"
 
 
+async def test_health_reports_503_when_database_is_down(client, monkeypatch):
+    class BrokenSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def execute(self, *_args):
+            raise RuntimeError("the database system is in recovery mode")
+
+    monkeypatch.setattr("src.main.async_session_factory", lambda: BrokenSession())
+    r = await client.get("/health")
+    assert r.status_code == 503
+    assert r.json() == {"status": "degraded", "database": "unavailable"}
+
+
+async def test_health_confirms_database_with_200(client):
+    r = await client.get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok", "database": "ok"}
+
+
 async def test_invalid_llm_output_is_retried_then_failed(client, monkeypatch):
     calls = []
 
