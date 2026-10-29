@@ -298,7 +298,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                     timeout=10000
                 )
                 expect(
-                    page.get_by_role("link", name="Скачать оригинал", exact=True)
+                    page.get_by_role("link", name="Скачать", exact=True)
                 ).to_be_visible()
                 page.get_by_role("button", name="Повторить", exact=True).click()
                 expect(page.get_by_text("Synthetic conversion failure", exact=True)).to_be_visible()
@@ -449,9 +449,9 @@ class BrowserAuthAcceptance(unittest.TestCase):
                     if suffix == "security":
                         expect(page.get_by_text("Этот сеанс", exact=True)).to_be_visible()
                     if suffix == "data":
-                        with page.expect_download() as download:
-                            page.get_by_role("button", name="Скачать данные").click()
-                        self.assertEqual(download.value.suggested_filename, "judgeai-data.json")
+                        # The JSON export was removed from the profile at the owner's request.
+                        expect(page.get_by_role("button", name="Скачать данные")).to_have_count(0)
+                        expect(page.get_by_role("button", name="Удалить дела")).to_be_visible()
                     page.screenshot(
                         path=str(ROOT / "acceptance-screenshots" / f"{label}-{suffix}.png"),
                         full_page=True,
