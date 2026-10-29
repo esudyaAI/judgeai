@@ -118,3 +118,28 @@ def test_query_card_prefers_the_document_with_a_qualification():
 
     card = query_card(RegexVerdictReader(), [NO_HEADINGS, PRACTICE_THEFT])
     assert [str(e.qualification) for e in card.episodes] == ["п. «в» ч. 2 ст. 158 УК РФ"]
+
+
+def test_wholly_acquittal_is_not_conviction_practice():
+    from src.application.precedent_cards import build_cards
+    from src.infrastructure.verdict_reader import PracticeReader
+
+    for decision in (
+        "Оправдать ФИО1 по предъявленному обвинению по ч. 1 ст. 158 УК РФ.",
+        "Признать ФИО1 невиновным и оправдать по ч. 1 ст. 158 УК РФ.",
+        "ФИО1 по предъявленному обвинению по ч. 1 ст. 158 УК РФ оправдать.",
+    ):
+        text = "ПРИГОВОР\nУСТАНОВИЛ:\nОбвинялся по ч. 1 ст. 158 УК РФ.\nПРИГОВОРИЛ:\n" + decision
+        assert build_cards(PracticeReader(), text) == []
+
+
+def test_acquittal_request_does_not_hide_a_conviction():
+    from src.application.precedent_cards import build_cards
+    from src.infrastructure.verdict_reader import PracticeReader
+
+    text = (
+        "УСТАНОВИЛ:\nЗащитник просил оправдать ФИО1.\nПРИГОВОРИЛ:\n"
+        "Признать ФИО1 виновным по ч. 1 ст. 158 УК РФ и назначить "
+        "наказание в виде лишения свободы сроком на 1 год."
+    )
+    assert len(build_cards(PracticeReader(), text)) == 1

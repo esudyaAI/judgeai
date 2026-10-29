@@ -58,3 +58,14 @@ def test_inline_heading_with_colon():
     assert segments.introduction == "Вводная часть суд"
     assert segments.description == "фабула дела. Суд"
     assert segments.operative == "назначить штраф."
+
+
+def test_collegiate_feminine_headings_preserve_operative_part():
+    text = (
+        "Вводная часть.\nУСТАНОВИЛА:\nОбстоятельства.\nП Р И Г О В О Р И Л А:\nНазначить наказание."
+    )
+    result = segment_verdict(text)
+    assert result.introduction == "Вводная часть."
+    assert result.description == "Обстоятельства."
+    assert result.operative == "Назначить наказание."
+    assert not segment_verdict("Коллегия приговорила подсудимого ранее.").recognized

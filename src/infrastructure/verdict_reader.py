@@ -1,12 +1,20 @@
 """Adapter: the regex VerdictReader used for both drafts and practice verdicts."""
 
+import re
+
 from src.application.precedent_cards import VerdictReading
 from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.infrastructure.fabula import extract_fabula
 from src.infrastructure.ruling_reader import RulingReader, is_ruling
-from src.services.defendant_blocks import scoped_verdicts
+from src.services.defendant_blocks import defendant_names, scoped_verdicts
 from src.services.punishment_extractor import extract_imposed_sentence
 from src.services.verdict_segmenter import VerdictSegments, segment_verdict
+
+_ACQUITTAL_DECISION = re.compile(
+    r"^[ \t]*(?:оправдать\b|признать[^\n]{1,100}\s+невиновн"
+    r"|ФИО\d+\s+по\s+предъявленному[^\n]{0,220}\bоправдать\b)",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 class RegexVerdictReader:
@@ -41,6 +49,11 @@ class PracticeReader(RegexVerdictReader):
     def read_all(self, text: str) -> list[VerdictReading]:
         if is_ruling(text):
             return RulingReader().read_all(text)
+        operative = segment_verdict(text).operative
+        # Only explicit operative decisions count. A defence request in the description
+        # does not make an acquittal; mixed verdicts still retain their convicted people.
+        if _ACQUITTAL_DECISION.search(operative) and not defendant_names(operative):
+            return []
         scoped = scoped_verdicts(text)
         return (
             [self.read(person_text) for _, person_text in scoped] if scoped else [self.read(text)]
