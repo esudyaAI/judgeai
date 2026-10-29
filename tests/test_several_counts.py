@@ -103,7 +103,8 @@ def test_final_term_of_several_offences_is_checked_by_art70_not_by_one_sanction(
     assert not any("выходит за допустимый предел" in w for w in result.warnings)
     checks = {c.norm: c for c in result.legal_checks}
     final = checks["Окончательное наказание (ст. 70 УК РФ)"]
-    assert final.status == "ok" and final.value == "лишение свободы 4 г. 9 мес."
+    assert final.status == "insufficient_data" and final.value == "лишение свободы 4 г. 9 мес."
+    assert "не прочитаны" in final.explanation or "не угадан" in final.explanation
     attempt = checks[
         "Назначенное наказание: пределы санкции и ч. 3 ст. 66 УК РФ · ч. 3 ст. 30, ч.1 ст.161 УК РФ"
     ]
@@ -152,3 +153,25 @@ def test_service_keys_of_variants_become_words():
     labels = [v.label for v in result.variants]
     assert labels == ["Эпизод 1", "По совокупности преступлений", "Окончательное"]
     assert "final_sentence" not in result.variants[2].details
+
+
+def test_art70_uses_intermediate_art69_and_known_unserved_balance():
+    sentence = ImposedSentence(
+        counts=(ATTEMPT, SECOND),
+        final=_months(57),
+        aggregation_rule="ст. 70 УК РФ",
+        intermediate=_months(54),
+        intermediate_rule="ч. 3 ст. 69 УК РФ",
+        intermediate_quote="совокупность 54 месяца",
+        unserved=_months(12),
+        unserved_quote="неотбытая часть 12 месяцев",
+        joined=_months(3),
+        joined_quote="присоединить 3 месяца",
+        final_quote="Окончательно 57 месяцев",
+    )
+    result = _analyse(sentence, STATUTES, _facts())
+    final = next(
+        c for c in result.legal_checks if c.norm == "Окончательное наказание (ст. 70 УК РФ)"
+    )
+    assert final.status == "ok" and "12 месяцев" in " ".join(final.evidence)
+    assert result.imposed_sentence.intermediate == "лишение свободы 4 г. 6 мес."

@@ -68,3 +68,9 @@ test('episode comparisons map independently and legacy results remain readable',
   ]});
   assert.deepEqual(result.practiceEpisodes.map(p => p.draft_months), [24, 60]);
 });
+
+test('fractional-month bounds retain their fraction instead of rounding up a month', async () => {
+  const {formatMonths} = await import('../src/lib/format.ts');
+  assert.equal(formatMonths(5.25),'5,25 мес.');
+  assert.equal(formatMonths(17.5),'17,5 мес.');
+});

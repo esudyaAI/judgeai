@@ -35,6 +35,7 @@ from src.services.case_analyzer import (
     precedent_prompt_items,
 )
 from src.services.criminal_sanction_lookup import find_article_sanctions
+from src.services.defendant_blocks import scoped_verdicts
 from src.services.document_parser import extract_document
 from src.services.knowledge_service import create_knowledge_verdict_from_text
 from src.services.llm_client import LLMError, get_llm_client
@@ -259,7 +260,12 @@ async def run_analysis(
         current_stage = "checking"
         t_stage = time.monotonic()
         await _set_stage(assistant_message_id, stage="checking")
-        count_references = {c.reference for c in sentence.counts if c.reference is not None}
+        count_references = {
+            c.reference
+            for own in (sentence, *structure.defendant_sentences)
+            for c in own.counts
+            if c.reference is not None
+        }
         count_statutes = {}
         async with db_session.async_session_factory() as db:
             for count_reference in count_references:
@@ -282,11 +288,22 @@ async def run_analysis(
         await _set_stage(assistant_message_id, stage="searching")
         similar_items: list[dict] = []
         practice = precedent_source = None
+        defendant_practice = {}
+        scoped_people = [person for text in texts for person in scoped_verdicts(text)]
         if use_knowledge_base:
             async with db_session.async_session_factory() as db:
-                similar_items, practice, precedent_source = await _search_practice(
-                    db, question or "", texts
-                )
+                if scoped_people:
+                    for person_index, (_, own_text) in enumerate(scoped_people):
+                        _, own_report, own_source = await _search_practice(
+                            db, question or "", [own_text]
+                        )
+                        if own_report is not None:
+                            defendant_practice[person_index] = own_report
+                        precedent_source = own_source
+                else:
+                    similar_items, practice, precedent_source = await _search_practice(
+                        db, question or "", texts
+                    )
         searching_sec = time.monotonic() - t_stage
         logger.info(
             "[ANALYSIS:%s] [searching] Stage completed in %.2fs (source=%s, items=%d)",
@@ -342,6 +359,7 @@ async def run_analysis(
             model_texts=structure.model_texts,
             practice=practice,
             precedent_source=precedent_source,
+            defendant_practice=defendant_practice,
         )
 
         current_stage = "saving"

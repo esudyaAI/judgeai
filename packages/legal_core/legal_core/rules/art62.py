@@ -41,3 +41,14 @@ def part1_limit_months(
     if not has_part1_mitigation(mitigating_norms):
         return None
     return math.floor(sanction_max_months * 2 / 3)
+
+
+def part1_limit_amount(
+    maximum: float, mitigating_norms: Iterable[str], *, has_aggravating: bool
+) -> float | None:
+    """Exact bound before expressing the punishment in days/hours/rubles; no monthly rounding."""
+    from fractions import Fraction
+
+    if maximum <= 0 or has_aggravating or not has_part1_mitigation(mitigating_norms):
+        return None
+    return Fraction(str(maximum)) * Fraction(2, 3)

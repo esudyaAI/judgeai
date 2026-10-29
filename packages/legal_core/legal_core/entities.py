@@ -1,5 +1,6 @@
 # Domain Layer — value objects used by the rules.
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum, StrEnum
 
 
@@ -73,6 +74,7 @@ class SanctionRole(StrEnum):
 class MeasureUnit(StrEnum):
     MONTHS = "months"
     HOURS = "hours"
+    DAYS = "days"
     RUBLES = "rubles"
 
 
@@ -135,9 +137,11 @@ class PunishmentTerm:
             raise ValueError("amount and unit go together")
 
     @property
-    def imprisonment_months(self) -> int | None:
+    def imprisonment_months(self) -> float | None:
+        if self.kind is PunishmentKind.IMPRISONMENT and self.unit is MeasureUnit.DAYS:
+            return self.amount / 30
         if self.kind is PunishmentKind.IMPRISONMENT and self.unit is MeasureUnit.MONTHS:
-            return int(self.amount)
+            return self.amount
         return None
 
 
@@ -158,6 +162,9 @@ class CountSentence:
     additional: tuple[PunishmentTerm, ...] = ()
     quote: str = ""
     unfinished: Unfinished | None = None
+    stage_conflict: bool = False
+    offence_date: date | None = None
+    offence_date_quote: str = ""
 
 
 @dataclass(frozen=True)
@@ -170,6 +177,18 @@ class ImposedSentence:
     conditional: bool = False
     probation_months: int | None = None
     final_quote: str = ""
+    intermediate: PunishmentTerm | None = None
+    intermediate_rule: str | None = None
+    intermediate_quote: str = ""
+    unserved: PunishmentTerm | None = None
+    unserved_quote: str = ""
+    joined: PunishmentTerm | None = None
+    joined_quote: str = ""
+    final_additional: tuple[PunishmentTerm, ...] = ()
+    prior_judgment_date: date | None = None
+    prior_judgment_quote: str = ""
+    credited: PunishmentTerm | None = None
+    credited_quote: str = ""
 
     @property
     def is_empty(self) -> bool:

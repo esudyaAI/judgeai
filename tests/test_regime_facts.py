@@ -46,7 +46,7 @@ def test_sex_from_grammatical_forms(text, male):
     assert read_male(text)[0] is male
 
 
-def test_mixed_forms_need_a_clear_majority():
+def test_witness_forms_are_excluded_but_mixed_defendant_forms_remain_unknown():
     text = "Подсудимый ... подсудимый ... подсудимого ... свидетель гражданка Петрова"
     assert read_male(text)[0] is True
     assert read_male("подсудимый ... подсудимая")[0] is None
@@ -70,6 +70,6 @@ def test_previous_imprisonment_by_explicit_phrases(text, served):
     assert read_served_before(text)[0] is served
 
 
-def test_explicit_negative_wins():
+def test_conflicting_history_is_not_resolved_by_priority():
     text = "ранее судим, освобожден из ИК-2; ранее не отбывавший лишение свободы"
-    assert read_served_before(text)[0] is False
+    assert read_served_before(text)[0] is None

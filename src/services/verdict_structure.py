@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 
 from legal_core.entities import CountSentence, ImposedSentence, PunishmentTerm
 
+from src.services.defendant_blocks import scoped_verdicts
 from src.services.punishment_extractor import extract_imposed_sentence
 from src.services.qualification_reference import parse_qualification_reference
 from src.services.verdict_segmenter import VerdictSegments, segment_verdict
@@ -19,6 +20,7 @@ class VerdictStructure:
     model_texts: list[str]
     sentence: ImposedSentence
     ambiguous_windows: tuple[str, ...]
+    defendant_sentences: tuple[ImposedSentence, ...] = ()
 
     def with_resolved_windows(
         self, resolved: list[tuple[str, PunishmentTerm | None]]
@@ -43,8 +45,16 @@ def read_verdict_structure(texts: list[str], chars_limit: int) -> VerdictStructu
         part.model_context(per_document) if part.recognized else text
         for part, text in zip(segments, texts, strict=True)
     ]
+    scoped = [person for text in texts for person in scoped_verdicts(text)]
+    multiple = bool(scoped)
     operative = next((part.operative for part in segments if part.operative), "")
-    extraction = extract_imposed_sentence(operative)
+    extraction = extract_imposed_sentence(operative, "\n".join(p.description for p in segments))
     return VerdictStructure(
-        segments, model_texts, extraction.sentence, extraction.ambiguous_windows
+        segments,
+        model_texts,
+        ImposedSentence() if multiple else extraction.sentence,
+        () if multiple else extraction.ambiguous_windows,
+        tuple(
+            extract_imposed_sentence(segment_verdict(text).operative).sentence for _, text in scoped
+        ),
     )

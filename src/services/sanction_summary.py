@@ -27,6 +27,12 @@ _KIND_NAMES = {
 
 
 def format_amount(value: float, unit: MeasureUnit) -> str:
+    if unit is MeasureUnit.DAYS:
+        return f"{value:g} дн."
+    if value != int(value):
+        return f"{value:g} " + (
+            "мес." if unit is MeasureUnit.MONTHS else "ч." if unit is MeasureUnit.HOURS else "₽"
+        )
     if unit is MeasureUnit.RUBLES:
         return f"{int(value):,} ₽".replace(",", " ")
     if unit is MeasureUnit.HOURS:

@@ -19,7 +19,12 @@ async def test_full_analysis_flow(client):
     r = await client.post(
         f"/api/chats/{chat_id}/messages",
         data={"content": "Подготовь проект приговора"},
-        files=[_txt()],
+        files=[
+            _txt(
+                body="Подсудимый похитил ноутбук. Суд признаёт явку с повинной "
+                "смягчающим обстоятельством. Отягчающих обстоятельств не установлено."
+            )
+        ],
     )
     assert r.status_code == 202
     body = r.json()

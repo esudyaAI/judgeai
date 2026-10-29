@@ -4,7 +4,8 @@
  * Abbreviated forms avoid Russian plural agreement (год/года/лет).
  */
 export function formatMonths(months: number): string {
-  const m = Math.max(0, Math.round(months));
+  if (!Number.isInteger(months)) return `${Number(months.toFixed(6)).toString().replace('.', ',')} мес.`;
+  const m = Math.max(0, months);
   const years = Math.floor(m / 12);
   const rest = m % 12;
   if (!years) return `${rest} мес.`;

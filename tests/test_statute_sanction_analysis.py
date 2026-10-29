@@ -103,7 +103,8 @@ def _mitigated(imposed_quote, imposed_months, text):
                 "imposed_imprisonment_months": {"value": imposed_months, "quote": imposed_quote}
             },
         },
-        text=text,
+        text=text + " Суд признаёт явку с повинной смягчающим обстоятельством. "
+        "Отягчающих обстоятельств не установлено.",
     )
 
 
@@ -127,7 +128,15 @@ def test_imposed_term_with_fabricated_quote_is_not_checked():
     assert check.status == "insufficient_data" and check.value is None
 
 
-def _per_count(sentence, statutes, text="приговор", model_texts=None):
+def _per_count(
+    sentence,
+    statutes,
+    text=(
+        "Суд признаёт явку с повинной смягчающим обстоятельством. "
+        "Отягчающих обстоятельств не установлено."
+    ),
+    model_texts=None,
+):
     return assemble_analysis(
         LlmCaseFacts.model_validate(
             {

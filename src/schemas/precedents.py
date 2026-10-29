@@ -15,7 +15,7 @@ class PrecedentRead(BaseModel):
     uid: str | None
     source_url: str | None
     qualifications: list[str]
-    punishment_months: int | None
+    punishment_months: float | None
     conditional: bool
     recidivism: str | None
     score: float
