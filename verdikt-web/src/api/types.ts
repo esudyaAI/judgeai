@@ -110,7 +110,24 @@ export interface LegalCheck {
   needs_legal_review: boolean;
 }
 
+export interface ImposedSentence {
+  counts: {qualification: string; punishment: string; additional: string[]; quote: string}[];
+  intermediate?: string | null; intermediate_rule?: string | null;
+  final: string | null; aggregation_rule: string | null;
+  unserved?: string | null; joined?: string | null; final_additional?: string[];
+  prior_judgment_date?: string | null; credited?: string | null;
+}
+
+export interface DefendantAnalysis {
+  label: string; legal_checks: LegalCheck[]; imposed_sentence: ImposedSentence | null;
+  mitigating: {name: string; norm: string; quote?: string | null}[];
+  aggravating: string | null; practice_episodes: PracticeComparison[];
+  similar: SimilarVerdict[]; warnings: string[];
+}
+
 export interface CaseAnalysis {
+  defendants?: DefendantAnalysis[];
+  imposed_sentence?: ImposedSentence | null;
   warnings?: string[];
   legalChecks?: LegalCheck[];
   stats: { documents: number; pages: number; seconds: number };

@@ -9,6 +9,7 @@ sentence and the earlier checks to their inputs.
 
 import re
 from collections.abc import Iterable
+from fractions import Fraction
 
 from legal_core.checks import CheckResult
 from legal_core.entities import (
@@ -20,16 +21,16 @@ from legal_core.entities import (
     MeasureUnit,
     PunishmentKind,
     PunishmentTerm,
-    SanctionRole,
 )
 from legal_core.rules.art18 import Recidivism
 from legal_core.rules.art58 import check_regime
 from legal_core.rules.art66 import NORMS as ART66_NORMS
 from legal_core.rules.art66 import reduced_maximum
-from legal_core.rules.art68 import check_recidivism_term
+from legal_core.rules.art68 import check_recidivism_amount
 from legal_core.rules.art73 import ConditionalKind, check_conditional_sentence
-from legal_core.rules.imposed_term import main_imprisonment
+from legal_core.rules.imposed_term import most_severe_alternative
 
+from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import Circumstance, LegalCheck
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
 from src.services.regime_facts import read_male, read_regime, read_served_before
@@ -37,7 +38,6 @@ from src.services.regime_facts import read_male, read_regime, read_served_before
 ART15_NORM = "ст. 15 УК РФ"
 ART18_NORM = "ст. 18 УК РФ"
 _ART61 = re.compile(r"ст\.?\s*61(?![\d.])", re.IGNORECASE)
-_ART64 = re.compile(r"ст\.?\s*64(?![\d.])", re.IGNORECASE)
 _ESTABLISHED = {Recidivism.SIMPLE, Recidivism.DANGEROUS, Recidivism.ESPECIALLY_DANGEROUS}
 _HARSHER_THAN_IMPRISONMENT = {PunishmentKind.LIFE_IMPRISONMENT, PunishmentKind.DEATH_PENALTY}
 _CONDITIONAL_KINDS = {
@@ -85,28 +85,47 @@ def _art68_count(
     art61: bool,
     final_quote: str,
 ) -> LegalCheck:
-    maximum = None
-    most_severe_kind = True  # unknown sanction: let the rule report missing data, not the kind
-    if reading is not None:
-        main_kinds = {s.kind for s in reading.sanctions if s.role is SanctionRole.MAIN}
-        top = main_imprisonment(reading.sanctions)
-        if (
-            top is not None
-            and top.unit is MeasureUnit.MONTHS
-            and top.max_value
-            and not main_kinds & _HARSHER_THAN_IMPRISONMENT
-        ):
-            # For an unfinished offence one third is taken of the maximum reduced under ст. 66
-            # (п. 49 Пленума ВС РФ № 58).
-            maximum = reduced_maximum(int(top.max_value), count.unfinished)
-            most_severe_kind = count.main.kind is PunishmentKind.IMPRISONMENT
-    result = check_recidivism_term(
+    if count.stage_conflict:
+        return LegalCheck(
+            norm=f"ст. 66/68 УК РФ · {count.qualification}",
+            status="insufficient_data",
+            source="ст. 66, 68 УК РФ",
+            explanation="Противоречивые сведения о стадии эпизода.",
+            evidence=[count.quote],
+        )
+    top = most_severe_alternative(reading.sanctions) if reading is not None else None
+    maximum = reduced_maximum(top.max_value, count.unfinished) if top and top.max_value else None
+    if top and top.kind in _HARSHER_THAN_IMPRISONMENT:
+        return LegalCheck(
+            norm=f"ст. 68 УК РФ · {count.qualification}",
+            status="insufficient_data",
+            source="ст. 68 УК РФ",
+            explanation="Санкция содержит пожизненное лишение свободы или "
+            "смертную казнь; максимум трети не определён.",
+            evidence=[count.quote],
+        )
+    amount = count.main.amount
+    if top and count.main.unit is MeasureUnit.DAYS and top.unit is MeasureUnit.MONTHS:
+        amount = Fraction(str(amount)) / 30 if amount else None
+    compatible = bool(
+        top
+        and (
+            count.main.unit is top.unit
+            or (count.main.unit is MeasureUnit.DAYS and top.unit is MeasureUnit.MONTHS)
+        )
+    )
+    result = check_recidivism_amount(
         recidivism=recidivism,
-        imposed_months=count.main.imprisonment_months,
-        most_severe_max_months=maximum,
-        imposed_most_severe_kind=most_severe_kind,
-        art61_mitigating_established=art61,
-        art64_applied=bool(_ART64.search(count.quote) or _ART64.search(final_quote)),
+        amount=amount if compatible else None,
+        maximum=maximum,
+        most_severe_kind=top is None or count.main.kind is top.kind,
+        mitigating=art61,
+        art64="64" in extract_circumstances(count.quote, final_quote).applied_general,
+        unit_name={
+            MeasureUnit.MONTHS: "мес.",
+            MeasureUnit.HOURS: "ч.",
+            MeasureUnit.RUBLES: "руб.",
+        }.get(top.unit if top else None, "ед."),
     )
     source = reading.provenance.source_url if reading is not None else ""
     check = _legal_check(result, count.qualification, _months(count.main), [count.quote])

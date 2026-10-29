@@ -254,9 +254,7 @@ async def test_refresh_adds_cards_for_people_an_older_extractor_merged(monkeypat
 
     await _add_verdicts(PRACTICE_TWO_DEFENDANTS)
     # the older extractor read the whole operative part as one person
-    monkeypatch.setattr(
-        "src.infrastructure.verdict_reader.split_defendants", lambda operative: [operative]
-    )
+    monkeypatch.setattr("src.infrastructure.verdict_reader.scoped_verdicts", lambda text: [])
     async with async_session_factory() as db:
         index = IndexPrecedents(SqlPrecedentStore(db), PracticeReader(), HashingEmbedder())
         await index.execute(CARD_EXTRACTOR_VERSION)

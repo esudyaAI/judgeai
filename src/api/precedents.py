@@ -17,6 +17,7 @@ from src.schemas.precedents import (
     PrecedentSearchRead,
     QueryCardRead,
 )
+from src.services.defendant_blocks import scoped_verdicts
 
 router = APIRouter()
 
@@ -47,6 +48,7 @@ async def similar_precedents(
     user: CurrentUser,
     embedder: EmbeddingPort = Depends(get_embedder),
     limit: int = Query(10, ge=1, le=50),
+    defendant: int | None = Query(None, ge=1),
 ):
     chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
     if chat is None:
@@ -61,6 +63,24 @@ async def similar_precedents(
             vector_used=False,
             note="В деле нет загруженных документов с текстом.",
         )
+    people = [person for text in texts for person in scoped_verdicts(text)]
+    if people and defendant is None:
+        return PrecedentSearchRead(
+            query=None,
+            items=[],
+            candidates=0,
+            excluded=0,
+            vector_used=False,
+            note=(
+                "В приговоре несколько осуждённых. Выберите номер осуждённого "
+                "параметром defendant; общая карточка не строится."
+            ),
+        )
+    if defendant is not None:
+        if defendant > (len(people) if people else 1):
+            raise HTTPException(status_code=422, detail="Номер осуждённого вне диапазона")
+        if people:
+            texts = [people[defendant - 1][1]]
     query = query_card(RegexVerdictReader(), texts)
     found = await FindSimilarPrecedents(SqlPrecedentStore(db), embedder).execute(query, limit)
     return PrecedentSearchRead(

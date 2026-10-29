@@ -30,6 +30,7 @@ class Qualification(ApiModel):
 class Circumstance(ApiModel):
     name: str
     norm: str
+    quote: str | None = None
 
 
 class PunishmentVariant(ApiModel):
@@ -63,7 +64,7 @@ class PrecedentMatchRead(ApiModel):
     uid: str | None
     source_url: str | None
     qualifications: list[str]
-    punishment_months: int | None
+    punishment_months: float | None
     conditional: bool
     recidivism: str | None
     score: float = Field(ge=0, le=1)
@@ -80,15 +81,15 @@ class PracticeComparisonRead(ApiModel):
     total: int
     with_term: int
     enough_data: bool
-    min_months: int | None
+    min_months: float | None
     p25_months: float | None
     median_months: float | None
     p75_months: float | None
-    max_months: int | None
+    max_months: float | None
     conditional_share: float | None
     art64_share: float | None
     art73_share: float | None
-    draft_months: int | None
+    draft_months: float | None
     draft_percentile: float | None
     position: Literal["below", "within", "above"] | None
     candidates: int
@@ -100,7 +101,7 @@ class SentenceScale(ApiModel):
     """All terms in months; the UI draws them on a 0..sanction_max_months axis."""
 
     sanction_max_months: int = Field(gt=0)
-    limit_months: int | None = None
+    limit_months: float | None = None
     limit_norm: str | None = None
     # Interquartile range and median of comparable precedents (T28); the field keeps its
     # historical name, the value is the median.
@@ -120,7 +121,7 @@ class ImposedCountRead(ApiModel):
     qualification: str
     punishment: str
     additional: list[str] = []
-    imprisonment_months: int | None = None
+    imprisonment_months: float | None = None
     quote: str
 
 
@@ -133,9 +134,28 @@ class ImposedSentenceRead(ApiModel):
     conditional: bool = False
     probation_months: int | None = None
     final_quote: str | None = None
+    intermediate: str | None = None
+    intermediate_rule: str | None = None
+    unserved: str | None = None
+    joined: str | None = None
+    final_additional: list[str] = Field(default_factory=list)
+    prior_judgment_date: str | None = None
+    credited: str | None = None
+
+
+class DefendantAnalysisRead(ApiModel):
+    label: str
+    legal_checks: list["LegalCheck"] = Field(default_factory=list)
+    imposed_sentence: ImposedSentenceRead | None = None
+    mitigating: list[Circumstance] = Field(default_factory=list)
+    aggravating: str | None = None
+    practice_episodes: list[PracticeComparisonRead] = Field(default_factory=list)
+    similar: list[SimilarVerdictRef] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class CaseAnalysis(ApiModel):
+    defendants: list[DefendantAnalysisRead] = Field(default_factory=list)
     legal_checks: list["LegalCheck"] = Field(default_factory=list)
     imposed_sentence: ImposedSentenceRead | None = None
     schema_version: Literal[1] = SCHEMA_VERSION
@@ -208,5 +228,6 @@ class LegalCheck(BaseModel):
 
 
 # Resolve references declared below the backwards-compatible result classes.
+DefendantAnalysisRead.model_rebuild()
 CaseAnalysis.model_rebuild()
 LlmCaseFacts.model_rebuild()

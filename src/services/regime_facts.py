@@ -35,7 +35,7 @@ _NOT_SERVED = re.compile(
 # punishments too. Only phrases that name imprisonment or a place of it count.
 _SERVED = re.compile(
     r"(?<!не\s)(?:ранее\s+отбывавш\w*|отбывал\w*)\s+(?:наказани\w+\s+в\s+виде\s+)?"
-    r"лишени\w+\s+свободы"
+    r"(?:реальн\w+\s+)?лишени\w+\s+свободы"
     r"|освобожд[её]н\w*\s+(?:\S+\s+){0,4}?из\s+(?:мест\s+лишения\s+свободы"
     r"|исправительной\s+колонии|ИК-?\d*)",
     re.IGNORECASE,
@@ -55,27 +55,46 @@ def read_regime(text: str) -> tuple[Regime | None, str]:
 
 def read_male(text: str) -> tuple[bool | None, str]:
     """True for a man, False for a woman; None when the forms are absent or mixed."""
-    female = _FEMALE.findall(text)
-    male = _MALE.findall(text)
+
+    def forms(pattern):
+        return [
+            m[0]
+            for m in pattern.finditer(text)
+            if not (
+                m[0].lower().startswith("граждан")
+                and re.search(r"свидетел\w*\s+$", text[max(0, m.start() - 25) : m.start()], re.I)
+            )
+        ]
+
+    female = forms(_FEMALE)
+    male = forms(_MALE)
     if female and not male:
         return False, female[0]
     if male and not female:
         return True, male[0]
-    if female and male:
-        # Mixed forms (several defendants, quoted documents): only a clear majority counts.
-        if len(female) >= 3 * len(male):
-            return False, female[0]
-        if len(male) >= 3 * len(female):
-            return True, male[0]
     return None, ""
 
 
 def read_served_before(text: str) -> tuple[bool | None, str]:
     """Whether the convicted person served imprisonment before, by explicit phrases only."""
     negative = _NOT_SERVED.search(text)
+    positives = [
+        m
+        for m in _SERVED.finditer(text)
+        if not re.search(r"не\s+$", text[max(0, m.start() - 4) : m.start()], re.I)
+    ]
+    positive = positives[0] if positives else None
+    released = re.search(
+        r"освобожд[её]н\w*[^.;]{0,100}по\s+отбытии[^.;]{0,60}(?:срока|наказания)", text, re.I
+    )
+    if released and re.search(
+        r"лишени\w+\s+свободы|исправительн\w+\s+колони", released.group(), re.I
+    ):
+        positive = positive or released
+    if negative and positive:
+        return None, ""
     if negative:
         return False, negative.group(0)
-    positive = _SERVED.search(text)
     if positive:
         return True, positive.group(0)
     never = _NOT_CONVICTED.search(text)

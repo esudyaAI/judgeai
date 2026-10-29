@@ -23,15 +23,91 @@ def _person(match: re.Match) -> str:
 
 def split_defendants(operative: str) -> list[str]:
     """Blocks of the operative part in order, one per person; [operative] for a single person."""
-    starts: list[int] = []
-    people: list[str] = []
-    for match in _CONVICTION.finditer(operative):
+    matches = list(_CONVICTION.finditer(operative))
+    people = []
+    chunks = {}
+    current = None
+    for index, match in enumerate(matches):
         person = _person(match)
-        if _SAME_PERSON.match(person) or person in people:
+        if not _SAME_PERSON.match(person):
+            current = person
+        if current is None:
             continue
-        starts.append(match.start())
-        people.append(person)
-    if len(starts) < 2:
-        return [operative]
-    starts[0] = 0  # text before the first conviction belongs to the first person
-    return [operative[a:b] for a, b in zip(starts, [*starts[1:], len(operative)], strict=True)]
+        if current not in people:
+            people.append(current)
+            chunks[current] = []
+        start = 0 if index == 0 else match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(operative)
+        chunks[current].append(operative[start:end])
+    return ["".join(chunks[person]) for person in people] if len(people) > 1 else [operative]
+
+
+def defendant_names(operative: str) -> list[str]:
+    people = []
+    for match in _CONVICTION.finditer(operative):
+        raw = _person(match)
+        if _SAME_PERSON.match(raw):
+            continue
+        for person in re.split(r"\s+и\s+", raw):
+            if person not in people:
+                people.append(person)
+    return people
+
+
+def scope_person_text(text: str, person: str, people: list[str], *, common: bool = False) -> str:
+    """Conservative attribution: unnamed facts remain unknown, explicit common facts may apply."""
+    from src.infrastructure.circumstance_extractor import circumstance_statements
+
+    def mentioned(statement: str) -> set[str]:
+        owners = set()
+        for name in people:
+            first = name.split()[0]
+            stem = (
+                first
+                if re.fullmatch(r"фио\d+|[а-яё]", first, re.I)
+                else first[:-2]
+                if len(first) > 6
+                else first
+            )
+            if re.search(rf"(?<![а-яё\d]){re.escape(stem)}[а-яё]*(?![а-яё\d])", statement, re.I):
+                owners.add(name)
+        return owners
+
+    statements = []
+    for statement in circumstance_statements(text):
+        owners = mentioned(statement)
+        explicit_common = common and re.search(
+            r"\b(?:обоим|всем|каждому)\s+(?:подсудим|осужд[её]нн)\w*", statement, re.I
+        )
+        if owners == {person} or (not owners and explicit_common):
+            statements.append(statement)
+    return "\n\n".join(statements)
+
+
+def scoped_verdicts(text: str) -> list[tuple[str, str]]:
+    """Return separate verdict texts when the operative part identifies several people."""
+    from src.services.verdict_segmenter import segment_verdict
+
+    parts = segment_verdict(text)
+    people = defendant_names(parts.operative)
+    blocks = split_defendants(parts.operative)
+    if len(people) < 2:
+        return []
+    if len(blocks) != len(people):
+        # Collective conviction without individual punishment attribution: retain unknowns.
+        blocks = ["" for _ in people]
+    return [
+        (
+            person,
+            "\n".join(
+                [
+                    scope_person_text(parts.introduction, person, people),
+                    "УСТАНОВИЛ:",
+                    scope_person_text(parts.description, person, people, common=True),
+                    "ПРИГОВОРИЛ:",
+                    block,
+                ]
+            ),
+        )
+        for person, block in zip(people, blocks, strict=True)
+    ]

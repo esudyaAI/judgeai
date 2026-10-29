@@ -28,7 +28,7 @@ class PrecedentIndexRead(BaseModel):
 
     card_id: int
     qualifications: list[str]
-    punishment_months: int | None
+    punishment_months: float | None
     conditional: bool
     recidivism: str | None
 

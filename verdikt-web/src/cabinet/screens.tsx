@@ -224,6 +224,36 @@ function Practice({ p }: { p: PracticeComparison }) {
   );
 }
 
+function CheckList({ checks }: { checks: NonNullable<CaseAnalysis['legalChecks']> }) {
+  return <>{checks.map((check,index) => {
+          const sourceUrl = legalCheckSourceUrl(check.source);
+          return <section key={`${check.norm}-${index}`} className={`legal-check legal-check--${check.status}`}>
+            <div className="eyebrow">{check.norm} · {legalCheckStatusLabel(check.status)}</div>
+            {check.value && <strong>{check.value.replaceAll('_', ' ')}</strong>}
+            <p>{check.explanation}</p>
+            {check.evidence.map(quote => <blockquote key={quote}>{quote}</blockquote>)}
+            <p className="legal-check-source">
+              Источник: {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">{sourceUrl}</a> : check.source}
+            </p>
+          </section>;
+        })}</>;
+}
+
+function SentenceDetails({ sentence }: {sentence: CaseAnalysis['imposed_sentence']}) {
+  if (!sentence) return null;
+  return <div className="soft-card" aria-label="Назначенные наказания">
+    {sentence.counts.map((c,i) => <div key={i}><strong>{c.qualification}</strong>: {c.punishment}
+      {c.additional.map((extra,j) => <div key={j}>Дополнительно: {extra}</div>)}</div>)}
+    {sentence.intermediate && <div>Промежуточный итог ({sentence.intermediate_rule}): {sentence.intermediate}</div>}
+    {sentence.unserved && <div>Неотбытая часть: {sentence.unserved}</div>}
+    {sentence.joined && <div>Присоединено: {sentence.joined}</div>}
+    {sentence.prior_judgment_date && <div>Прежний приговор: {sentence.prior_judgment_date}</div>}
+    {sentence.credited && <div>Зачёт отбытого: {sentence.credited}</div>}
+    {sentence.final && <div>Окончательно ({sentence.aggregation_rule}): {sentence.final}</div>}
+    {sentence.final_additional?.map((extra,i) => <div key={i}>Итоговое дополнительное: {extra}</div>)}
+  </div>;
+}
+
 const SIMILAR_SHOWN = 5;
 
 export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: (verdict: SimilarVerdict) => void }) {
@@ -261,6 +291,7 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         {(a.warnings ?? []).map(w => <div key={w} className="warn-box" role="note">{w}</div>)}
         <h2>Разбор</h2>
         <p>{a.fabula}</p>
+        <SentenceDetails sentence={a.imposed_sentence} />
 
         <div className="grid-2">
           {a.qualification && <div className="card">
@@ -286,7 +317,7 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
         </div>
 
 
-        <div className="grid-2">
+        {!a.defendants?.length && <div className="grid-2">
           <div className="soft-card">
             <span className="eyebrow">Смягчающие обстоятельства</span>
             {!a.mitigating.length && <span>Сведения не выделены. Проверьте исходные материалы.</span>}
@@ -304,21 +335,24 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
             </span>
             <span>{a.personality}</span>
           </div>
-        </div>
+        </div>}
 
         <h2>Сверка</h2>
-        {(a.legalChecks ?? []).map(check => {
-          const sourceUrl = legalCheckSourceUrl(check.source);
-          return <section key={check.norm} className={`legal-check legal-check--${check.status}`}>
-            <div className="eyebrow">{check.norm} · {legalCheckStatusLabel(check.status)}</div>
-            {check.value && <strong>{check.value.replaceAll('_', ' ')}</strong>}
-            <p>{check.explanation}</p>
-            {check.evidence.map(quote => <blockquote key={quote}>{quote}</blockquote>)}
-            <p className="legal-check-source">
-              Источник: {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">{sourceUrl}</a> : check.source}
-            </p>
-          </section>;
-        })}
+        <CheckList checks={a.legalChecks ?? []} />
+        {(a.defendants ?? []).map(person => <section key={person.label} aria-label={person.label}>
+          <h3>{person.label}</h3>
+          <SentenceDetails sentence={person.imposed_sentence} />
+          {person.mitigating.map((c,i) => <p key={i}>{c.name} — {c.norm}{c.quote && <q>{c.quote}</q>}</p>)}
+          {person.aggravating && <p>{person.aggravating}</p>}
+          <CheckList checks={person.legal_checks} />
+          {person.practice_episodes.map((p,i) => <div key={i}><h4>Эпизод {i+1}: {p.qualification}</h4><Practice p={p}/></div>)}
+          {person.similar.map((v,i) => v.verdict_id != null && onOpenVerdict
+            ? <button key={i} type="button" className="similar-row similar-open" onClick={() => onOpenVerdict(v)}>
+                <span>Похожий приговор: {v.punishment} · {v.court} · {v.match}</span>
+              </button>
+            : <p key={i}>Похожий приговор: {v.punishment} · {v.court} · {v.match}</p>)}
+          {person.warnings.map((w,i) => <p key={i} role="note">{w}</p>)}
+        </section>)}
         {(a.practiceEpisodes?.length ?? 0) > 0
           ? a.practiceEpisodes!.map((p, i) => <div key={i}>
               <h3>Эпизод {i + 1}: {p.qualification}</h3>
@@ -326,7 +360,7 @@ export function Result({ a, onOpenVerdict }: { a: CaseAnalysis; onOpenVerdict?: 
               <Practice p={p} />
             </div>)
           : a.practice && <Practice p={a.practice} />}
-        <h2>Рекомендация</h2>
+        {(!a.defendants?.length || a.scale || current) && <h2>Рекомендация</h2>}
         {a.scale && <SentenceScale scale={a.scale} legend="plain" />}
 
         {current && <div className="variants">

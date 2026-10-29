@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
-from legal_core.entities import MeasureUnit, PunishmentKind, PunishmentTerm
+from legal_core.entities import PunishmentTerm
 
 # Articles 1-104 form the General Part of УК РФ and are never a qualification of a count.
 FIRST_SPECIAL_PART_ARTICLE = 105
@@ -159,13 +159,7 @@ class PrecedentCard:
         return self.episodes[0].punishment if len(self.episodes) == 1 else None
 
     @property
-    def imprisonment_months(self) -> int | None:
-        """Final term of imprisonment, or the single count's term when there is no aggregate."""
+    def imprisonment_months(self) -> float | None:
+        """Exact months, including days expressed under ст.71/72; never truncate fractions."""
         term = self.punishment
-        if (
-            term is not None
-            and term.kind is PunishmentKind.IMPRISONMENT
-            and term.unit is MeasureUnit.MONTHS
-        ):
-            return int(term.amount)
-        return None
+        return term.imprisonment_months if term is not None else None

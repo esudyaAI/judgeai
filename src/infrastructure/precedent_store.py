@@ -100,7 +100,11 @@ def _card_values(source: VerdictSource, extraction: CardExtraction, embedding_te
         applied_general=sorted(card.applied_general),
         recidivism=card.recidivism.value if card.recidivism else None,
         conditional=card.conditional,
-        imprisonment_months=card.imprisonment_months,
+        # Legacy integer cache is only filled for an exact whole-month term.
+        # Full precision always lives in the existing JSON term, which _card reads.
+        imprisonment_months=int(card.imprisonment_months)
+        if card.imprisonment_months is not None and float(card.imprisonment_months).is_integer()
+        else None,
         episodes=[
             {
                 "qualification": _qualification_json(e.qualification),

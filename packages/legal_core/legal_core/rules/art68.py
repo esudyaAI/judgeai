@@ -96,3 +96,57 @@ def check_recidivism_term(
         f"Назначено {imposed_months} мес. — менее трети максимума ({minimum} из "
         f"{most_severe_max_months} мес.) без смягчающих ст. 61 и без ст. 64 УК РФ.",
     )
+
+
+def check_recidivism_amount(
+    *,
+    recidivism: Recidivism,
+    amount: float | None,
+    maximum: float | None,
+    most_severe_kind: bool,
+    mitigating: bool,
+    art64: bool,
+    unit_name: str,
+) -> CheckResult:
+    """Exact one-third boundary in the actual unit (months, hours or rubles), T37.
+
+    No premature ceil/floor: days under ст.72 can express fractions of a month.
+    Source and review requirement are the same as check_recidivism_term.
+    """
+    from fractions import Fraction
+
+    def result(status, why):
+        return CheckResult(NORM, status, why, SOURCE, True)
+
+    if recidivism is Recidivism.UNKNOWN:
+        return result(CheckStatus.INSUFFICIENT_DATA, "Вид рецидива не установлен.")
+    if recidivism is Recidivism.NONE or art64:
+        return result(
+            CheckStatus.OK, "Ограничение трети не применяется: нет рецидива либо применена ст. 64."
+        )
+    if not most_severe_kind:
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            "Назначен не наиболее строгий вид наказания без ст. 64 (п. 47 ППВС №58).",
+        )
+    if amount is None or maximum is None or amount <= 0 or maximum <= 0:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Размер наказания или максимум наиболее строгого вида не определён.",
+        )
+    third = Fraction(str(maximum)) / 3
+    if Fraction(str(amount)) >= third:
+        return result(
+            CheckStatus.OK,
+            f"Назначено {amount:g} {unit_name}, не менее трети ({third} {unit_name}).",
+        )
+    if mitigating:
+        return result(
+            CheckStatus.OK,
+            f"Ниже трети ({third} {unit_name}) при смягчающих ст. 61: "
+            "проверьте мотивировку ч. 3 ст. 68.",
+        )
+    return result(
+        CheckStatus.POSSIBLE_VIOLATION,
+        f"Назначено {amount:g} {unit_name} ниже трети ({third} {unit_name}) без ст. 61/64.",
+    )

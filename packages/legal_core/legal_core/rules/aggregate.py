@@ -21,6 +21,8 @@ _ART70_TOTAL_CAP = 30 * 12
 
 
 def _months(value: float) -> str:
+    if value != int(value):
+        return f"{float(value):g} мес."
     years, months = divmod(int(value), 12)
     parts = ([f"{years} г."] if years else []) + ([f"{months} мес."] if months else [])
     return " ".join(parts) or "0 мес."
@@ -94,6 +96,12 @@ def check_final_term(
             CheckStatus.POSSIBLE_VIOLATION,
             f"Итог {_months(final_months)} больше предела {_months(cap)}: максимум за наиболее "
             "тяжкое преступление, увеличенный наполовину.",
+        )
+    if final_months > sum(terms) or (rule == "69.3" and final_months <= longest):
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            "Итог не соответствует частичному/полному сложению: "
+            "больше суммы либо не больше самого строгого эпизода по ч. 3.",
         )
     return result(
         CheckStatus.OK,
