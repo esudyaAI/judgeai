@@ -2,7 +2,7 @@ import logging
 import time
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -23,13 +23,49 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_STATUS_MAP: dict[str | None, ChatStatus] = {
-    None: "draft",
-    "pending": "busy",
-    "running": "busy",
-    "completed": "ready",
-    "failed": "failed",
-}
+
+def _derive_chat_status(messages: list[tuple[str, bool]]) -> ChatStatus:
+    """Dot state of one case from its assistant messages ordered by id.
+
+    The newest exchange decides, but a completed answer without case content
+    (a text-only follow-up like «Вопрос не содержит сведений…»: no defendants,
+    no documents) never repaints the case: a failed analysis stays red until a
+    real re-analysis with case content completes (T47).
+    """
+    for status, has_case in reversed(messages):
+        if status in ("pending", "running"):
+            return "busy"
+        if status == "failed":
+            return "failed"
+        if status == "completed" and has_case:
+            return "ready"
+    if messages and messages[-1][0] == "completed":
+        # A purely textual chat with a normal answer stays ready.
+        return "ready"
+    return "draft"
+
+
+async def _chat_statuses(db: AsyncSession, chat_ids: list[int]) -> dict[int, ChatStatus]:
+    if not chat_ids:
+        return {}
+    # Case content flags are computed in SQL so the big analysis JSONB is never
+    # transferred just to derive a sidebar dot.
+    documents = Message.analysis["stats"]["documents"]
+    case_content = or_(
+        func.jsonb_array_length(Message.analysis["defendants"]) > 0,
+        func.coalesce(documents.astext, "0") != "0",
+    )
+    rows = (
+        await db.execute(
+            select(Message.chat_id, Message.status, case_content.label("case_content"))
+            .where(Message.chat_id.in_(chat_ids), Message.role == "assistant")
+            .order_by(Message.id)
+        )
+    ).all()
+    by_chat: dict[int, list[tuple[str, bool]]] = {}
+    for chat_id, status, has_case in rows:
+        by_chat.setdefault(chat_id, []).append((status, bool(has_case)))
+    return {chat_id: _derive_chat_status(messages) for chat_id, messages in by_chat.items()}
 
 
 async def load_message(db: AsyncSession, message_id: int) -> Message:
@@ -40,21 +76,6 @@ async def load_message(db: AsyncSession, message_id: int) -> Message:
     if not message:
         raise HTTPException(status_code=404, detail="Сообщение не найдено")
     return message
-
-
-async def _chat_statuses(db: AsyncSession, chat_ids: list[int]) -> dict[int, ChatStatus]:
-    if not chat_ids:
-        return {}
-    # Latest assistant message per chat; ids are monotonic, so max(id) is the newest one.
-    latest_ids = (
-        select(func.max(Message.id))
-        .where(Message.chat_id.in_(chat_ids), Message.role == "assistant")
-        .group_by(Message.chat_id)
-    )
-    rows = (
-        await db.execute(select(Message.chat_id, Message.status).where(Message.id.in_(latest_ids)))
-    ).all()
-    return {chat_id: _STATUS_MAP.get(status, "draft") for chat_id, status in rows}
 
 
 def _chat_read(chat: Chat, status: ChatStatus) -> ChatRead:
