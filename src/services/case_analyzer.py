@@ -1082,6 +1082,19 @@ async def extract_facts(
                 time.monotonic() - t_llm,
                 facts.qualification.article if facts.qualification else None,
             )
+            # Sizes only (no content): shows where the completion tokens go (T39).
+            logger.info(
+                "[CASE-ANALYZER] output sizes: fabula_chars=%d qualification_chars=%d "
+                "legal_facts_chars=%d personality_chars=%d mitigating_items=%d "
+                "aggravating_items=%d variants_items=%d",
+                len(facts.fabula or ""),
+                len(facts.qualification.model_dump_json()) if facts.qualification else 0,
+                len(facts.legal_facts.model_dump_json()) if facts.legal_facts else 0,
+                len(facts.personality or ""),
+                len(facts.mitigating),
+                len(facts.aggravating),
+                len(facts.variants),
+            )
             return facts
         except ValidationError as exc:
             last_error = exc

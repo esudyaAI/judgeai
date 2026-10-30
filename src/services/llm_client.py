@@ -167,16 +167,23 @@ class OpenAICompatibleClient:
                 except (ValueError, KeyError, IndexError, TypeError) as exc:
                     raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
                 usage = body.get("usage") if isinstance(body, dict) else None
+                completion_tokens = (usage or {}).get("completion_tokens")
+                speed = (
+                    f"{completion_tokens / req_sec:.0f} tok/s"
+                    if completion_tokens and req_sec
+                    else "?"
+                )
                 logger.info(
                     "[LLM] Succeeded in %.2fs (attempt %d/%d, HTTP %d, bytes=%d, "
-                    "tokens prompt=%s completion=%s)",
+                    "tokens prompt=%s completion=%s, %s)",
                     req_sec,
                     attempt + 1,
                     LLM_ATTEMPTS,
                     status,
                     len(response.content),
                     (usage or {}).get("prompt_tokens"),
-                    (usage or {}).get("completion_tokens"),
+                    completion_tokens,
+                    speed,
                 )
                 break
 
