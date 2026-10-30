@@ -119,7 +119,9 @@ export function AttachScreen({ files, onRemove, onOpen, disabled = false }: { fi
       <div className="attach-head">
         <h1 className="screen-h2">Материалы дела</h1>
         <span className="muted-14">
-          {files.length} {plural(files.length, ['файл', 'файла', 'файлов'])} · {pages} {plural(pages, ['страница', 'страницы', 'страниц'])}
+          {/* Word/text files may have no known page count: «0 страниц» would read as empty documents. */}
+          {files.length} {plural(files.length, ['файл', 'файла', 'файлов'])}
+          {pages > 0 && <> · {pages} {plural(pages, ['страница', 'страницы', 'страниц'])}</>}
         </span>
       </div>
       <ul className="file-list">

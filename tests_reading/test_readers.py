@@ -263,3 +263,44 @@ class ReadingReviewRegressions(ReadingFixture, unittest.TestCase):
         self.assertNotIn("Removed header", result.text)
         self.assertEqual(result.status, "partial")
         self.assertIn("tracked_changes", result.issues)
+
+
+class WordPageCountTests(ReadingFixture, unittest.TestCase):
+    APP_XML = (
+        b'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/'
+        b'extended-properties"><Pages>7</Pages><Words>900</Words></Properties>'
+    )
+
+    def test_word_page_count_comes_from_saved_editor_metadata(self):
+        result = self.read(archive({"docProps/app.xml": self.APP_XML}), ".docx")
+        self.assertEqual(result.page_count, 7)
+        self.assertEqual((result.text, result.status), ("Synthetic case.", "ok"))
+
+    def test_word_without_metadata_has_unknown_page_count(self):
+        result = self.read(archive(), ".docx")
+        self.assertIsNone(result.page_count)
+        self.assertEqual(result.status, "ok")
+
+    def test_broken_or_meaningless_metadata_never_breaks_reading(self):
+        for payload in (
+            b'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/'
+            b'extended-properties"><Pages>0</Pages></Properties>',
+            b'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/'
+            b'extended-properties"><Pages>many</Pages></Properties>',
+            b'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/'
+            b'extended-properties"><Words>900</Words></Properties>',
+        ):
+            with self.subTest(payload=payload[:20]):
+                result = self.read(archive({"docProps/app.xml": payload}), ".docx")
+                self.assertIsNone(result.page_count)
+                self.assertEqual((result.text, result.status), ("Synthetic case.", "ok"))
+
+    def test_malformed_metadata_xml_is_rejected_with_the_package(self):
+        # The DOCX inspector parses every package part at admission: malformed XML
+        # anywhere is rejected before the reader runs (unchanged behavior).
+        result = self.read(archive({"docProps/app.xml": b"<not-xml"}), ".docx")
+        self.assertEqual((result.text, result.status), ("", "error"))
+
+    def test_plain_text_has_no_page_count(self):
+        result = self.read("Приговор суда".encode())
+        self.assertIsNone(result.page_count)

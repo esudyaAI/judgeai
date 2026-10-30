@@ -163,6 +163,44 @@ class _Stories:
             self.issues.add("unsupported_content")
 
 
+def _declared_pages(package) -> int | None:
+    """Page count recorded by the word processor in docProps/app.xml at save time.
+
+    Word/DOTX have no stable pagination of their own; this metadata is the count
+    the editor last rendered. Missing or unreadable metadata means «unknown» —
+    it must never fail the reading of the document itself.
+    """
+    try:
+        data = _part(package, "docProps/app.xml")
+    except (KeyError, UploadRejected):
+        return None
+    texts: list[str] = []
+    inside = False
+    parser = _parser()
+
+    def start(name, _attrs):
+        nonlocal inside
+        inside = name.rpartition("}")[2] == "Pages"
+
+    def end(_name):
+        nonlocal inside
+        inside = False
+
+    def content(text):
+        if inside:
+            texts.append(text)
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = end
+    parser.CharacterDataHandler = content
+    try:
+        parser.Parse(data, True)
+        pages = int("".join(texts).strip())
+    except (expat.ExpatError, ValueError):
+        return None
+    return pages if pages > 0 else None
+
+
 def read_word(path: Path) -> ExtractedDocument:
     stories = _Stories()
     with path.open("rb") as source:
@@ -198,12 +236,13 @@ def read_word(path: Path) -> ExtractedDocument:
                 seen.add((target, kind))
                 root = {"header": "hdr", "footer": "ftr"}.get(kind, kind)
                 stories.parse(_part(package, target), root, note_ids)
+            declared_pages = _declared_pages(package)
     text = "".join(stories.output).strip()
     if not text:
         stories.issues.add("empty_document")
     return ExtractedDocument(
         text,
-        None,
+        declared_pages,
         "empty" if not text else "partial" if stories.issues else "ok",
         tuple(sorted(stories.issues)),
     )
