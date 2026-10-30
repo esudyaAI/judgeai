@@ -26,12 +26,14 @@ async page => {
     await page.getByRole('button',{name:'Удалить файл Synthetic verdict.pdf',exact:true}).click();
     await page.locator('.dropzone').waitFor();
 
-    // Card fills the composer instead of navigating to an empty attach screen.
+    // Card fills the composer instead of navigating to an empty attach screen;
+    // the filled text ends with one space and the caret pinned to the end.
     await page.locator('.sug').first().click();
     const composer = page.locator('.composer-field input');
     await page.waitForFunction(() => {
       const el = document.querySelector('.composer-field input');
-      return el && el.value.startsWith('Подготовь проект приговора') && el.value.endsWith('составь текст приговора.');
+      return el && el.value.startsWith('Подготовь проект приговора') && el.value.endsWith('составь текст приговора. ')
+        && el.selectionStart === el.value.length;
     }, undefined, {timeout: 5000});
     if (await page.locator('.file-row').count()) throw Error('Suggestion card attached phantom files');
     if (!await composer.evaluate(el => el === document.activeElement)) throw Error('Composer not focused after card click');
@@ -43,7 +45,7 @@ async page => {
     const afterUser = await composer.inputValue();
     await page.waitForTimeout(400);
     if (await composer.inputValue() !== afterUser) throw Error('Typing animation overrode user input');
-    if (afterUser === 'Проверь квалификацию по материалам дела: статья, часть и спорные признаки состава.') throw Error('Animation not cancelled by typing');
+    if (afterUser === 'Проверь квалификацию по материалам дела: статья, часть и спорные признаки состава. ') throw Error('Animation not cancelled by typing');
 
     // Pasting a file attaches it; the path must not land in the field as text.
     await page.evaluate(() => {
