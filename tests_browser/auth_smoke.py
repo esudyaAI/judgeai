@@ -141,9 +141,20 @@ class BrowserAuthAcceptance(unittest.TestCase):
         page.get_by_role("button", name="Войти", exact=True).click()
         expect(page.locator(".cab")).to_be_visible()
 
-    def account_action(self, page, label):
-        if not page.get_by_role("button", name="Аккаунт", exact=True).is_visible():
+    def ensure_sidebar_open(self, page):
+        """Open the sidebar when it is out of reach: auto-collapsed on desktop
+        with empty history, or the closed drawer on mobile. The auto-collapse
+        commits a frame after the list settles and then runs a 300 ms visibility
+        transition, so wait it out and decide on the class, not on visibility."""
+        expect(page.get_by_label("Список дел", exact=True)).to_have_attribute("aria-busy", "false")
+        page.wait_for_timeout(400)  # collapse effect commit + visibility transition
+        classes = page.locator(".cab-side").get_attribute("class") or ""
+        mobile = (page.viewport_size or {}).get("width", 1440) < 761
+        if "collapsed" in classes or (mobile and "open" not in classes):
             page.get_by_role("button", name="Открыть боковое меню", exact=True).click()
+
+    def account_action(self, page, label):
+        self.ensure_sidebar_open(page)
         page.get_by_role("button", name="Аккаунт", exact=True).click()
         page.get_by_role("menuitem", name=label, exact=True).click()
 
@@ -420,8 +431,7 @@ class BrowserAuthAcceptance(unittest.TestCase):
                 page = context.new_page()
                 page.goto(URL + "/app")
                 self.sign_in(page)
-                if label == "mobile":
-                    page.get_by_role("button", name="Открыть боковое меню").click()
+                self.ensure_sidebar_open(page)
                 page.get_by_placeholder("Поиск по чатам").fill("synthetic-no-match-42")
                 expect(
                     page.get_by_text("Ничего не найдено. Попробуйте другой запрос.")
