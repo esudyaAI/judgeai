@@ -53,6 +53,8 @@ async page => {
     results.push({width,avatar96:true,geometry:await page.locator('.settings').evaluate(el=>({settings:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,scroll:el.parentElement.scrollWidth,client:el.parentElement.clientWidth,panel:el.querySelector('[role=tabpanel]').getBoundingClientRect().width,heading:el.querySelector('h1').getBoundingClientRect().width}))});
   }
   await page.setViewportSize({width:1440,height:1000});
+  // Empty history auto-collapses the sidebar: open it explicitly before the icon check.
+  await page.getByRole('button',{name:'Открыть боковое меню',exact:true}).click();
   const icon=await page.getByRole('button',{name:'Свернуть боковое меню',exact:true}).locator('svg').innerHTML();
   await page.getByRole('button',{name:'Свернуть боковое меню',exact:true}).click();
   if(await page.getByRole('button',{name:'Открыть боковое меню',exact:true}).locator('svg').innerHTML()!==icon)throw Error('Sidebar icon changed');

@@ -46,6 +46,11 @@ async page => {
     if (width<761) await page.getByRole('button',{name:'Открыть боковое меню',exact:true}).click();
     await page.getByText('Загружаем дела…',{exact:true}).waitFor();
     hold=''; releaseList();
+    if (width>=761) {
+      // Empty history auto-collapses the desktop sidebar; reopen it via the header button.
+      const opener=page.getByRole('button',{name:'Открыть боковое меню',exact:true});
+      await opener.waitFor(); await opener.click();
+    }
     await page.getByText('Здесь появятся ваши дела. Начните новое дело.',{exact:true}).waitFor();
     if (width<761) {
       if (!await page.locator('.cab-main').evaluate(el=>el.inert)) throw Error('Drawer background not inert');

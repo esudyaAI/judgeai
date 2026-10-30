@@ -78,6 +78,21 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     setSidebarOpen(false);
     if (!window.matchMedia('(max-width: 760px)').matches) setSidebarCollapsed(true);
   }, []);
+  // With no history there is nothing to show in the sidebar: it starts
+  // collapsed, and the first chat (or an explicit send) expands it back.
+  // Errors and in-flight loads never change the state; manual toggles win
+  // until the empty/non-empty transition flips.
+  const hadChats = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (listLoading || listError) return;
+    const has = cases.length > 0;
+    if (hadChats.current === null) {
+      if (!has) setSidebarCollapsed(true);
+    } else if (has !== hadChats.current) {
+      setSidebarCollapsed(!has);
+    }
+    hadChats.current = has;
+  }, [listLoading, listError, cases.length]);
   const draftId = useRef<string | null>(null);
   const sendingRef = useRef(false);
   const operation = useRef(0);
@@ -257,6 +272,9 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
       void refreshCases();
       if (!isCurrent()) return;
       draftSaver.clear();
+      // Immediate expand only when there was no history; a user who collapsed
+      // the sidebar with existing chats keeps it collapsed.
+      if (hadChats.current === false) setSidebarCollapsed(false);
       setSelectedFiles([]); setPrompt(''); setRetry(n => n + 1);
       go(`/app/case/${id}/analysis`);
       void refreshCases();
