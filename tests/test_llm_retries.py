@@ -121,3 +121,33 @@ async def test_error_status_logs_response_text(pauses):
     _, status_code, message = mock_warning.call_args[0]
     assert status_code == 400
     assert "invalid request" in message
+
+
+def test_app_logging_emits_info_to_stdout_when_root_has_no_handler():
+    """Without a handler, every logger.info (analysis timings) is dropped under uvicorn."""
+    import logging
+
+    from src.main import configure_logging
+
+    app_logger = logging.getLogger("src")
+    root = logging.getLogger()
+    previous_level, previous_handlers = app_logger.level, list(root.handlers)
+    try:
+        # uvicorn leaves the root logger without handlers.
+        for handler in previous_handlers:
+            root.removeHandler(handler)
+        configure_logging("INFO")
+        assert app_logger.level == logging.INFO
+        assert app_logger.handlers, "configure_logging must attach a handler"
+        assert app_logger.propagate is False
+        # An explicit level wins, so deployments can raise verbosity with LOG_LEVEL=DEBUG.
+        configure_logging("DEBUG")
+        assert app_logger.level == logging.DEBUG
+        assert len(app_logger.handlers) == 1, "repeated calls must not duplicate handlers"
+    finally:
+        for handler in list(app_logger.handlers):
+            app_logger.removeHandler(handler)
+        app_logger.propagate = True
+        app_logger.setLevel(previous_level)
+        for handler in previous_handlers:
+            root.addHandler(handler)

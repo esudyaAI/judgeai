@@ -156,7 +156,9 @@ class OpenAICompatibleClient:
                     await _sleep(pause)
                     continue
                 if status >= 400:
-                    logger.warning("LLM API error %d: %s", status, response.text)
+                    # The body helps diagnose 4xx (limits, bad json mode); it may echo the
+                    # request, so keep it short and never log headers (they carry the key).
+                    logger.warning("LLM API error %d: %s", status, response.text[:500])
                     # Never include request headers in the message: they carry the API key.
                     raise _final_status_error(status)
                 logger.info(

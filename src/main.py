@@ -26,6 +26,27 @@ from src.services.analysis_runner import fail_interrupted_analyses
 logger = logging.getLogger(__name__)
 
 
+def configure_logging(level: str | None = None) -> None:
+    """Emit our own loggers at LOG_LEVEL (default INFO) to stdout.
+
+    Without this, the root logger has no handler under uvicorn and every ``logger.info``
+    (analysis stage timings, window cache hits, LLM latency) is silently dropped — only
+    warnings/errors reach ``docker logs``. When the root logger already has handlers
+    (pytest, a custom deployment) records simply propagate there and none is added.
+    """
+    app_level = (level or settings.LOG_LEVEL).upper()
+    app_logger = logging.getLogger("src")
+    app_logger.setLevel(app_level)
+    if not app_logger.handlers and not logging.getLogger().handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        app_logger.addHandler(handler)
+        app_logger.propagate = False
+
+
+configure_logging()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
