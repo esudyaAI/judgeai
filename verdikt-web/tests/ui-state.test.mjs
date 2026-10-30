@@ -18,6 +18,11 @@ test('password change needs current password, length and matching confirmation',
 test('pending button names its operation, locks itself and announces progress',()=> {
   const html=render('BusyButton',{pending:true,pendingLabel:'Сохраняем…',children:'Сохранить'});
   assert.match(html,/disabled/); assert.match(html,/aria-busy="true"/); assert.match(html,/Сохраняем…/);
+  assert.match(html,/data-loading="true"/);
+});
+test('an idle button carries no loading hook, so no sweep overlay applies',()=> {
+  const html=render('BusyButton',{children:'Сохранить'});
+  assert.doesNotMatch(html,/data-loading|aria-busy/);
 });
 test('initial text document is loading, not an unobservable iframe',()=> {
   const html=render('TextDocument',{url:'/synthetic',name:'Материалы.md'});

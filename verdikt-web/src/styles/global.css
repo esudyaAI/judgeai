@@ -18,6 +18,14 @@ a:hover { color: var(--muted); }
 button { font: inherit; color: inherit; }
 h1, h2, h3, p { margin: 0; }
 
+/* Touch taps on controls must not flash the platform highlight or start
+   selecting the control's label (the «blue blink» on mobile browsers). */
+:where(button, a, select, summary, [role='button'], [role='tab'], [role='menuitem']) {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
 .sr-only {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;
@@ -60,6 +68,19 @@ h1, h2, h3, p { margin: 0; }
   flex: none; width: 12px; height: 12px; border-radius: 9999px;
   border: 2px solid var(--line-strong); border-top-color: var(--ink);
   animation: vk-spin .8s linear infinite;
+}
+/* Loading sweep on busy buttons — the same compositor-friendly transform-only
+   pattern as the case skeleton (sk-sweep in cabinet.css). */
+@keyframes btn-sweep { to { transform: translateX(100%); } }
+button[data-loading='true'] { position: relative; overflow: hidden; }
+button[data-loading='true']::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, .22) 50%, transparent 75%);
+  animation: btn-sweep 1.2s ease-in-out infinite;
+}
+button[data-loading='true']:where(.btn-soft, .btn-line, .btn-danger)::after {
+  background: linear-gradient(100deg, transparent 25%, rgba(20, 20, 20, .06) 50%, transparent 75%);
 }
 .caret {
   display: inline-block; width: 2px; height: 1.1em; background: var(--ink);

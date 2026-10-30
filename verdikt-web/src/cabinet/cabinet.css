@@ -268,8 +268,9 @@
 .delete-chat-dialog button:disabled { opacity: .55; cursor: wait; }
 @media (max-width: 480px) {
   .delete-chat-body { padding: 24px 22px; }
-  .delete-chat-actions { padding: 16px 22px; }
-  .delete-chat-actions > button { flex: 1; }
+  /* On phones the two actions stack full-width instead of sharing a row. */
+  .delete-chat-actions { padding: 16px 22px; flex-direction: column; }
+  .delete-chat-actions > button { width: 100%; }
 }
 
 /* Conversation and document workspace share one viewport. */

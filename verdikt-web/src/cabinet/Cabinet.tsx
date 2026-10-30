@@ -15,6 +15,7 @@ import { useDeleteChat } from './useDeleteChat';
 import { DeleteChatDialog } from './DeleteChatDialog';
 import { messagesFingerprint } from './messagesFingerprint';
 import { createTypewriter, prefersReducedMotion } from './typewriter';
+import { suggestionFill } from './suggestionFill';
 import './cabinet.css';
 import { CaseSkeleton } from './CaseSkeleton';
 import {AnimatePresence} from 'motion/react';
@@ -92,12 +93,22 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   // Suggestion cards fill the composer with a quick typing animation; the user
   // keeps control — typing anything cancels the run and keeps their text.
   const composerInput = useRef<HTMLInputElement>(null);
-  const typer = useMemo(() => createTypewriter(setPrompt), []);
+  const typer = useMemo(() => createTypewriter((v) => {
+    setPrompt(v);
+    // The state update commits after this frame; on the next frame pin the caret
+    // and the horizontal scroll to the end so typing continues after the prompt.
+    requestAnimationFrame(() => {
+      const input = composerInput.current;
+      if (!input) return;
+      input.setSelectionRange(v.length, v.length);
+      input.scrollLeft = input.scrollWidth;
+    });
+  }), []);
   useEffect(() => () => typer.cancel(), [typer]);
   const handlePromptChange = useCallback((v: string) => { typer.cancel(); setPrompt(v); }, [typer]);
   const applySuggestion = useCallback((text: string) => {
     setFileNotice('');
-    typer.print(text, { instant: prefersReducedMotion() });
+    typer.print(suggestionFill(text), { instant: prefersReducedMotion() });
     composerInput.current?.focus();
   }, [typer]);
 
