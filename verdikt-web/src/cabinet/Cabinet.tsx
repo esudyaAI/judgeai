@@ -16,6 +16,7 @@ import { DeleteChatDialog } from './DeleteChatDialog';
 import { messagesFingerprint } from './messagesFingerprint';
 import { createTypewriter, prefersReducedMotion } from './typewriter';
 import { suggestionFill } from './suggestionFill';
+import { createDraftSaver, idbDraftStorage } from './draftStore';
 import './cabinet.css';
 import { CaseSkeleton } from './CaseSkeleton';
 import {AnimatePresence} from 'motion/react';
@@ -55,10 +56,16 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   const [listLoading, setListLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const signOutLock = useRef(false);
+  // The unsent new-case draft (text + attached files) lives in IndexedDB, so it
+  // survives visiting another chat and a page reload. Sign-out drops it: the
+  // next person at this browser must not see the previous user's materials.
+  const draftStorage = useMemo(() => idbDraftStorage(), []);
+  const draftSaver = useMemo(() => createDraftSaver(draftStorage), [draftStorage]);
+  const [draftReady, setDraftReady] = useState(false);
   const signOut = async () => {
     if (signOutLock.current) return;
     signOutLock.current = true; setSigningOut(true);
-    try { await onSignOut(); } finally { signOutLock.current = false; setSigningOut(false); }
+    try { draftSaver.clear(); await onSignOut(); } finally { signOutLock.current = false; setSigningOut(false); }
   };
   const [fileNotice, setFileNotice] = useState('');
   const [sending, setSending] = useState(false);
@@ -111,6 +118,36 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     typer.print(suggestionFill(text), { instant: prefersReducedMotion() });
     composerInput.current?.focus();
   }, [typer]);
+
+  // Declared before the save effect: saving is gated on the restore having
+  // settled, so an empty initial state can never overwrite the stored draft.
+  // When the gate opens, the save effect re-runs once with the current state —
+  // that also catches edits made while the restore was in flight.
+  useEffect(() => {
+    if (caseId || view === 'settings') return;
+    setDraftReady(false);
+    let cancelled = false;
+    void draftStorage.load().then((draft) => {
+      if (cancelled) return;
+      if (draft) {
+        setPrompt((current) => (current === '' ? draft.prompt : current));
+        setSelectedFiles((current) => (current.length ? current : draft.files));
+      }
+      setDraftReady(true);
+    }, () => { if (!cancelled) setDraftReady(true); });
+    return () => { cancelled = true; };
+  }, [caseId, view, draftStorage]);
+
+  useEffect(() => {
+    if (caseId || view === 'settings' || !draftReady) return;
+    draftSaver.schedule({ prompt, files: selectedFiles });
+  }, [prompt, selectedFiles, caseId, view, draftReady, draftSaver]);
+
+  useEffect(() => {
+    const flush = () => draftSaver.flush();
+    window.addEventListener('pagehide', flush);
+    return () => { window.removeEventListener('pagehide', flush); draftSaver.flush(); };
+  }, [draftSaver]);
 
   const fingerprint = useRef('');
   const pollIndex = useRef(0);
@@ -219,6 +256,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
       await api.sendCase(id, prompt, selectedFiles, true);
       void refreshCases();
       if (!isCurrent()) return;
+      draftSaver.clear();
       setSelectedFiles([]); setPrompt(''); setRetry(n => n + 1);
       go(`/app/case/${id}/analysis`);
       void refreshCases();
