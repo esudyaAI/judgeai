@@ -1061,14 +1061,15 @@ async def extract_facts(
     user = build_user_prompt(question, document_texts, similar_items)
 
     last_error: Exception | None = None
+    retry_user = user
     for attempt in (1, 2):  # one retry for malformed output
         t_llm = time.monotonic()
         logger.info(
             "[CASE-ANALYZER] Calling LLM extract_facts (attempt %d/2, prompt_chars=%d)...",
             attempt,
-            len(system) + len(user),
+            len(system) + len(retry_user),
         )
-        data = await llm.complete_json(system, user)
+        data = await llm.complete_json(system, retry_user)
         llm_sec = time.monotonic() - t_llm
         logger.info("[CASE-ANALYZER] LLM returned response in %.2fs", llm_sec)
         try:
@@ -1083,5 +1084,11 @@ async def extract_facts(
             last_error = exc
             logger.warning(
                 "LLM output failed validation (attempt %s): %s", attempt, exc.error_count()
+            )
+            # The retry repeats the prompt but names the schema errors: the model fixes them
+            # from the exact messages instead of guessing again.
+            retry_user = (
+                f"{user}\n\nПредыдущий ответ не соответствовал схеме. Ошибки: "
+                f"{str(exc)[:1200]}\nВерни исправленный JSON строго по схеме."
             )
     raise LLMError("Ответ модели не соответствует схеме анализа") from last_error
