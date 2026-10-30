@@ -289,9 +289,7 @@ def check_additional_aggregate(
 
     same = [t for t in counts if t.kind is final.kind and t.unit is final.unit]
     prior = [
-        t
-        for t in prior_parts
-        if t is not None and t.kind is final.kind and t.unit == final.unit
+        t for t in prior_parts if t is not None and t.kind is final.kind and t.unit == final.unit
     ]
     parts = same + prior
     if final.amount is None or not parts or any(t.amount is None for t in parts):
