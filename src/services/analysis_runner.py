@@ -171,9 +171,11 @@ async def run_analysis(
                 doc = await extract_document(Path(att.stored_path))
                 att_sec = time.monotonic() - t_att
                 logger.info(
-                    "[ANALYSIS:%s] [reading] '%s' in %.2fs (%d chars, %s pages, status=%s)",
+                    "[ANALYSIS:%s] [reading] attachment #%d (%s) in %.2fs "
+                    "(%d chars, %s pages, status=%s)",
                     assistant_message_id,
-                    att.filename,
+                    att.id,
+                    Path(att.stored_path).suffix.lower() or "?",
                     att_sec,
                     len(doc.text),
                     doc.page_count,

@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Application log level for our own loggers (uvicorn access logs are separate).
+    LOG_LEVEL: str = "INFO"
     POSTGRES_USER: str = "judgeai"
     POSTGRES_PASSWORD: str = "judgeai"
     POSTGRES_HOST: str = "localhost"
