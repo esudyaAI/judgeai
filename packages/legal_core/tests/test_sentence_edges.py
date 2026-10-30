@@ -235,3 +235,70 @@ def test_art69_part5_chronology_and_credit(offence, prior, credited, status):
         ).status
         is status
     )
+
+
+def test_article70_unchanged_main_with_additional_annexation_is_not_a_violation():
+    """Only the unserved additional punishment is annexed: the main term stays equal."""
+
+    def right_of(n):
+        return T(K.DEPRIVATION_OF_RIGHT, n, U.MONTHS)
+
+    main = prison(12)
+    unchanged = check_article70(main, main, right_of(13.6), None, additional_only=True)
+    assert unchanged.status is S.OK
+    assert "дополнительного наказания" in unchanged.explanation
+    # Without the additional-annexation context the strict ч. 4 ст. 70 rule still flags.
+    assert check_article70(main, main, None, None).status is S.POSSIBLE_VIOLATION
+    # A wrong main term is flagged even when an additional punishment was annexed.
+    assert (
+        check_article70(prison(9), prison(12), right_of(13.6), None, additional_only=True).status
+        is S.POSSIBLE_VIOLATION
+    )
+    # The increased main term under a real aggregate (12 + 11) stays OK.
+    assert (
+        check_article70(prison(23), prison(12), prison(11), prison(11), additional_only=True).status
+        is S.OK
+    )
+
+
+def test_additional_aggregate_includes_the_prior_unserved_part():
+    """ст. 70 may partially annex the prior unserved additional punishment."""
+    from legal_core.rules.sentence_edges import check_additional_aggregate
+
+    def right_of(n):
+        return T(K.DEPRIVATION_OF_RIGHT, n, U.MONTHS)
+
+    # 24 months for the new offence + 13.6 unserved annexed partially = 30 final.
+    assert (
+        check_additional_aggregate(
+            right_of(30), [right_of(24)], 36, prior_parts=(right_of(13.6), None)
+        ).status
+        is S.OK
+    )
+    # Without the prior part the same final exceeds the sum of this verdict's counts.
+    assert (
+        check_additional_aggregate(right_of(30), [right_of(24)], 36).status is S.POSSIBLE_VIOLATION
+    )
+    # The overall cap still applies with the prior part.
+    assert (
+        check_additional_aggregate(
+            right_of(40), [right_of(24)], 36, prior_parts=(right_of(13.6), None)
+        ).status
+        is S.POSSIBLE_VIOLATION
+    )
+
+
+def test_additional_aggregate_unread_prior_part_is_insufficient_not_a_violation():
+    """Annexed but unread unserved additional punishment: no violation is claimed."""
+    from legal_core.rules.sentence_edges import check_additional_aggregate
+
+    def right_of(n):
+        return T(K.DEPRIVATION_OF_RIGHT, n, U.MONTHS)
+
+    result = check_additional_aggregate(right_of(30), [right_of(24)], 36, prior_missing=True)
+    assert result.status is S.INSUFFICIENT_DATA
+    assert "не прочитан" in result.explanation
+    # Without the annexation context the excess over this verdict's counts is still a flag.
+    assert (
+        check_additional_aggregate(right_of(30), [right_of(24)], 36).status is S.POSSIBLE_VIOLATION
+    )

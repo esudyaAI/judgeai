@@ -48,6 +48,8 @@ def check_article70(
     new: PunishmentTerm | None,
     unserved: PunishmentTerm | None,
     joined: PunishmentTerm | None,
+    *,
+    additional_only: bool = False,
 ) -> CheckResult:
     norm = "Окончательное наказание: ст. 70, 71 УК РФ"
 
@@ -61,6 +63,16 @@ def check_article70(
             CheckStatus.INSUFFICIENT_DATA,
             "Виды наказания исполняются самостоятельно или сроки не "
             "прочитаны; автоматическое сложение не выполнено.",
+        )
+    if additional_only and end == current:
+        # Courts annex only the unserved ADDITIONAL punishment when the main term was served;
+        # the aggregate is larger through it, so ч. 4 ст. 70's "greater than the new punishment"
+        # does not turn the unchanged main term into a violation. The additional totals are
+        # checked separately (ч. 4 ст. 69).
+        return result(
+            CheckStatus.OK,
+            "Основное наказание не увеличено: присоединена только неотбытая часть "
+            "дополнительного наказания; совокупность дополнительных наказаний проверена отдельно.",
         )
     if end <= current:
         return result(
@@ -256,16 +268,31 @@ def check_other_aggregate(
 
 
 def check_additional_aggregate(
-    final: PunishmentTerm, counts: list[PunishmentTerm], statutory_maximum: float | None = None
+    final: PunishmentTerm,
+    counts: list[PunishmentTerm],
+    statutory_maximum: float | None = None,
+    prior_parts: tuple[PunishmentTerm | None, ...] = (),
+    prior_missing: bool = False,
 ) -> CheckResult:
-    """ч.4 ст.69 and ст.47/53, reviewed source edition 04.08.2026; judicial review required."""
+    """ч.4 ст.69 and ст.47/53, reviewed source edition 04.08.2026; judicial review required.
+
+    prior_parts are the unserved/joined parts of the previous sentence under ст. 70: a
+    court may partially annex an unserved additional punishment, so the final amount can
+    legitimately exceed the sum of the counts of THIS verdict. prior_missing says the
+    verdict annexes an unserved additional punishment whose amount was not read: then the
+    sum bound cannot be verified and the result is insufficient data, not a violation.
+    """
     norm = "Совокупность дополнительных наказаний: ч. 4 ст. 69 УК РФ"
 
     def result(status, why):
         return CheckResult(norm, status, why, SOURCE, True)
 
     same = [t for t in counts if t.kind is final.kind and t.unit is final.unit]
-    if final.amount is None or not same or any(t.amount is None for t in same):
+    prior = [
+        t for t in prior_parts if t is not None and t.kind is final.kind and t.unit == final.unit
+    ]
+    parts = same + prior
+    if final.amount is None or not parts or any(t.amount is None for t in parts):
         return result(
             CheckStatus.INSUFFICIENT_DATA, "Дополнительные наказания всех эпизодов не сопоставлены."
         )
@@ -276,11 +303,19 @@ def check_additional_aggregate(
         return result(
             CheckStatus.INSUFFICIENT_DATA, "Общий предел этого дополнительного вида не определён."
         )
-    if (
-        final.amount > cap
-        or final.amount > sum(t.amount for t in same)
-        or final.amount < max(t.amount for t in same)
-    ):
+    if final.amount > cap:
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            "Итоговое дополнительное наказание вне суммы/поглощения или общего предела вида.",
+        )
+    if not prior and prior_missing and final.amount > sum(t.amount for t in same):
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Присоединена неотбытая часть дополнительного наказания прежнего приговора, "
+            "но её размер не прочитан: превышение суммы наказаний этого приговора требует "
+            "ручной сверки.",
+        )
+    if final.amount > sum(t.amount for t in parts) or final.amount < max(t.amount for t in same):
         return result(
             CheckStatus.POSSIBLE_VIOLATION,
             "Итоговое дополнительное наказание вне суммы/поглощения или общего предела вида.",
