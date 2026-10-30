@@ -75,19 +75,11 @@ def build_legal_checks(
                 raise ValueError("no cited guilt")
             evidence = [cited.quote]
             if norm == "ст. 15 УК РФ":
-                if statutory_ceiling is not None:
-                    ceiling = statutory_ceiling
-                else:
-                    if facts is None:
-                        raise ValueError("no legal facts")
-                    months = _value(facts.sanction_max_months, source_text, int)
-                    harsher = _value(facts.harsher_than_imprisonment, source_text, bool)
-                    ceiling = SanctionCeiling(months, harsher)
-                    evidence += [
-                        facts.sanction_max_months.quote,
-                        facts.harsher_than_imprisonment.quote,
-                    ]
-                category = categorize(guilt, ceiling)
+                if statutory_ceiling is None:
+                    # The sanction maximum is never taken from the model: only the imported
+                    # УК text can categorise the offence (без санкции — недостаточно данных).
+                    raise ValueError("no statutory ceiling")
+                category = categorize(guilt, statutory_ceiling)
                 check.value = next(key for key, val in _CATEGORIES.items() if val == category)
                 check.explanation = (
                     "Предварительная категория по процитированным данным. Проверьте санкцию "

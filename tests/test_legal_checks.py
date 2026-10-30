@@ -32,7 +32,8 @@ def test_fabricated_quote_cannot_support_a_category():
     assert checks[0].status == "insufficient_data"
 
 
-def test_supported_category_is_explicitly_a_candidate():
+def test_category_requires_the_statutory_ceiling_not_the_model():
+    """The model no longer cites the sanction maximum: without the УК reading it is insufficient."""
     legal = {
         "guilt": {"value": "intentional", "quote": "intentional"},
         "sanction_max_months": {"value": 60, "quote": "60 months"},
@@ -41,9 +42,8 @@ def test_supported_category_is_explicitly_a_candidate():
     check = result(
         legal, text="An intentional offence. The sanction is 60 months. No life sentence."
     ).legal_checks[0]
-    assert check.value == "medium"
-    assert check.needs_legal_review
-    assert check.evidence
+    assert check.status == "insufficient_data"
+    assert check.value is None
 
 
 def test_empty_convictions_need_explicit_complete_history_evidence():
