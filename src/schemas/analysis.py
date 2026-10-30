@@ -215,10 +215,10 @@ class CitedFact(BaseModel):
 
 
 class LegalFacts(BaseModel):
+    # The sanction maximum and harsher-than-imprisonment kinds come from the imported УК text
+    # only; the model no longer cites them (duplicates slowed every analysis, T39).
     guilt: CitedFact | None = None
     category: CitedFact | None = None
-    sanction_max_months: CitedFact | None = None
-    harsher_than_imprisonment: CitedFact | None = None
     real_imprisonment: CitedFact | None = None
     history_complete: CitedFact | None = None
     # Punishment imposed in the operative part of the draft (imprisonment, whole months).
