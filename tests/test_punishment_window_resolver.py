@@ -54,3 +54,39 @@ async def test_llm_failure_is_not_cached():
         result = await resolve_windows(db, llm, (WINDOW,))
         rows = await db.scalar(select(func.count()).select_from(LlmWindowExtraction))
     assert result == [(WINDOW, None)] and rows == 0
+
+
+class ConcurrentLlm:
+    """Counts in-flight calls; answers after a short delay."""
+
+    def __init__(self):
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.calls = 0
+
+    async def complete_json(self, system, user):
+        import asyncio
+
+        self.calls += 1
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        try:
+            await asyncio.sleep(0.05)
+            return {"kind": "imprisonment", "years": 2, "quote": "лишения свободы"}
+        finally:
+            self.in_flight -= 1
+
+
+async def test_windows_are_resolved_concurrently_with_a_bound():
+    from src.services.punishment_window_resolver import MAX_CONCURRENT_WINDOWS
+
+    windows = tuple(f"{WINDOW}, эпизод {n}" for n in range(1, 7))
+    llm = ConcurrentLlm()
+    async with async_session_factory() as db:
+        result = await resolve_windows(db, llm, windows)
+        rows = await db.scalar(select(func.count()).select_from(LlmWindowExtraction))
+    assert llm.calls == 6 and rows == 6
+    # Parallel round-trips cut the wall-clock, but the gateway sees at most the bound.
+    assert 1 < llm.max_in_flight <= MAX_CONCURRENT_WINDOWS
+    assert [window for window, _ in result] == list(windows)
+    assert all(term.amount == 24 for _, term in result)

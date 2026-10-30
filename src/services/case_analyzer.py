@@ -682,6 +682,24 @@ def _statute_sanction_check(statute: StatuteSanctionReading) -> LegalCheck:
     )
 
 
+def _annexes_additional_only(sentence: ImposedSentence) -> bool:
+    """The verdict annexes only the unserved ADDITIONAL punishment of the prior sentence.
+
+    Judicial pattern: the prior main punishment is served, so «присоединить неотбытую часть
+    дополнительного наказания» leaves the main term equal to the new one while the aggregate
+    grows through the additional punishment (ч. 4 ст. 70). Only an explicit quote and a
+    non-empty final additional punishment allow this reading.
+    """
+    if not sentence.final_additional:
+        return False
+    quotes = " ".join(
+        quote
+        for quote in (sentence.final_quote, sentence.unserved_quote, sentence.joined_quote)
+        if quote
+    )
+    return bool(re.search(r"дополнительн\w*\s+наказани", quotes, re.IGNORECASE))
+
+
 def _count_checks(
     sentence: ImposedSentence,
     statutes: dict[ArticleReference, StatuteSanctionReading],
@@ -792,7 +810,13 @@ def _count_checks(
             new = sentence.intermediate or (
                 sentence.counts[0].main if len(sentence.counts) == 1 else None
             )
-            result = check_article70(term, new, sentence.unserved, sentence.joined)
+            result = check_article70(
+                term,
+                new,
+                sentence.unserved,
+                sentence.joined,
+                additional_only=_annexes_additional_only(sentence),
+            )
         elif term.kind is not PunishmentKind.IMPRISONMENT:
             maxima = []
             for count in sentence.counts:
@@ -899,7 +923,17 @@ def _count_checks(
             and s.kind is final_extra.kind
             and s.max_value is not None
         ]
-        result = check_additional_aggregate(final_extra, existing, max(maxima) if maxima else None)
+        result = check_additional_aggregate(
+            final_extra,
+            existing,
+            max(maxima) if maxima else None,
+            prior_parts=(sentence.unserved, sentence.joined),
+            prior_missing=_annexes_additional_only(sentence)
+            and not any(
+                part is not None and part.kind is final_extra.kind
+                for part in (sentence.unserved, sentence.joined)
+            ),
+        )
         checks.append(
             LegalCheck(
                 norm=result.norm,
