@@ -161,18 +161,23 @@ class OpenAICompatibleClient:
                     logger.warning("LLM API error %d: %s", status, response.text[:500])
                     # Never include request headers in the message: they carry the API key.
                     raise _final_status_error(status)
+                try:
+                    body = response.json()
+                    content = body["choices"][0]["message"]["content"]
+                except (ValueError, KeyError, IndexError, TypeError) as exc:
+                    raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+                usage = body.get("usage") if isinstance(body, dict) else None
                 logger.info(
-                    "[LLM] Succeeded in %.2fs (attempt %d/%d, HTTP %d, bytes=%d)",
+                    "[LLM] Succeeded in %.2fs (attempt %d/%d, HTTP %d, bytes=%d, "
+                    "tokens prompt=%s completion=%s)",
                     req_sec,
                     attempt + 1,
                     LLM_ATTEMPTS,
                     status,
                     len(response.content),
+                    (usage or {}).get("prompt_tokens"),
+                    (usage or {}).get("completion_tokens"),
                 )
-                try:
-                    content = response.json()["choices"][0]["message"]["content"]
-                except (ValueError, KeyError, IndexError, TypeError) as exc:
-                    raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
                 break
 
         try:
