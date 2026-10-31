@@ -175,3 +175,16 @@ def test_art70_uses_intermediate_art69_and_known_unserved_balance():
     )
     assert final.status == "ok" and "12 месяцев" in " ".join(final.evidence)
     assert result.imposed_sentence.intermediate == "лишение свободы 4 г. 6 мес."
+
+
+def test_conflicting_stage_blocks_the_check_and_the_scale():
+    conflicted = CountSentence(
+        "ч. 1 ст. 161 УК РФ", ROBBERY, _months(24), (), "два года", Unfinished.PREPARATION, True
+    )
+    result = _analyse(
+        ImposedSentence(counts=(conflicted,)), STATUTES, _facts(recommended_months=24)
+    )
+    stage = next(c for c in result.legal_checks if c.norm.startswith("ст. 66/68"))
+    assert stage.status == "insufficient_data"
+    assert result.scale is None
+    assert any("стадии преступления" in w for w in result.warnings)

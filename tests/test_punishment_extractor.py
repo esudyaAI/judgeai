@@ -300,3 +300,36 @@ def test_preposed_terms_and_aggregate_by_citation_keep_each_count():
     assert [c.main.imprisonment_months for c in result.sentence.counts] == [24, 36]
     assert result.sentence.final.imprisonment_months == 48
     assert result.sentence.aggregation_rule == "ч. 2 ст. 69 УК РФ"
+
+
+def test_stage_is_read_from_episode_description_when_operative_is_silent():
+    from legal_core.entities import Unfinished
+
+    operative = (
+        "ФИО1 признать виновным по ч. 1 ст. 161 УК РФ и назначить наказание "
+        "в виде лишения свободы на срок 2 года."
+    )
+    description = "ФИО1 совершил покушение на грабёж по ч. 1 ст. 161 УК РФ."
+    [count] = extract_imposed_sentence(operative, description).sentence.counts
+    assert count.unfinished is Unfinished.ATTEMPT
+    assert not count.stage_conflict
+
+
+def test_negated_description_statement_does_not_set_a_stage():
+    operative = (
+        "ФИО1 признать виновным по ч. 1 ст. 161 УК РФ и назначить наказание "
+        "в виде лишения свободы на срок 2 года."
+    )
+    description = "ФИО1 не совершал покушения на грабёж по ч. 1 ст. 161 УК РФ."
+    [count] = extract_imposed_sentence(operative, description).sentence.counts
+    assert count.unfinished is None
+
+
+def test_description_stage_conflicting_with_operative_words_is_flagged():
+    operative = (
+        "ФИО1 признать виновным в приготовлении к грабежу по ч. 1 ст. 161 УК РФ "
+        "и назначить наказание в виде лишения свободы на срок 2 года."
+    )
+    description = "ФИО1 совершил покушение на грабёж по ч. 1 ст. 161 УК РФ."
+    [count] = extract_imposed_sentence(operative, description).sentence.counts
+    assert count.stage_conflict
