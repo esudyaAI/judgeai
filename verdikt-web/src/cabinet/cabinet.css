@@ -236,6 +236,14 @@
 }
 
 .cab-chat-row { display: flex; align-items: center; border-radius: 14px; }
+/* The row being pinned shimmers in place — no status line shifting the list. */
+.cab-chat-row.pinning { position: relative; overflow: hidden; }
+.cab-chat-row.pinning::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(20, 20, 20, .055), transparent);
+  animation: sk-sweep 1.2s ease-in-out infinite;
+}
 .cab-chat-row:hover { background: var(--surface-hover); }
 .cab-chat-row:has(> :focus-visible) { outline: 2px solid var(--blue); outline-offset: -2px; }
 .cab-chat-row.on { background: #fff; }
@@ -388,7 +396,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .case-skeleton, .set-panel { animation: none; }
-  .sk-line::after, .sk-chip::after, .sk-avatar::after, .document-panel-progress::after { animation: none; }
+  .sk-line::after, .sk-chip::after, .sk-avatar::after, .document-panel-progress::after, .cab-chat-row.pinning::after { animation: none; }
 }
 
 .cab-list-placeholder { padding: 12px; color: var(--muted); font-size: 13px; }

@@ -250,11 +250,12 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     if (draftId.current === id) draftId.current = null;
     if (caseId === id) { setMessages([]); setAnalysis(null); startNew(); }
   });
-  // Browser «back» closes overlays instead of leaving the page (mobile only —
-  // that is where the drawer and the document panel act as modal surfaces).
+  // Browser «back» closes overlays instead of leaving the page. The drawer is
+  // an overlay on phones only; dialogs and the document panel close on back
+  // on every viewport.
   useOverlayBack(sidebarOpen, () => setSidebarOpen(false), '(max-width: 760px)');
-  useOverlayBack(deletion.pendingChat !== null, deletion.cancel, '(max-width: 760px)');
-  useOverlayBack(documentPanel.visible, documentPanel.close, '(max-width: 900px)');
+  useOverlayBack(deletion.pendingChat !== null, deletion.cancel);
+  useOverlayBack(documentPanel.visible, documentPanel.close);
   const addFiles = (files: File[]) => {
     if (busy) return;
     const { accepted, rejections } = validateFiles(files);

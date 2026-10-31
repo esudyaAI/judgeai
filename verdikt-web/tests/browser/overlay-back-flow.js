@@ -62,5 +62,22 @@ async page => {
   await page.waitForFunction(()=>!document.querySelector('.cab-side')?.classList.contains('open'));
   await back();
   if (page.url()!==`${base}/app`) throw Error('UI close left a dangling history entry: '+page.url());
-  return {drawer:true,nested:true,document:true,balanced:true};
+
+  // Desktop: the dialog and the document panel close on back as well (the
+  // desktop sidebar is not an overlay and keeps its own rules).
+  await page.setViewportSize({width:1440,height:1000});
+  await page.goto(url);
+  await page.getByRole('button',{name:'Открыть Документ.txt',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Действия чата «Дело с документом»',exact:true}).click();
+  await page.getByRole('menuitem',{name:'Удалить чат',exact:true}).click();
+  await page.locator('dialog[open]').waitFor();
+  await back();
+  if (await dialogOpen()) throw Error('Back did not close the dialog on desktop');
+  if (page.url()!==url) throw Error('Desktop back navigated away instead of closing the dialog');
+  await page.getByRole('button',{name:'Открыть Документ.txt',exact:true}).click();
+  await page.getByText('Текст документа',{exact:true}).waitFor();
+  await back();
+  await page.waitForFunction(()=>document.querySelectorAll('.document-panel:not([inert])').length===0);
+  if (page.url()!==url) throw Error('Desktop back navigated away instead of closing the document');
+  return {drawer:true,nested:true,document:true,balanced:true,desktop:true};
 }

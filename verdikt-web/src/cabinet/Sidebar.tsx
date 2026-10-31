@@ -70,7 +70,6 @@ export function Sidebar({ listLoading = false, listError = '', onRetryList, sign
         </label>
 
         {query && <button type="button" className="btn btn-soft btn-xs" onClick={() => setQuery('')}>Сбросить поиск</button>}
-        {pinningId && <p className="cab-operation" role="status"><span className="spin" aria-hidden="true" />Обновляем закрепление…</p>}
         {signingOut && <p className="cab-operation" role="status"><span className="spin" aria-hidden="true" />Выходим из аккаунта…</p>}
         {pinError && <p className="cab-search-status" role="alert">{pinError}</p>}
         {deleteError && <p className="cab-search-status" role="alert">{deleteError}</p>}
@@ -90,7 +89,8 @@ export function Sidebar({ listLoading = false, listError = '', onRetryList, sign
                 // layout = FLIP: pinning/unpinning slides the row between groups
                 // (movement only — the row never scales, fades or unmounts).
                 return (
-                  <motion.div layout key={c.id} className={`cab-chat-row ${on ? 'on' : ''}`}>
+                  <motion.div layout key={c.id} className={`cab-chat-row ${on ? 'on' : ''} ${pinningId === c.id ? 'pinning' : ''}`}
+                    aria-busy={pinningId === c.id || undefined}>
                   <button type="button" className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
                     <span className={`cab-dot ${status}`} aria-hidden="true" />
                     <span className="cab-row-text">

@@ -28,13 +28,14 @@ async page => {
   const first=page.getByRole('button',{name:'Действия чата «Первое дело»',exact:true});
   await first.waitFor(); holdList=true;
   await first.click(); await page.getByRole('menuitem',{name:'Закрепить',exact:true}).click();
-  await page.getByText('Обновляем закрепление…',{exact:true}).waitFor();
+  // Pending pin shimmers on the row itself — no status line shifting the list.
+  await page.waitForFunction(()=>document.querySelector('.cab-chat-row.pinning'));
   await first.click(); await page.getByRole('menuitem',{name:'Удалить чат',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:'Удалить чат',exact:true}).click();
   await first.waitFor({state:'detached'});
   if (await page.getByLabel('Список дел',{exact:true}).getAttribute('aria-busy')!=='false') throw Error('Deleted chat left list loading forever');
   await waitRoute(()=>stale); holdList=false; await stale.fulfill({json:[{id:1,title:'Первое дело',status:'ready',updated_at:''},...chats]});
-  await page.getByText('Обновляем закрепление…',{exact:true}).waitFor({state:'detached'});
+  await page.waitForFunction(()=>!document.querySelector('.cab-chat-row.pinning'));
   if (await first.count()) throw Error('Stale list resurrected deleted chat');
   await page.getByRole('button',{name:'Свернуть боковое меню',exact:true}).click();
   await page.getByRole('button',{name:'Открыть боковое меню',exact:true}).click();

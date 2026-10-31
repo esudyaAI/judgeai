@@ -64,6 +64,7 @@ async page => {
   assertMoved(pinned,afterPin,'pin');
   const titles=await order();
   if (titles[0]!=='Третье дело') throw Error('Pinned chat must lead the list, got '+titles.join('|'));
+  if (await page.getByText('Обновляем',{exact:false}).count()) throw Error('Pin must not flash a layout-shifting status line');
 
   // Unpin: it slides back down, again without vanishing or teleporting.
   await page.getByRole('button',{name:'Действия чата «Третье дело»',exact:true}).click();
