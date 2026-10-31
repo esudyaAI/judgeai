@@ -53,6 +53,44 @@ def test_cited_but_negated_and_fabricated_circumstances_rejected():
     assert not assemble(text, facts).mitigating
 
 
+def test_fabricated_quote_falls_back_to_the_courts_own_words():
+    # The code is a real court finding, but the model's quote is invented:
+    # the item is rejected, and the finding survives only with the court's own sentence.
+    text = "Суд признаёт явку с повинной смягчающим обстоятельством."
+    facts = LlmCaseFacts(
+        fabula="Синтетика",
+        mitigating=[
+            Circumstance.model_validate(
+                {
+                    "name": "Явка с повинной",
+                    "norm": "п. «и» ч. 1 ст. 61",
+                    "quote": "суд признал сговор с потерпевшим",
+                }
+            )
+        ],
+    )
+    result = assemble(text, facts)
+    assert [c.name for c in result.mitigating] == ["Обстоятельство из текста приговора"]
+    assert [c.quote for c in result.mitigating] == [text]
+    assert any("требуют проверки" in w for w in result.warnings)
+
+
+def test_circumstance_with_unrelated_norm_is_rejected():
+    text = "Суд признаёт явку с повинной смягчающим обстоятельством."
+    facts = LlmCaseFacts(
+        fabula="Синтетика",
+        mitigating=[
+            Circumstance.model_validate(
+                {"name": "Смягчающее", "norm": "ч. 2 ст. 161 УК РФ", "quote": text}
+            )
+        ],
+    )
+    result = assemble(text, facts)
+    # The model's item is rejected; the court's actual finding comes from the text.
+    assert [c.norm for c in result.mitigating] == ["п. «и» ч. 1 ст. 61"]
+    assert all(c.name != "Смягчающее" for c in result.mitigating)
+
+
 def test_attempt_words_without_art30_and_conflicting_stage():
     text = (
         "ФИО1 признать виновным в покушении на грабёж по ч. 1 ст. 161 УК РФ "
