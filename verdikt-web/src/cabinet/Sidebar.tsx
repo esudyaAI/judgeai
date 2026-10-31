@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { motion } from 'motion/react';
 import type { Profile } from '../api/client';
 import { useChatSearch } from './useChatSearch';
 import type { CaseSummary } from '../api/types';
@@ -86,8 +87,10 @@ export function Sidebar({ listLoading = false, listError = '', onRetryList, sign
               ...g.items.map((c) => {
                 const on = c.id === activeId;
                 const status = on && thinking ? 'busy' : c.status;
+                // layout = FLIP: pinning/unpinning slides the row between groups
+                // (movement only — the row never scales, fades or unmounts).
                 return (
-                  <div key={c.id} className={`cab-chat-row ${on ? 'on' : ''}`}>
+                  <motion.div layout key={c.id} className={`cab-chat-row ${on ? 'on' : ''}`}>
                   <button type="button" className={`cab-row ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined} onClick={() => onPick(c)}>
                     <span className={`cab-dot ${status}`} aria-hidden="true" />
                     <span className="cab-row-text">
@@ -99,7 +102,7 @@ export function Sidebar({ listLoading = false, listError = '', onRetryList, sign
                     {label:c.pinned ? 'Открепить' : 'Закрепить',icon:<Icon name="pin" size={16} />,disabled:pinningId !== null,run:() => onPin(c)},
                     {label:'Удалить чат',icon:<Icon name="trash" size={16} />,danger:true,disabled:deletingId !== null || status === 'busy',run:() => onDelete(c)},
                   ]}><Icon name="dots" size={19} strokeWidth={3} /></ActionMenu>
-                  </div>
+                  </motion.div>
                 );
               })
           ])}

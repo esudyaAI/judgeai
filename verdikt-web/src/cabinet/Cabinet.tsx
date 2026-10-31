@@ -17,6 +17,7 @@ import { messagesFingerprint } from './messagesFingerprint';
 import { createTypewriter, prefersReducedMotion } from './typewriter';
 import { suggestionFill } from './suggestionFill';
 import { createDraftSaver, idbDraftStorage } from './draftStore';
+import { useOverlayBack } from '../lib/useOverlayBack';
 import './cabinet.css';
 import { CaseSkeleton } from './CaseSkeleton';
 import {AnimatePresence} from 'motion/react';
@@ -249,6 +250,11 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
     if (draftId.current === id) draftId.current = null;
     if (caseId === id) { setMessages([]); setAnalysis(null); startNew(); }
   });
+  // Browser «back» closes overlays instead of leaving the page (mobile only —
+  // that is where the drawer and the document panel act as modal surfaces).
+  useOverlayBack(sidebarOpen, () => setSidebarOpen(false), '(max-width: 760px)');
+  useOverlayBack(deletion.pendingChat !== null, deletion.cancel, '(max-width: 760px)');
+  useOverlayBack(documentPanel.visible, documentPanel.close, '(max-width: 900px)');
   const addFiles = (files: File[]) => {
     if (busy) return;
     const { accepted, rejections } = validateFiles(files);
