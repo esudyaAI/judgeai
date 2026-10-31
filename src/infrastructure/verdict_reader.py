@@ -22,7 +22,9 @@ class RegexVerdictReader:
         return self._read(segment_verdict(text))
 
     def _read(self, segments: VerdictSegments) -> VerdictReading:
-        sentence = extract_imposed_sentence(segments.operative, segments.description).sentence
+        sentence = extract_imposed_sentence(
+            segments.operative, segments.description, introduction=segments.introduction
+        ).sentence
         circumstances = extract_circumstances(
             segments.description, segments.operative, segments.introduction
         )

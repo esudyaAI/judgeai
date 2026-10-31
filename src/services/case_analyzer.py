@@ -341,7 +341,9 @@ def assemble_analysis(
             # Global model facts cannot be attributed to any person without a subject contract.
             own_facts = LlmCaseFacts(fabula=facts.fabula)
             own_parts = segment_verdict(text)
-            own_extraction = extract_imposed_sentence(own_parts.operative, own_parts.description)
+            own_extraction = extract_imposed_sentence(
+                own_parts.operative, own_parts.description, introduction=own_parts.introduction
+            )
             own_sentence = own_extraction.sentence
             own_warnings = (
                 ["Не все наказания прочитаны; нераспознанные назначения требуют ручной сверки."]
@@ -397,7 +399,13 @@ def assemble_analysis(
         )
 
     if sentence is not None and sentence.unserved is None:
-        balance, balance_quote, _, _ = read_prior_terms(full_text)
+        balance, balance_quote, _, _ = read_prior_terms(
+            full_text,
+            frozenset(
+                {term.kind for count in sentence.counts for term in count.additional}
+                | {term.kind for term in sentence.final_additional}
+            ),
+        )
         if balance is not None:
             sentence = replace(sentence, unserved=balance, unserved_quote=balance_quote)
     if sentence is not None and sentence.prior_judgment_date is None:

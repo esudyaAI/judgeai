@@ -2,6 +2,8 @@
 
 Regex only. A punishment that is clearly imposed ("в виде лишения свободы") but whose term
 cannot be read is not guessed: its text window is returned for a separate LLM step.
+The unserved/joined part of the previous sentence is additionally read from the
+introductory part when one is supplied.
 """
 
 import re
@@ -336,6 +338,104 @@ def _stated_term(statement: str) -> PunishmentTerm | None:
     return term
 
 
+# Only the current joining decision: the infinitive «присоединить» or the noun
+# «присоединением». The short participle «присоединена неотбытая часть …» in the list of
+# previous convictions describes a past sentence, not this verdict's decision.
+_PRIOR_JOIN = re.compile(r"присоедин\w*(?:ить|ени\w*)", re.IGNORECASE)
+_PRIOR_BALANCE = re.compile(r"неотбыт\w*", re.IGNORECASE)
+# The final punishment imposed after the joining clause («… и окончательно назначить …»)
+# is never the joined part.
+_PRIOR_CUTOFF = re.compile(r"окончательн\w*", re.IGNORECASE)
+_PRIOR_BETWEEN_KIND_AND_ANCHOR = re.compile(r"\s+(?:на|сроком)\s*")
+_ADDITIONAL_WORD = re.compile(r"дополнительн\w*\s+наказани\w*", re.IGNORECASE)
+
+
+def _anchored_prior_term(
+    statement: str,
+    anchor: re.Match,
+    additional_kinds: frozenset[PunishmentKind],
+) -> PunishmentTerm | None:
+    """Term of the unserved/joined part anchored at the «неотбыт»/«присоедин» keyword.
+
+    Without an anchor the first punishment of the statement wins, so «осуждён к 3 годам
+    (освобождён условно-досрочно на неотбытый срок 8 месяцев)» read 36 months instead of the
+    actual remainder. A bare amount without a named kind is read only for the additional
+    punishment whose kind is unique in this verdict ("дополнительного наказания" + hint).
+    """
+    tail = statement[anchor.start() :]
+    stop = _PRIOR_CUTOFF.search(tail)
+    window = tail[: stop.start()] if stop else tail
+    for match in _KIND_REGEX.finditer(window):
+        kind = _kind_of(match)
+        after = window[match.end() :]
+        marker = _TERM_AFTER.match(after)
+        term = _read_term(kind, after[marker.end() :] if marker else after)
+        if term is None and kind is not PunishmentKind.FINE:
+            amount, unit = parse_term(window[max(0, match.start() - 100) : match.start()])
+            if amount:
+                term = PunishmentTerm(kind, amount, unit)
+        if term is not None:
+            return term
+    back = statement[max(0, anchor.start() - 140) : anchor.start()]
+    kinds_back = list(_KIND_REGEX.finditer(back))
+    if kinds_back:
+        match = kinds_back[-1]
+        kind = _kind_of(match)
+        prefix = back[: match.start()]
+        via = prefix.rfind("в виде")
+        if via >= 0:
+            amount, unit = parse_term(prefix[via + len("в виде") :])
+            if amount:
+                # "частично, в виде трёх месяцев лишения свободы, присоединить …"
+                return PunishmentTerm(kind, amount, unit)
+            if _PRIOR_BETWEEN_KIND_AND_ANCHOR.fullmatch(back[match.end() :]):
+                # "в виде лишения свободы на неотбытый срок 7 месяцев 21 день":
+                # the kind is named before the keyword, the bare term right after it.
+                amount, unit = parse_term(window)
+                if amount:
+                    return PunishmentTerm(kind, amount, unit)
+    if _ADDITIONAL_WORD.search(statement) and len(additional_kinds) == 1:
+        amount, unit = parse_term(window)
+        if amount:
+            return PunishmentTerm(next(iter(additional_kinds)), amount, unit)
+    return None
+
+
+def read_prior_terms(text: str, additional_kinds: frozenset[PunishmentKind] = frozenset()):
+    """Unserved balance and joined part of the previous sentence, if explicitly stated.
+
+    additional_kinds is the set of this verdict's additional punishment kinds; a bare
+    «неотбытая часть дополнительного наказания составляет 2 года 3 месяца» resolves to a
+    kind only when the statement names no kind and the set holds exactly one.
+    """
+    balances, joins = [], []
+    for statement in re.split(r"\n\s*\n|(?<=[.;])\s+(?=[А-ЯЁ])", text):
+        join_matches = list(_PRIOR_JOIN.finditer(statement))
+        balance_matches = list(_PRIOR_BALANCE.finditer(statement))
+        if not join_matches and not balance_matches:
+            continue
+        anchors = join_matches or balance_matches
+        term = next(
+            (
+                candidate
+                for anchor in anchors
+                if (candidate := _anchored_prior_term(statement, anchor, additional_kinds))
+            ),
+            None,
+        )
+        if term is None:
+            continue
+        if join_matches:
+            joins.append((term, statement.strip()))
+        else:
+            balances.append((term, statement.strip()))
+    balance_terms = {term for term, _ in balances}
+    join_terms = {term for term, _ in joins}
+    balance = balances[0] if len(balance_terms) == 1 and balances else (None, "")
+    joined = joins[0] if len(join_terms) == 1 and joins else (None, "")
+    return *balance, *joined
+
+
 def _date(value: str):
     try:
         return datetime.strptime(value, "%d.%m.%Y").date()
@@ -366,26 +466,6 @@ def read_chronology(text: str):
         credits[0][0] if len(credits) == 1 else None,
         credits[0][1] if len(credits) == 1 else "",
     )
-
-
-def read_prior_terms(text: str):
-    balances, joins = [], []
-    for statement in re.split(r"\n\s*\n|(?<=[.;])\s+(?=[А-ЯЁ])", text):
-        if not re.search(r"неотбыт|присоедин", statement, re.I):
-            continue
-        term = _stated_term(statement)
-        if term is None:
-            continue
-        if re.search(r"присоедин", statement, re.I):
-            # Joined part is not the entire unserved balance.
-            joins.append((term, statement.strip()))
-        elif re.search(r"неотбыт", statement, re.I):
-            balances.append((term, statement.strip()))
-    balance_terms = {term for term, _ in balances}
-    join_terms = {term for term, _ in joins}
-    balance = balances[0] if len(balance_terms) == 1 else (None, "")
-    joined = joins[0] if len(join_terms) == 1 else (None, "")
-    return *balance, *joined
 
 
 _CREDIT_RULE = re.compile(r"ч(?:асть|асти|\.)?\s*5\s*ст(?:атьи|атья|\.)?\s*72\b", re.I)
@@ -494,7 +574,9 @@ def _fine_credits(text: str, impositions: list[_Imposition]) -> tuple[FineCredit
     return tuple(result)
 
 
-def extract_imposed_sentence(operative: str, description: str = "") -> SentenceExtraction:
+def extract_imposed_sentence(
+    operative: str, description: str = "", *, introduction: str = ""
+) -> SentenceExtraction:
     impositions, windows = _impositions(operative)
     citations = qualification_citations(operative)
     counts: list[CountSentence] = []
@@ -626,7 +708,13 @@ def extract_imposed_sentence(operative: str, description: str = "") -> SentenceE
         stop = _TERM_STOP.search(tail)
         amount, unit = parse_term(tail[: stop.start()] if stop else tail)
         probation = int(amount) if unit is MeasureUnit.MONTHS else None
-    unserved, unserved_quote, joined, joined_quote = read_prior_terms(operative)
+    additional_kinds = frozenset(
+        {term.kind for count in counts for term in count.additional}
+        | {term.kind for term in extra_final}
+    )
+    unserved, unserved_quote, joined, joined_quote = read_prior_terms(
+        operative + "\n\n" + introduction, additional_kinds
+    )
     prior, prior_quote, credited, credited_quote = read_chronology(description + "\n" + operative)
     sentence = ImposedSentence(
         counts=tuple(counts),

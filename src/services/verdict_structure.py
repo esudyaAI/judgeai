@@ -48,13 +48,22 @@ def read_verdict_structure(texts: list[str], chars_limit: int) -> VerdictStructu
     scoped = [person for text in texts for person in scoped_verdicts(text)]
     multiple = bool(scoped)
     operative = next((part.operative for part in segments if part.operative), "")
-    extraction = extract_imposed_sentence(operative, "\n".join(p.description for p in segments))
+    extraction = extract_imposed_sentence(
+        operative,
+        "\n".join(p.description for p in segments),
+        introduction="\n".join(p.introduction for p in segments),
+    )
     return VerdictStructure(
         segments,
         model_texts,
         ImposedSentence() if multiple else extraction.sentence,
         () if multiple else extraction.ambiguous_windows,
         tuple(
-            extract_imposed_sentence(segment_verdict(text).operative).sentence for _, text in scoped
+            extract_imposed_sentence(
+                (person_segments := segment_verdict(text)).operative,
+                person_segments.description,
+                introduction=person_segments.introduction,
+            ).sentence
+            for _, text in scoped
         ),
     )
