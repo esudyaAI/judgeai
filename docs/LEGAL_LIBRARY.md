@@ -53,6 +53,7 @@ python -m src.cli.legal_library import --source /path/to/act.source --manifest /
 - `GET /api/legal/acts/{key}/editions` — снимки и происхождение.
 - `GET /api/legal/editions/{id}/provisions?q=...` — поиск по тексту/заголовку в конкретном снимке.
 - `GET /api/legal/lookup?act=uk-rf&locator=article.18&on=2026-10-28` — только проверенная норма с известным периодом действия.
+- `GET /api/legal/rules`, `GET /api/legal/rules/{key}` — каталог правил проверки legal_core (T15.1) и их основания из `legal_rule_references` с происхождением; статус основания `no_basis` / `unreviewed` / `incomplete` / `verified` / `rejected`, правило без основания не скрывается. Связь заводит только `python -m src.cli.legal_library link-rule --rule <ключ> --act <акт> --edition <id> --locator <article.N> --rationale <текст>` на существующую норму сохранённого снимка (повтор ничего не меняет); делать это после юридической сверки (T23).
 
 Внешняя доступность API не включается этим документом. Первая локальная проверка использует отдельный контейнер и БД; основной кабинет продолжает работать в прежнем окружении.
 
