@@ -16,3 +16,4 @@ class CheckResult:
     explanation: str
     source: str  # official text + edition the rule was written against
     needs_legal_review: bool = True
+    rule_key: str | None = None  # key in legal_core.catalog — opens the rule's legal basis

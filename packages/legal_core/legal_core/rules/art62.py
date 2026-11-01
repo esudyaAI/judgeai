@@ -10,6 +10,7 @@ import re
 from collections.abc import Iterable
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art62.part1_mitigation"
 
 _PART1_ART61 = re.compile(r"ч\.?\s*1\s*ст\.?\s*61(?!\d)(?!\.\d)", re.IGNORECASE)
 _ITEM_LETTER = re.compile(r"«\s*([а-яё])\s*»", re.IGNORECASE)

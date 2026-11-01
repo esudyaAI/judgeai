@@ -20,6 +20,7 @@ from legal_core.entities import Category, Guilt
 from legal_core.rules.art18 import Recidivism
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art58.institution"
 
 NORM = "Вид исправительного учреждения: ч. 1 и ч. 3 ст. 58 УК РФ"
 SOURCE = (
@@ -166,7 +167,7 @@ def check_correctional_institution(
     """
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW, RULE_KEY)
 
     if conditional is None:
         return result(
