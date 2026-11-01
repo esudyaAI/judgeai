@@ -9,6 +9,7 @@ from sqlalchemy.orm import defer
 from src.api.deps import DbSession
 from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleReference
 from src.schemas.legal_library import ActRead
+from src.services.legal_rule_catalog import rule_basis, rule_catalog
 
 router = APIRouter()
 
