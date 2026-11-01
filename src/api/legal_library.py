@@ -173,3 +173,18 @@ async def lookup_provision(
         **provision_read(provision),
         **{k: v for k, v in edition_meta(edition).items() if k != "id"},
     }
+
+
+@router.get("/rules")
+async def list_rules(db: DbSession):
+    """Каталог правил проверки с основаниями из БД; правило без основания не скрывается."""
+    items = await rule_catalog(db)
+    return {"items": items, "references": sum(len(item["references"]) for item in items)}
+
+
+@router.get("/rules/{key}")
+async def get_rule(key: str, db: DbSession):
+    basis = await rule_basis(db, key)
+    if basis is None:
+        raise HTTPException(404, "Правило не найдено")
+    return basis

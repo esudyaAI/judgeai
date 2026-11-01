@@ -1,4 +1,4 @@
-"""Prepare and import a locally archived official legal document.
+"""Prepare and import a locally archived official legal document; link check rules to it.
 
 Run --help for arguments. This command never certifies the legal edition or dates.
 """
