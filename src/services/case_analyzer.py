@@ -405,6 +405,7 @@ def _count_checks(
                 explanation=result.explanation,
                 source=result.source,
                 value=describe_term(count.main),
+                rule_key=result.rule_key,
                 evidence=[count.quote] if count.quote else [],
             )
         )
@@ -491,6 +492,7 @@ def _imposed_term_check(
         status=result.status.value,
         explanation=result.explanation,
         source=result.source,
+        rule_key=result.rule_key,
         value=f"{imposed} мес." if imposed is not None else None,
         evidence=evidence,
     )

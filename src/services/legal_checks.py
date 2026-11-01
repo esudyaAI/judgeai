@@ -5,8 +5,10 @@ Every candidate therefore requires human review; no inference from absent histor
 """
 
 from legal_core.entities import Category, Guilt, SanctionCeiling
+from legal_core.rules.art15 import RULE_KEY as ART15_RULE
 from legal_core.rules.art15 import SOURCE as ART15_SOURCE
 from legal_core.rules.art15 import categorize
+from legal_core.rules.art18 import RULE_KEY as ART18_RULE
 from legal_core.rules.art18 import SOURCE as ART18_SOURCE
 from legal_core.rules.art18 import CurrentOffence, PriorConviction, classify_recidivism
 
@@ -33,10 +35,15 @@ def build_legal_checks(
 ) -> list[LegalCheck]:
     """statutory_ceiling comes from the imported УК РФ text; it replaces model-cited sanctions."""
     results = []
-    for norm, source in [("ст. 15 УК РФ", ART15_SOURCE), ("ст. 18 УК РФ", ART18_SOURCE)]:
+    rules = [
+        ("ст. 15 УК РФ", ART15_SOURCE, ART15_RULE),
+        ("ст. 18 УК РФ", ART18_SOURCE, ART18_RULE),
+    ]
+    for norm, source, rule_key in rules:
         check = LegalCheck(
             norm=norm,
             source=source,
+            rule_key=rule_key,
             status="insufficient_data",
             explanation="Недостаточно подтверждённых фактов; правовой вывод не сделан.",
         )

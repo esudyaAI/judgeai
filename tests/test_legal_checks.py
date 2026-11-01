@@ -78,3 +78,12 @@ def test_quote_outside_model_context_does_not_support_a_check():
     }
     text = "A" * 40000 + " intentional offence; 60 months; No life sentence"
     assert result(legal, text).legal_checks[0].status == "insufficient_data"
+
+
+def test_checks_name_their_catalog_rule():
+    from legal_core import catalog
+
+    checks = {c.norm: c for c in result().legal_checks}
+    assert checks["ст. 15 УК РФ"].rule_key == "art15.category"
+    assert checks["ст. 18 УК РФ"].rule_key == "art18.recidivism"
+    assert all(catalog.find(c.rule_key) is not None for c in checks.values())

@@ -193,3 +193,36 @@ def test_shortened_model_text_is_reported():
     result = _per_count(None, {}, text="длинный текст приговора", model_texts=["короткий"])
     assert any("сокращена описательная часть" in w for w in result.warnings)
     assert result.imposed_sentence is None
+
+
+def test_imposed_term_checks_name_their_rule_and_readings_name_none():
+    """A finding links to its rule basis; a plain text reading claims no rule."""
+    from legal_core import catalog
+    from legal_core.entities import ArticleReference, CountSentence, ImposedSentence, PunishmentTerm
+
+    part2 = ArticleReference("158", 2)
+    months = lambda n: PunishmentTerm(PunishmentKind.IMPRISONMENT, n, MeasureUnit.MONTHS)  # noqa: E731
+    sentence = ImposedSentence(
+        counts=(
+            CountSentence("ч. 2 ст. 158 УК РФ", part2, months(30), (), "на срок 2 года 6"),
+            CountSentence("ч. 1 ст. 999 УК РФ", ArticleReference("999", 1), months(12), (), ""),
+        ),
+        final=months(36),
+        aggregation_rule="ч. 2 ст. 69 УК РФ",
+    )
+    by_norm = {c.norm: c for c in _per_count(sentence, {part2: PART_2}).legal_checks}
+    imposed = by_norm[
+        "Назначенное наказание: пределы санкции и ч. 1 ст. 62 УК РФ · ч. 2 ст. 158 УК РФ"
+    ]
+    assert imposed.rule_key == "imposed_term.sanction_limits"
+    assert catalog.find(imposed.rule_key) is not None
+    assert by_norm["Санкция ч. 2 ст. 158 УК РФ"].rule_key is None
+    assert by_norm["Назначенное наказание · ч. 1 ст. 999 УК РФ"].rule_key is None
+    assert by_norm["Окончательное наказание (ч. 2 ст. 69 УК РФ)"].rule_key is None
+
+
+def test_model_cited_imposed_term_names_its_rule():
+    text = "назначить наказание в виде лишения свободы на срок 4 года 6 месяцев условно"
+    checks = {c.norm: c for c in _mitigated("на срок 4 года 6 месяцев", 54, text).legal_checks}
+    check = checks["Назначенное наказание: пределы санкции и ч. 1 ст. 62 УК РФ"]
+    assert check.rule_key == "imposed_term.sanction_limits"

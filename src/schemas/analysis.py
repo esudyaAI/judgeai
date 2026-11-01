@@ -200,6 +200,9 @@ class LegalCheck(BaseModel):
     value: str | None = None
     evidence: list[str] = Field(default_factory=list)
     needs_legal_review: bool = True
+    # legal_core.catalog key of the rule behind the finding; its basis: GET /api/legal/rules/{key}.
+    # None — a plain reading of the text or a step no rule checks yet.
+    rule_key: str | None = None
 
 
 # Resolve references declared below the backwards-compatible result classes.
