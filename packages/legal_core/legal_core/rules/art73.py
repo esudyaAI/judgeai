@@ -11,6 +11,7 @@ from legal_core.checks import CheckResult, CheckStatus
 from legal_core.rules.art18 import Recidivism
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art73.conditional_ban"
 
 NORM = "Запрет условного осуждения при опасном и особо опасном рецидиве: п. «в» ч. 1 ст. 73 УК РФ"
 SOURCE = (
@@ -45,7 +46,7 @@ def check_conditional_sentence_recidivism_bar(
     """
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW, RULE_KEY)
 
     if conditional_in_draft is None:
         return result(

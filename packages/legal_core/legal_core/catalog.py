@@ -1,7 +1,8 @@
 """Domain Layer — каталог правил проверки legal_core (T15.1).
 
 Перечень того, какие правила реализованы в коде и на какие статьи УК РФ каждое опирается. Это
-логика ядра, а не правовые данные: текст, редакции и периоды действия норм хранятся в БД
+логика ядра, а не правовые данные (ключ правила — константа RULE_KEY модуля, его же несёт
+CheckResult, T15.2): текст, редакции и периоды действия норм хранятся в БД
 (legal_editions / legal_provisions), а конкретное основание правила — связь в
 legal_rule_references, которую заводит импорт после сверки (T23). Без связи правило в справке
 показывается как «без подтверждённого основания», а не скрывается.
@@ -9,7 +10,7 @@ legal_rule_references, которую заводит импорт после с�
 
 from dataclasses import dataclass
 
-from legal_core.rules import art58, art62, art63, art68, art73, art86, imposed_term
+from legal_core.rules import art15, art18, art58, art62, art63, art68, art73, art86, imposed_term
 
 CRIMINAL_CODE = "uk-rf"
 
@@ -37,7 +38,7 @@ def _uk(*articles: str) -> tuple[NormLocator, ...]:
 
 RULES: tuple[RuleDescriptor, ...] = (
     RuleDescriptor(
-        key="art15.category",
+        key=art15.RULE_KEY,
         title="Категория преступления: ч. 2–6 ст. 15 УК РФ",
         norms=_uk("15"),
         not_modelled=(
@@ -46,7 +47,7 @@ RULES: tuple[RuleDescriptor, ...] = (
         ),
     ),
     RuleDescriptor(
-        key="art18.recidivism",
+        key=art18.RULE_KEY,
         title="Вид рецидива: ч. 1–4 ст. 18 УК РФ",
         norms=_uk("18", "86"),
         not_modelled=(
@@ -55,28 +56,28 @@ RULES: tuple[RuleDescriptor, ...] = (
         ),
     ),
     RuleDescriptor(
-        key="art58.institution",
+        key=art58.RULE_KEY,
         title=art58.NORM,
         norms=_uk("58"),
         not_modelled="Не смоделированы ч. 2, 2.1 и 4 ст. 58 УК РФ (тюрьма, изменение вида).",
         needs_legal_review=art58.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
-        key="art62.part1_mitigation",
+        key=art62.RULE_KEY,
         title="Смягчающие обстоятельства: ч. 1 ст. 62 УК РФ",
         norms=_uk("62", "61"),
         not_modelled="Не смоделированы ч. 3 и ч. 5 ст. 62 и соотношение со ст. 66 УК РФ.",
         needs_legal_review=art62.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
-        key="art63.recidivism_aggravating",
+        key=art63.RULE_KEY,
         title=art63.NORM,
         norms=_uk("63", "18"),
         not_modelled="Ч. 1.1 и остальные пункты ч. 1 ст. 63 УК РФ не проверяются.",
         needs_legal_review=art63.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
-        key="art68.recidivism_term",
+        key=art68.RULE_KEY,
         title=art68.NORM,
         norms=_uk("68", "18"),
         not_modelled=(
@@ -86,7 +87,7 @@ RULES: tuple[RuleDescriptor, ...] = (
         needs_legal_review=art68.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
-        key="art73.conditional_ban",
+        key=art73.RULE_KEY,
         title=art73.NORM,
         norms=_uk("73", "18"),
         not_modelled=(
@@ -96,7 +97,7 @@ RULES: tuple[RuleDescriptor, ...] = (
         needs_legal_review=art73.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
-        key="art86.expungement",
+        key=art86.RULE_KEY,
         title="Погашение судимости: ч. 1–4 ст. 86, ст. 95 УК РФ",
         norms=_uk("86", "95"),
         not_modelled=(
@@ -105,7 +106,7 @@ RULES: tuple[RuleDescriptor, ...] = (
         needs_legal_review=art86.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
-        key="imposed_term.sanction_limits",
+        key=imposed_term.RULE_KEY,
         title=imposed_term.NORM,
         norms=_uk("62"),
         not_modelled=imposed_term.NOT_COVERED,

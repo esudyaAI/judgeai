@@ -11,6 +11,7 @@ from legal_core.checks import CheckResult, CheckStatus
 from legal_core.rules.art18 import Recidivism
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art63.recidivism_aggravating"
 
 NORM = "Рецидив как отягчающее обстоятельство: п. «а» ч. 1, ч. 2 ст. 63 УК РФ"
 SOURCE = (
@@ -42,7 +43,7 @@ def check_recidivism_aggravation(
     """
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW, RULE_KEY)
 
     if recognized_in_draft is None:
         return result(

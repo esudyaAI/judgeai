@@ -15,6 +15,7 @@ from legal_core.checks import CheckResult, CheckStatus
 from legal_core.rules.art18 import Recidivism
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art68.recidivism_term"
 NORM = "Срок наказания при рецидиве: ч. 2, 3 ст. 68 УК РФ"
 SOURCE = (
     "УК РФ ст. 68 (ред. Федерального закона от 08.12.2003 N 162-ФЗ), текст по "
@@ -47,7 +48,7 @@ def check_recidivism_term(
     """Candidate check of the imposed term against ч. 2–3 ст. 68 УК РФ."""
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW, RULE_KEY)
 
     if recidivism is Recidivism.NONE:
         return result(CheckStatus.OK, "Рецидива нет — ст. 68 УК РФ не применяется.")

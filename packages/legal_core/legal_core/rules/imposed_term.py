@@ -12,6 +12,7 @@ from legal_core.entities import (
     StatutorySanction,
 )
 
+RULE_KEY = "imposed_term.sanction_limits"
 NORM = "Назначенное наказание: пределы санкции и ч. 1 ст. 62 УК РФ"
 NOT_COVERED = "Не проверены ч. 5 ст. 62, ст. 65, 66, 68 УК РФ."
 _UNIT_NAMES = {MeasureUnit.MONTHS: "мес.", MeasureUnit.HOURS: "ч.", MeasureUnit.RUBLES: "руб."}
@@ -46,7 +47,7 @@ def check_imposed_punishment(
     """Candidate check of one imposed main punishment against the sanction of its part."""
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, f"{why} {NOT_COVERED}", source)
+        return CheckResult(NORM, status, f"{why} {NOT_COVERED}", source, rule_key=RULE_KEY)
 
     alternative = main_alternative(sanctions, imposed.kind)
     if alternative is None:
@@ -101,6 +102,7 @@ def check_imposed_imprisonment(
             CheckStatus.INSUFFICIENT_DATA,
             f"Проверяется только лишение свободы. {NOT_COVERED}",
             source,
+            rule_key=RULE_KEY,
         )
     term = main_imprisonment(sanctions)
     if term is None or term.max_value is None:
@@ -109,6 +111,7 @@ def check_imposed_imprisonment(
             CheckStatus.POSSIBLE_VIOLATION,
             f"Санкция этой части статьи не предусматривает лишения свободы. {NOT_COVERED}",
             source,
+            rule_key=RULE_KEY,
         )
     return check_imposed_punishment(
         PunishmentTerm(PunishmentKind.IMPRISONMENT, months, MeasureUnit.MONTHS),
