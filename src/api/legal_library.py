@@ -180,9 +180,14 @@ async def list_rules(db: DbSession, on_date: date | None = Query(None, alias="on
     """Каталог правил проверки с основаниями из БД; правило без основания не скрывается.
 
     С `on` статус основания считается на эту дату по периодам действия норм в БД (T15.3).
+    `version` — версия справки (T15.4), от `on` не зависит.
     """
     items = await rule_catalog(db, on_date)
-    return {"items": items, "references": sum(len(item["references"]) for item in items)}
+    return {
+        "version": items[0]["catalog_version"],
+        "items": items,
+        "references": sum(len(item["references"]) for item in items),
+    }
 
 
 @router.get("/rules/{key}")
