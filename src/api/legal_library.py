@@ -176,15 +176,18 @@ async def lookup_provision(
 
 
 @router.get("/rules")
-async def list_rules(db: DbSession):
-    """Каталог правил проверки с основаниями из БД; правило без основания не скрывается."""
-    items = await rule_catalog(db)
+async def list_rules(db: DbSession, on_date: date | None = Query(None, alias="on")):
+    """Каталог правил проверки с основаниями из БД; правило без основания не скрывается.
+
+    С `on` статус основания считается на эту дату по периодам действия норм в БД (T15.3).
+    """
+    items = await rule_catalog(db, on_date)
     return {"items": items, "references": sum(len(item["references"]) for item in items)}
 
 
 @router.get("/rules/{key}")
-async def get_rule(key: str, db: DbSession):
-    basis = await rule_basis(db, key)
+async def get_rule(key: str, db: DbSession, on_date: date | None = Query(None, alias="on")):
+    basis = await rule_basis(db, key, on_date)
     if basis is None:
         raise HTTPException(404, "Правило не найдено")
     return basis
