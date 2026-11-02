@@ -32,6 +32,20 @@ from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleRefer
 _EDITION_METADATA = (defer(LegalEdition.source_bytes), defer(LegalEdition.full_text))
 
 
+def _iso(value: object) -> str:
+    if isinstance(value, date):  # datetime is a subclass of date
+        return value.isoformat()
+    raise TypeError(f"not serializable: {type(value).__name__}")
+
+
+def fingerprint(value: object) -> str:
+    """SHA-256 of canonical JSON (sorted keys, dates in ISO 8601): equal data, equal version."""
+    payload = json.dumps(
+        value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=_iso
+    )
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def basis_status(statuses: set[str], missing: list[dict]) -> str:
     """Overall basis of a rule: the weakest referenced edition wins, then coverage of its norms."""
     if not statuses:
@@ -147,16 +161,31 @@ def _describe(rule: RuleDescriptor, references: list[dict], on: date | None = No
     }
 
 
+def _versioned(references: dict[str, list[dict]], on: date | None) -> list[dict]:
+    """Describe every rule on `on`; versions are always taken from the undated description."""
+    versions = {
+        rule.key: fingerprint(_describe(rule, references[rule.key])) for rule in catalog.RULES
+    }
+    catalog_version = fingerprint([[key, version] for key, version in versions.items()])
+    return [
+        {
+            **_describe(rule, references[rule.key], on),
+            "basis_version": versions[rule.key],
+            "catalog_version": catalog_version,
+        }
+        for rule in catalog.RULES
+    ]
+
+
 async def rule_catalog(db: AsyncSession, on: date | None = None) -> list[dict]:
-    references = await _references(db, [rule.key for rule in catalog.RULES])
-    return [_describe(rule, references[rule.key], on) for rule in catalog.RULES]
+    return _versioned(await _references(db, [rule.key for rule in catalog.RULES]), on)
 
 
 async def rule_basis(db: AsyncSession, key: str, on: date | None = None) -> dict | None:
-    rule = catalog.find(key)
-    if rule is None:
+    """One rule; the catalog version needs every rule, so the whole (small) catalog is read."""
+    if catalog.find(key) is None:
         return None
-    return _describe(rule, (await _references(db, [key]))[key], on)
+    return next(item for item in await rule_catalog(db, on) if item["key"] == key)
 
 
 async def link_rule(
