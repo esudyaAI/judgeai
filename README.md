@@ -60,3 +60,5 @@ The criminal-pilot source library, additive migration, trusted import commands, 
 ## Local authentication
 
 Local account provisioning, ownership migration and rollback precautions: [docs/AUTH.md](docs/AUTH.md). All task status and validation evidence: [docs/TASKS.md](docs/TASKS.md).
+
+Technical checkpoint, configuration notes and verification commands: [docs.md](docs.md).
