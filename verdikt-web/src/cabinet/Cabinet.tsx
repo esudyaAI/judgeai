@@ -9,10 +9,12 @@ import { useDocumentPanel } from './useDocumentPanel';
 import { Composer } from './Composer';
 import { AttachScreen, NewCaseScreen } from './screens';
 import { SettingsScreen } from './Settings';
+import { ReportsScreen } from './ReportsScreen';
 import { Sidebar } from './Sidebar';
 import { useChatPin } from './useChatPin';
 import { useDeleteChat } from './useDeleteChat';
 import { DeleteChatDialog } from './DeleteChatDialog';
+import { subscribeMessages } from './messageStream';
 import { messagesFingerprint } from './messagesFingerprint';
 import { createTypewriter, prefersReducedMotion } from './typewriter';
 import { suggestionFill } from './suggestionFill';
@@ -22,11 +24,12 @@ import './cabinet.css';
 import { CaseSkeleton } from './CaseSkeleton';
 import {AnimatePresence} from 'motion/react';
 
-export type CabinetView = 'new' | 'attach' | 'thinking' | 'result' | 'settings';
-export interface CabinetRoute { view: CabinetView; caseId: string }
+export type CabinetView = 'new' | 'attach' | 'thinking' | 'result' | 'settings' | 'reports';
+export interface CabinetRoute { view: CabinetView; caseId: string; reportId?: string }
 
 export function parseCabinetPath(path: string): CabinetRoute {
   const parts = path.split('/').filter(Boolean).slice(1);
+  if (parts[0] === 'reports') return {view:'reports', caseId:'', reportId:parts[1]};
   if (parts[0] === 'case' && parts[1]) {
     return {view: parts[2] === 'analysis' ? 'thinking' : 'result', caseId: parts[1]};
   }
@@ -140,7 +143,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   // When the gate opens, the save effect re-runs once with the current state —
   // that also catches edits made while the restore was in flight.
   useEffect(() => {
-    if (caseId || view === 'settings') return;
+    if (caseId || (view === 'settings' || view === 'reports')) return;
     setDraftReady(false);
     let cancelled = false;
     void draftStorage.load().then((draft) => {
@@ -155,7 +158,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
   }, [caseId, view, draftStorage]);
 
   useEffect(() => {
-    if (caseId || view === 'settings' || !draftReady) return;
+    if (caseId || view === 'settings' || view === 'reports' || !draftReady) return;
     draftSaver.schedule({ prompt, files: selectedFiles });
   }, [prompt, selectedFiles, caseId, view, draftReady, draftSaver]);
 
@@ -214,15 +217,29 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
         inFlight = false;
       }
     };
+    let streaming = false;
+    const stopStream = subscribeMessages(caseId, next => {
+      if (controller.signal.aborted) return;
+      setLoading(false); setError('');
+      fingerprint.current = messagesFingerprint(next);
+      setMessages(next);
+      const latest = [...next].reverse().find(m => m.role === 'assistant');
+      setAnalysis(latest?.result ? mapAnalysis(latest.result) : null);
+    }, () => {
+      finished = true;
+      void refreshCases();
+    }, () => { streaming = false; void poll(); });
+    streaming = stopStream !== null;
     const onVisible = () => {
-      if (document.visibilityState !== 'visible' || controller.signal.aborted || finished) return;
+      if (document.visibilityState !== 'visible' || controller.signal.aborted || finished || streaming) return;
       if (timer) clearTimeout(timer);
       void poll();
     };
     document.addEventListener('visibilitychange', onVisible);
     setLoading(true);
-    void poll();
+    if (!streaming) void poll();
     return () => {
+      stopStream?.();
       document.removeEventListener('visibilitychange', onVisible);
       controller.abort();
       if (timer) clearTimeout(timer);
@@ -323,13 +340,13 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
         onDelete={deletion.remove} cases={cases} activeId={caseId || null} thinking={busy} settingsActive={view === 'settings'}
         open={sidebarOpen} onClose={closeSidebar} onNew={startNew}
         onPick={c => { setSelectedFiles([]); setPrompt(''); go(`/app/case/${c.id}/result`); }}
-        onSettings={() => go('/app/settings')} username={account.username} profile={accountProfile} />
+        onReports={() => go('/app/reports')} reportsActive={view === 'reports'} onSettings={() => go('/app/settings')} username={account.username} profile={accountProfile} />
       <main className="cab-main">
         <header className="cab-header">
           <div className="cab-header-title">
             <button type="button" className="btn btn-soft btn-icon cab-menu" aria-label="Открыть боковое меню"
               aria-expanded={sidebarOpen} onClick={() => { setSidebarCollapsed(false); setSidebarOpen(true); }}><Icon name="sidebar" size={18} /></button>
-            <span className="cab-title">{view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
+            <span className="cab-title">{view === 'reports' ? 'Отчёты' : view === 'settings' ? 'Профиль' : active?.title || (caseId ? `Дело ${caseId}` : 'Новое дело')}</span>
             {analysis && !busy && <span className="badge">Анализ готов</span>}
           </div>
         </header>
@@ -338,7 +355,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
           {error && <div className="warn-box" role="alert">{error}<button type="button" onClick={() => setRetry(n => n + 1)}>Обновить</button></div>}
           {fileNotice && <div className="warn-box" role="alert">{fileNotice}<button type="button" onClick={() => setFileNotice('')}>Понятно</button></div>}
           {loading && <CaseSkeleton />}
-          {view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={signOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
+          {view === 'reports' ? <ReportsScreen key={route.reportId || 'reports'} reportId={route.reportId} onNavigate={go} /> : view === 'settings' ? <SettingsScreen onProfileSaved={setAccountProfile} user={account} onCancel={() => go('/app')} onSignOut={signOut} onDeleted={async () => { draftId.current = null; setSelectedFiles([]); setPrompt(''); await refreshCases(); }} /> : caseId ? (
             <>
               {messages.length > 0 ? <ChatTimeline chatId={caseId} messages={messages} onOpen={openAttachment} onOpenVerdict={openVerdict} onRecalculate={id => { void recalculate(id); }} /> :
                 !loading && !error && <p>Задайте вопрос или прикрепите материалы дела.</p>}
@@ -346,7 +363,7 @@ export function Cabinet({route, onNavigate, user: account, onSignOut}: Props) {
             </>
           ) : selectedFiles.length > 0 ? <AttachScreen files={pendingFiles} onOpen={index => { const file = selectedFiles[index]; if (file) documentPanel.open({name:file.name,file}); }} disabled={sending} onRemove={index => { if (!sendingRef.current) setSelectedFiles(p => p.filter((_,i) => i !== index)); }} /> : <NewCaseScreen disabled={busy} onFiles={addFiles} onSuggestion={applySuggestion} />}
         </div>
-        {view !== 'settings' && <>
+        {view !== 'settings' && view !== 'reports' && <>
           <Composer mode={sending ? 'sending' : busy ? 'thinking' : selectedFiles.length ? 'attach' : 'idle'} files={pendingFiles}
             value={prompt} onChange={handlePromptChange} onFiles={addFiles} onSend={() => void send()}
             onStop={() => go('/app')} inputRef={composerInput} />

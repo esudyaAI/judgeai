@@ -23,7 +23,7 @@ export interface AuthUser { id: number; username: string; is_admin: boolean; csr
 let csrfToken = '';
 export class AuthenticationError extends Error {}
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function responseFor(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (csrfToken && init?.method && !['GET', 'HEAD'].includes(init.method)) {
     headers.set('X-CSRF-Token', csrfToken);
@@ -44,7 +44,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => null);
     throw new Error(typeof body?.detail === 'string' ? body.detail : `Ошибка запроса (${response.status})`);
   }
-  return response.json() as Promise<T>;
+  return response;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await responseFor(path, init)).json() as Promise<T>;
 }
 
 export function mapAnalysis(a: WireAnalysis): CaseAnalysis {
@@ -171,4 +175,30 @@ export const accountApi = {
   deleteCases: (password: string, confirmation: string) => request<{deleted: number; files_pending: number}>('/account/delete-cases', {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({password, confirmation}),
   }),
+};
+
+
+export interface ReportSummary {
+  id: string; chat_id: number; source_message_id: number; version: number;
+  snapshot_sha256: string; docx_sha256: string; created_at: string;
+}
+export interface ReportDetail extends ReportSummary {
+  snapshot: { chat_title: string | null; analysis: WireAnalysis;
+    limitations: string[]; human_review: {status: string};
+    materials: {filename: string; text_sha256: string; original_sha256: string | null}[] };
+}
+export const reportsApi = {
+  list: (offset = 0, signal?: AbortSignal, chatId?: number) => request<ReportSummary[]>(
+    `/reports?limit=50&offset=${offset}${chatId === undefined ? '' : `&chat_id=${chatId}`}`, {signal}),
+  get: (id: string, signal?: AbortSignal) => request<ReportDetail>(`/reports/${encodeURIComponent(id)}`, {signal}),
+  create: (chatId: string, messageId: number) => request<ReportSummary>(
+    `/chats/${encodeURIComponent(chatId)}/messages/${messageId}/reports`, {method:'POST'}),
+  async download(report: ReportSummary): Promise<void> {
+    const response = await responseFor(`/reports/${encodeURIComponent(report.id)}/docx`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url; link.download = `judgeai-report-v${report.version}.docx`;
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
 };

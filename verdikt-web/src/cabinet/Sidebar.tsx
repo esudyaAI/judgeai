@@ -36,9 +36,11 @@ interface Props {
   onNew: () => void;
   onPick: (c: CaseSummary) => void;
   onSettings: () => void;
+  onReports?: () => void;
+  reportsActive?: boolean;
 }
 
-export function Sidebar({ listLoading = false, listError = '', onRetryList, signingOut = false, onPin, pinningId, pinError, collapsed, onSignOut, onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings }: Props) {
+export function Sidebar({ listLoading = false, listError = '', onRetryList, signingOut = false, onPin, pinningId, pinError, collapsed, onSignOut, onDelete, deletingId, deleteError, deleteNotice, username, profile, cases, activeId, thinking, settingsActive, open, onClose, onNew, onPick, onSettings, onReports, reportsActive }: Props) {
   const {query, setQuery, results, searching, searchError, retry: retrySearch} = useChatSearch(cases);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -63,6 +65,7 @@ export function Sidebar({ listLoading = false, listError = '', onRetryList, sign
           <Icon name="plus" size={18} strokeWidth={2} />
           Новое дело
         </button>
+        {onReports && <button type="button" className="btn btn-soft" aria-current={reportsActive ? 'page' : undefined} onClick={onReports}>Отчёты</button>}
         <label className="cab-search">
           <span className="sr-only">Поиск по делам</span>
           <Icon name="search" size={16} strokeWidth={2} color="#707070" className="cab-search-icon" />

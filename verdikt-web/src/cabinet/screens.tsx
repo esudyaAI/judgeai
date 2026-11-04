@@ -252,6 +252,9 @@ function CheckList({ checks }: { checks: NonNullable<CaseAnalysis['legalChecks']
 export function SentenceDetails({ sentence }: {sentence: CaseAnalysis['imposed_sentence']}) {
   if (!sentence) return null;
   return <div className="soft-card" aria-label="Назначенные наказания">
+    {sentence.conditional === null && <div>Условность осуждения не установлена пользователем.</div>}
+    {sentence.conditional === true && <div>Условное осуждение; испытательный срок: {sentence.probation_months == null ? 'не установлен' : `${sentence.probation_months} мес.`}.</div>}
+    {Object.entries({final:'Окончательное наказание', intermediate:'Промежуточное наказание', unserved:'Неотбытая часть', joined:'Присоединённая часть', credited:'Зачтённое наказание', probation_months:'Испытательный срок', prior_judgment_date:'Дата прежнего приговора'}).filter(([field]) => sentence.unknown_fields?.includes(field)).map(([field,label]) => <div key={field}>{label}: не установлено пользователем.</div>)}
     {sentence.counts.map((c,i) => <div key={i}><strong>{c.qualification}</strong>: {c.punishment}
       {c.additional.map((extra,j) => <div key={j}>Дополнительно: {extra}</div>)}</div>)}
     {sentence.intermediate && <div>Промежуточный итог ({sentence.intermediate_rule}): {sentence.intermediate}</div>}
@@ -260,7 +263,7 @@ export function SentenceDetails({ sentence }: {sentence: CaseAnalysis['imposed_s
     {sentence.prior_judgment_date && <div>Прежний приговор: {sentence.prior_judgment_date}</div>}
     {sentence.credited && <div>Зачёт отбытого: {sentence.credited}</div>}
     {sentence.final && <div>Окончательно ({sentence.aggregation_rule}): {sentence.final}</div>}
-    {sentence.fine_credits?.map((credit, i) => <div key={`fine-credit-${i}`}>
+    {sentence.fine_credits?.map((credit, i) => credit.unknown ? <div key={i}>Сведения о зачёте штрафа не установлены пользователем.</div> : <div key={`fine-credit-${i}`}>
       <strong>Смягчение штрафа по ч. 5 ст. 72 УК РФ</strong>
       <div>{credit.scope === 'final' ? 'Итоговое наказание' : credit.scope === 'count' && credit.count_index !== null
         ? `Эпизод ${credit.count_index + 1}` : 'Связь с эпизодом не установлена'}</div>

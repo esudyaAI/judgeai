@@ -4,6 +4,7 @@ import type { SimilarVerdict } from '../api/types';
 import { FileChip } from '../components/FileTile';
 import { Icon } from '../components/Icon';
 import { fileReadingLabel } from './fileReadingPresentation';
+import { CreateReportButton } from './ReportsScreen';
 import { Result, Thinking } from './screens';
 
 export type ChatAttachment = Message['attachments'][number];
@@ -32,6 +33,7 @@ export const ChatTimeline = memo(function ChatTimeline({messages, onOpen, onOpen
               </div>
             )}
             <Result a={mapAnalysis(message.result)} onOpenVerdict={onOpenVerdict} />
+            {chatId && <CreateReportButton key={`${chatId}:${message.id}`} chatId={chatId} messageId={message.id} />}
           </div> : <div className="thread-ai chat-message-text">{message.content}</div>}
       </section>;
     })}

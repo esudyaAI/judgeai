@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
+from uuid import uuid4
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -157,6 +158,204 @@ class BrowserAuthAcceptance(unittest.TestCase):
         self.ensure_sidebar_open(page)
         page.get_by_role("button", name="Аккаунт", exact=True).click()
         page.get_by_role("menuitem", name=label, exact=True).click()
+
+    def test_saved_report_download_and_history_at_both_widths(self):
+        import io
+        from zipfile import ZipFile
+
+        for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+            with self.subTest(viewport=label):
+                context = self.browser.new_context(viewport={"width": width, "height": height})
+                self.addCleanup(context.close)
+                page = context.new_page()
+                page.goto(URL + "/app")
+                self.sign_in(page)
+                page.locator('input[type="file"]').last.set_input_files(
+                    {
+                        "name": "Synthetic report.txt",
+                        "mimeType": "text/plain",
+                        "buffer": "Синтетический проект для проверки выгрузки.".encode(),
+                    }
+                )
+                page.get_by_role("textbox", name="Задача по делу", exact=True).fill("Проверь")
+                page.get_by_role("button", name="Отправить", exact=True).click()
+                expect(page.locator(".result")).to_have_count(1, timeout=20000)
+                with page.expect_download() as pending:
+                    page.get_by_role("button", name="Скачать DOCX", exact=True).click()
+                download = pending.value
+                destination = ROOT / "acceptance-screenshots" / f"report-{label}.docx"
+                download.save_as(destination)
+                original = destination.read_bytes()
+                with ZipFile(io.BytesIO(original)) as artifact:
+                    self.assertIn(
+                        "Не проверено человеком", artifact.read("word/document.xml").decode()
+                    )
+                page.get_by_role("link", name="Отчёт · версия 1", exact=True).click()
+                expect(page.get_by_text("Не проверено человеком", exact=True)).to_be_visible()
+                page.reload()
+                expect(page.get_by_text("Не проверено человеком", exact=True)).to_be_visible()
+                self.assertFalse(page.evaluate("document.documentElement.scrollWidth > innerWidth"))
+                with page.expect_download() as saved:
+                    page.get_by_role("button", name="Скачать DOCX", exact=True).first.click()
+                report_id = page.url.rsplit("/", 1)[-1]
+                metadata = context.request.get(URL + f"/api/reports/{report_id}").json()
+                history_path = (
+                    URL + f"/api/chats/{metadata['chat_id']}/messages/"
+                    f"{metadata['source_message_id']}/revisions"
+                )
+                history = context.request.get(history_path)
+                self.assertEqual(history.status, 200)
+                self.assertEqual(len(history.json()), 1)
+                revision = context.request.get(history_path + "/" + history.json()[0]["id"])
+                self.assertEqual(revision.status, 200)
+                self.assertIn("Синтетический проект", str(revision.json()["calculation_inputs"]))
+                self.assertNotIn("stored_path", revision.text())
+                saved_inputs = revision.json()["calculation_inputs"]
+                self.assertEqual(saved_inputs["contract_version"], "calculation-inputs/4")
+                self.assertIn("0", saved_inputs["kwargs"]["prepared_legal_inputs"])
+                self.assertIn("0", saved_inputs["kwargs"]["prepared_sentencing_inputs"])
+                self.assertEqual(saved_inputs["review_sources"]["offset_unit"], "unicode-codepoint")
+                source_response = context.request.get(
+                    history_path + "/" + history.json()[0]["id"] + "/sources"
+                )
+                self.assertEqual(source_response.status, 200)
+                source = source_response.json()["documents"][0]
+                quote = "Синтетический проект"
+                start = source["text"].index(quote)
+                session = context.request.get(URL + "/api/auth/me").json()
+                check = context.request.post(
+                    history_path + "/" + history.json()[0]["id"] + "/evidence/check",
+                    headers={"X-CSRF-Token": session["csrf_token"]},
+                    data={
+                        "subject_index": 0,
+                        "evidence": {
+                            "document_index": source["document_index"],
+                            "document_hash": source["document_hash"],
+                            "start": start,
+                            "end": start + len(quote),
+                            "quote": quote,
+                        },
+                    },
+                )
+                self.assertEqual(check.status, 200)
+                self.assertTrue(check.json()["source_matches"])
+                self.assertEqual(len(context.request.get(history_path).json()), 1)
+                facts = context.request.get(history_path + "/" + history.json()[0]["id"] + "/facts")
+                self.assertEqual(facts.status, 200)
+                self.assertTrue(any(item["id"] == "subject/0/legal/guilt" for item in facts.json()))
+                review_body = {
+                    "base_revision_id": history.json()[0]["id"],
+                    "client_request_id": str(uuid4()),
+                    "decisions": [
+                        {
+                            "fact_id": "subject/0/legal/guilt",
+                            "operation": "correct",
+                            "reason": "Синтетическая браузерная проверка",
+                            "value": "intentional",
+                            "evidence": {
+                                "document_index": source["document_index"],
+                                "document_hash": source["document_hash"],
+                                "start": start,
+                                "end": start + len(quote),
+                                "quote": quote,
+                            },
+                        }
+                    ],
+                }
+                review_body["decisions"].append(
+                    {
+                        "fact_id": "subject/0/sentence/count/new",
+                        "operation": "correct",
+                        "reason": "Синтетический новый эпизод",
+                        "value": {
+                            "qualification": "ч. 2 ст. 158 УК РФ",
+                            "main": {"kind": "imprisonment", "amount": 24, "unit": "months"},
+                            "stage": "completed",
+                        },
+                        "evidence": review_body["decisions"][0]["evidence"],
+                    }
+                )
+                review_body["decisions"].append(
+                    {
+                        "fact_id": "subject/0/sentence/fine_credit/new",
+                        "operation": "correct",
+                        "reason": "Синтетический зачёт штрафа",
+                        "value": {
+                            "scope": "count",
+                            "count_index": 0,
+                            "original_amount": 10000,
+                            "reduced_amount": 5000,
+                            "released": False,
+                            "status": "stated",
+                        },
+                        "evidence": review_body["decisions"][0]["evidence"],
+                    }
+                )
+                review_url = history_path.rsplit("/revisions", 1)[0] + "/review"
+                reviewed = context.request.post(
+                    review_url, headers={"X-CSRF-Token": session["csrf_token"]}, data=review_body
+                )
+                self.assertEqual(reviewed.status, 200, reviewed.text())
+                self.assertEqual(reviewed.json()["revision"]["version"], 2)
+                self.assertEqual(reviewed.json()["human_review"]["status"], "partially_reviewed")
+                repeated = context.request.post(
+                    review_url, headers={"X-CSRF-Token": session["csrf_token"]}, data=review_body
+                )
+                self.assertEqual(repeated.json(), reviewed.json())
+                self.assertEqual(len(context.request.get(history_path).json()), 2)
+                self.assertIsNone(reviewed.json()["imposed_sentence"]["conditional"])
+                page.goto(URL + f"/app/case/{metadata['chat_id']}/result")
+                expect(
+                    page.get_by_text(
+                        "Условность осуждения не установлена пользователем.", exact=True
+                    )
+                ).to_be_visible()
+                self.assertFalse(reviewed.json()["imposed_sentence"]["fine_credits"][0]["released"])
+                unknown_credit = context.request.post(
+                    review_url,
+                    headers={"X-CSRF-Token": session["csrf_token"]},
+                    data={
+                        "base_revision_id": reviewed.json()["revision"]["id"],
+                        "client_request_id": str(uuid4()),
+                        "decisions": [
+                            {
+                                "fact_id": "subject/0/sentence/fine_credit/0",
+                                "operation": "unknown",
+                                "reason": "Синтетическое противоречие о зачёте",
+                            }
+                        ],
+                    },
+                )
+                self.assertEqual(unknown_credit.status, 200, unknown_credit.text())
+                self.assertIsNone(
+                    unknown_credit.json()["imposed_sentence"]["fine_credits"][0]["released"]
+                )
+                page.reload()
+                expect(
+                    page.get_by_text(
+                        "Сведения о зачёте штрафа не установлены пользователем.", exact=True
+                    )
+                ).to_be_visible()
+                second = ROOT / "acceptance-screenshots" / f"report-{label}-saved.docx"
+                saved.value.save_as(second)
+                self.assertEqual(second.read_bytes(), original)
+                newer = context.request.post(
+                    history_path.rsplit("/revisions", 1)[0] + "/reports",
+                    headers={"X-CSRF-Token": session["csrf_token"]},
+                )
+                self.assertEqual(newer.status, 201)
+                page.goto(URL + "/app/reports/" + newer.json()["id"])
+                expect(
+                    page.get_by_text(
+                        "Часть фактов проверена пользователем; правовая приёмка не выполнена",
+                        exact=True,
+                    )
+                ).to_be_visible()
+                page.screenshot(
+                    path=str(ROOT / "acceptance-screenshots" / f"reports-{label}.png"),
+                    full_page=True,
+                )
+                context.close()
 
     def test_chat_navigation_pin_and_account_menu(self):
         for width, height, label in [(1440, 1000, "desktop"), (390, 844, "mobile")]:

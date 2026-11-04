@@ -111,13 +111,14 @@ export interface LegalCheck {
 }
 
 export interface ImposedSentence {
+  conditional?: boolean | null; probation_months?: number | null; unknown_fields?: string[];
   counts: {qualification: string; punishment: string; additional: string[]; quote: string}[];
   intermediate?: string | null; intermediate_rule?: string | null;
   final: string | null; aggregation_rule: string | null;
   unserved?: string | null; joined?: string | null; final_additional?: string[];
   prior_judgment_date?: string | null; credited?: string | null;
   fine_credits?: {scope: 'count' | 'final' | 'unassigned'; count_index: number | null;
-    original_amount: number | null; reduced_amount: number | null; released: boolean;
+    original_amount: number | null; reduced_amount: number | null; released: boolean | null; unknown?: boolean;
     status: 'stated' | 'requires_review'; quote: string}[];
 }
 
