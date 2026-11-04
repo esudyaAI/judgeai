@@ -14,6 +14,7 @@ class DocumentContext:
     name: str
     text: str
     pages: int
+    attachment_id: int | None = None
 
 
 @dataclass(frozen=True)

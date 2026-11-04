@@ -20,18 +20,21 @@ from src.application.precedent_cards import query_card
 from src.config import settings
 from src.db import session as db_session
 from src.db.auth import User
-from src.db.models import Chat, Message
+from src.db.models import Attachment, Chat, Message
 from src.domain.documents import UnreadableInput, reading_warnings
+from src.domain.privacy import PrivacyRejected
+from src.infrastructure.analysis_revisions import SqlAnalysisRevisionStore
 from src.infrastructure.bounded_embedder import BoundedQueryEmbedder
+from src.infrastructure.calculation_inputs import capture_inputs, replay_inputs
 from src.infrastructure.conversation import load_conversation
-from src.infrastructure.fastembed_embedder import FastembedEmbedder
+from src.infrastructure.fastembed_embedder import FastembedEmbedder, with_embedding_materials
 from src.infrastructure.precedent_store import SqlPrecedentStore
+from src.infrastructure.report_materials import upload_digest
 from src.infrastructure.verdict_reader import RegexVerdictReader
 from src.services.analysis_access import is_pending_reply
 from src.services.auth import UserContext
 from src.services.case_analyzer import (
     DOCUMENT_CHARS_LIMIT,
-    assemble_analysis,
     extract_facts,
     precedent_prompt_items,
 )
@@ -39,9 +42,10 @@ from src.services.criminal_sanction_lookup import find_article_sanctions
 from src.services.defendant_blocks import scoped_verdicts
 from src.services.document_parser import extract_document
 from src.services.knowledge_service import create_knowledge_verdict_from_text
-from src.services.llm_client import LLMError, get_llm_client
+from src.services.llm_client import LLMError, get_llm_client, llm_provenance, prepare_llm_materials
 from src.services.punishment_window_resolver import resolve_windows
 from src.services.qualification_reference import parse_qualification_reference
+from src.services.segmented_facts import extract_case_segments
 from src.services.similarity_search import find_similar_verdicts
 from src.services.verdict_structure import read_verdict_structure
 
@@ -76,7 +80,9 @@ async def _search_practice(db, question: str, texts: list[str]):
     )
     if query is not None and await store.has_cards():
         t1 = time.monotonic()
-        report = await compare_draft_with_practice(store, get_precedent_embedder(), query)
+        report = await compare_draft_with_practice(
+            store, with_embedding_materials(get_precedent_embedder(), (*texts, question)), query
+        )
         logger.info(
             "[SEARCH-PRACTICE] compare_draft_with_practice took %.2fs (shown=%d, candidates=%d)",
             time.monotonic() - t1,
@@ -159,6 +165,8 @@ async def run_analysis(
                 raise RuntimeError("user message disappeared")
 
             texts: list[str] = []
+            document_sources: list[tuple[int | None, str]] = []
+            original_hashes: dict[int, str | None] = {}
             pages = 0
             warnings: list[str] = []
             if settings.LLM_PROVIDER == "fake":
@@ -184,7 +192,9 @@ async def run_analysis(
                 att.extracted_text = doc.text
                 att.page_count = doc.page_count
                 att.extraction_status = doc.status
+                original_hashes[att.id] = await upload_digest(att.stored_path)
                 texts.append(doc.text)
+                document_sources.append((att.id, att.filename))
                 pages += doc.page_count or 0
                 if doc.status in ("partial", "empty", "error"):
                     warnings.append(f"«{att.filename}»: текст распознан {_status_ru(doc.status)}.")
@@ -214,6 +224,15 @@ async def run_analysis(
                     "в одном сообщении."
                 )
             texts.extend(document.text for document in prior)
+            document_sources.extend((document.attachment_id, document.name) for document in prior)
+            for document in prior:
+                attachment = (
+                    await db.get(Attachment, document.attachment_id)
+                    if document.attachment_id is not None
+                    else None
+                )
+                if attachment is not None:
+                    original_hashes[attachment.id] = await upload_digest(attachment.stored_path)
             pages += sum(document.pages for document in prior)
             documents += len(prior)
             warnings.extend(context.warnings)
@@ -239,15 +258,16 @@ async def run_analysis(
         current_stage = "extracting"
         t_stage = time.monotonic()
         await _set_stage(assistant_message_id, stage="extracting")
-        llm = get_llm_client()
+        llm = prepare_llm_materials(get_llm_client(), (*texts, context.question or ""))
         structure = read_verdict_structure(texts, DOCUMENT_CHARS_LIMIT)
-        if sum(len(text) for text in structure.model_texts) > DOCUMENT_CHARS_LIMIT:
-            warnings.append("Текст документов для модели сокращён. Проверьте оригиналы файлов.")
         sentence = structure.sentence
+        window_audit: list[dict] = []
         if structure.ambiguous_windows and settings.LLM_PROVIDER != "fake":
             t_win = time.monotonic()
             async with db_session.async_session_factory() as db:
-                resolved = await resolve_windows(db, llm, structure.ambiguous_windows)
+                resolved = await resolve_windows(
+                    db, llm, structure.ambiguous_windows, chat_id=chat_id, audit=window_audit
+                )
             windows_sec = time.monotonic() - t_win
             sentence = structure.with_resolved_windows(resolved)
         qualifying_sec = time.monotonic() - t_stage
@@ -319,13 +339,46 @@ async def run_analysis(
         current_stage = "recommending"
         t_stage = time.monotonic()
         await _set_stage(assistant_message_id, stage="recommending")
-        facts = await extract_facts(llm, context.question, structure.model_texts, similar_items)
+        extracted = await extract_case_segments(
+            llm,
+            context.question,
+            texts,
+            similar_items,
+            window_reader=extract_facts,
+            evidence_question=question or "",
+        )
+        extraction = extracted.extraction.model_copy(
+            update={
+                "documents": [
+                    document.model_copy(
+                        update={
+                            "attachment_id": source[0],
+                            "filename": source[1],
+                            "original_sha256": original_hashes.get(source[0]),
+                        }
+                    )
+                    for document, source in zip(
+                        extracted.extraction.documents, document_sources, strict=True
+                    )
+                ]
+            }
+        )
+        logger.info(
+            "[ANALYSIS:%s] extraction coverage: documents=%d windows=%d conflicts=%d rejected=%d",
+            assistant_message_id,
+            len(extraction.documents),
+            len(extraction.segments),
+            len(extraction.conflicts),
+            len(extraction.rejected),
+        )
+        facts = extracted.facts
+        warnings.extend(extracted.warnings)
         extract_facts_sec = time.monotonic() - t_stage
         logger.info(
-            "[ANALYSIS:%s] [recommending] extract_facts completed in %.2fs (qualification=%s)",
+            "[ANALYSIS:%s] [recommending] extract_facts completed in %.2fs (has_qualification=%s)",
             assistant_message_id,
             extract_facts_sec,
-            facts.qualification.article if facts.qualification else None,
+            facts.qualification is not None,
         )
         # The sanction of the model's qualification: already read for a count, or looked up now.
         reference = parse_qualification_reference(
@@ -347,7 +400,7 @@ async def run_analysis(
                     statute = await find_article_sanctions(db, reference.article, reference.part)
         if reference is not None and statute is None:
             warnings.append(f"Санкция {reference} не найдена в импортированном тексте УК РФ.")
-        analysis = assemble_analysis(
+        calculation_inputs = capture_inputs(
             facts,
             prompt=question or "",
             documents=documents,
@@ -359,15 +412,49 @@ async def run_analysis(
             statute=statute,
             sentence=sentence,
             count_statutes=count_statutes,
-            model_texts=structure.model_texts,
+            extraction=extraction,
             practice=practice,
             precedent_source=precedent_source,
             defendant_practice=defendant_practice,
         )
 
+        analysis = replay_inputs(calculation_inputs)
+        analysis.provenance = {
+            "version": "analysis-provenance/2",
+            "window_readings": window_audit,
+            "llm": llm_provenance(llm),
+            "statutes": [
+                reading.provenance.model_dump(mode="json")
+                for reading in [
+                    *count_statutes.values(),
+                    *([statute] if statute is not None else []),
+                ]
+                if reading is not None
+            ],
+            "limitations": [
+                "Точная ревизия весов модели провайдером не подтверждена.",
+                "Редакции норм общей части не зафиксированы отдельно; нужна юридическая проверка.",
+            ],
+        }
+        if any(
+            not item["provenance"] or item["provenance"].get("llm", {}).get("mode") == "unknown"
+            for item in window_audit
+        ):
+            analysis.provenance["limitations"].append(
+                "Сведения о модели для части повторно использованных результатов не сохранены."
+            )
+        calculation_inputs["provenance"] = analysis.provenance
         current_stage = "saving"
         t_stage = time.monotonic()
         async with db_session.async_session_factory() as db:
+            revision = await SqlAnalysisRevisionStore(db).append(
+                user.user_id,
+                chat_id,
+                assistant_message_id,
+                analysis.model_dump(mode="json"),
+                calculation_inputs,
+            )
+            analysis = type(analysis).model_validate(revision.result)
             await db.execute(
                 update(Message)
                 .where(Message.id == assistant_message_id)
@@ -405,16 +492,18 @@ async def run_analysis(
         )
     except Exception as exc:
         total_sec = time.monotonic() - started
-        logger.exception(
+        logger.error(
             "[ANALYSIS:%s] FAILED after %.2fs at stage '%s': %s",
             assistant_message_id,
             total_sec,
             current_stage,
-            exc,
+            type(exc).__name__,
         )
         # LLMError messages are written for users; anything else is an internal error.
         error = (
-            str(exc)
+            "Не удалось обезличить материалы; требуется локальная проверка."
+            if isinstance(exc, PrivacyRejected)
+            else str(exc)
             if isinstance(exc, (LLMError, UnreadableInput))
             else "Внутренняя ошибка анализа"
         )

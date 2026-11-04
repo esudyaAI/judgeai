@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import settings
 from src.db.models import KnowledgeChunk, KnowledgeVerdict
 from src.domain.practice import PRIVATE_SOURCE_TYPES
-from src.services.embeddings import embed_passages
+from src.services.embeddings import embed_passages, embedding_cache_model
 
 
 def calculate_text_hash(text: str) -> str:
@@ -98,7 +98,12 @@ async def create_knowledge_verdict_from_text(
     # embedding service (which may be a cloud API).
     if chunks and source_type not in PRIVATE_SOURCE_TYPES:
         try:
-            embeddings = await embed_passages(chunks[: settings.EMBEDDING_MAX_CHUNKS])
+            selected = chunks[: settings.EMBEDDING_MAX_CHUNKS]
+            embeddings = (
+                await embed_passages(selected, materials=(raw_text,))
+                if settings.EMBEDDING_PROVIDER == "jina"
+                else await embed_passages(selected)
+            )
         except Exception:
             embeddings = []
 
@@ -111,7 +116,7 @@ async def create_knowledge_verdict_from_text(
                 chunk_type="text",
                 content=chunk_text,
                 embedding=embedding,
-                embedding_model=settings.EMBEDDING_MODEL if embedding is not None else None,
+                embedding_model=embedding_cache_model() if embedding is not None else None,
             )
         )
 
@@ -135,13 +140,13 @@ async def reembed_knowledge_chunks(db: AsyncSession, batch: int = 16) -> int:
     """
     rows = (
         await db.execute(
-            select(KnowledgeChunk.id, KnowledgeChunk.content)
+            select(KnowledgeChunk.id, KnowledgeChunk.content, KnowledgeChunk.verdict_id)
             .join(KnowledgeVerdict, KnowledgeChunk.verdict_id == KnowledgeVerdict.id)
             .where(
                 KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
                 or_(
                     KnowledgeChunk.embedding_model.is_(None),
-                    KnowledgeChunk.embedding_model != settings.EMBEDDING_MODEL,
+                    KnowledgeChunk.embedding_model != embedding_cache_model(),
                 ),
             )
             .order_by(KnowledgeChunk.id)
@@ -150,12 +155,24 @@ async def reembed_knowledge_chunks(db: AsyncSession, batch: int = 16) -> int:
     done = 0
     for start in range(0, len(rows), batch):
         part = rows[start : start + batch]
-        vectors = await embed_passages([content for _, content in part])
-        for (chunk_id, _), vector in zip(part, vectors, strict=True):
+        contents = [content for _, content, _ in part]
+        if settings.EMBEDDING_PROVIDER == "jina":
+            materials = tuple(
+                await db.scalars(
+                    select(KnowledgeVerdict.raw_text).where(
+                        KnowledgeVerdict.id.in_({verdict_id for _, _, verdict_id in part}),
+                        KnowledgeVerdict.raw_text.is_not(None),
+                    )
+                )
+            )
+            vectors = await embed_passages(contents, materials=materials)
+        else:
+            vectors = await embed_passages(contents)
+        for (chunk_id, _, _), vector in zip(part, vectors, strict=True):
             await db.execute(
                 update(KnowledgeChunk)
                 .where(KnowledgeChunk.id == chunk_id)
-                .values(embedding=vector, embedding_model=settings.EMBEDDING_MODEL)
+                .values(embedding=vector, embedding_model=embedding_cache_model())
             )
         await db.commit()
         done += len(part)

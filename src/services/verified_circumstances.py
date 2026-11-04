@@ -2,6 +2,7 @@
 
 import re
 
+from src.domain.circumstance_codes import circumstance_codes as _codes
 from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import Circumstance
 from src.services.verdict_segmenter import segment_verdict
@@ -17,15 +18,6 @@ def _norm(code: str) -> str:
     if point and point[0].isdigit():
         return f"ч. {part}.{point[0]} ст. {article}"
     return (f"п. «{point[0]}» " if point else "") + f"ч. {part} ст. {article}"
-
-
-def _codes(norm: str) -> set[str]:
-    match = re.search(r"ч\.?\s*(\d(?:\.\d)?)\s*ст\.?\s*(61|63)(?!\d)", norm, re.I)
-    if not match:
-        return set()
-    points = re.findall(r'[«"“]([а-яё])[»"”]', norm[: match.start()], re.I)
-    base = f"{match[2]}.{match[1]}"
-    return {f"{base}.{p.lower()}" for p in points} if points else {base}
 
 
 def verified_circumstances(items: list[Circumstance], text: str, *, mitigating: bool):
@@ -61,7 +53,7 @@ def verified_circumstances(items: list[Circumstance], text: str, *, mitigating: 
     return verified, rejected
 
 
-def confirmed_no_aggravating(text: str) -> bool:
+def no_aggravating_quote(text: str) -> str:
     """An empty model list is not proof that the court found no aggravating circumstances."""
     from src.infrastructure.circumstance_extractor import circumstance_statements
 
@@ -69,11 +61,23 @@ def confirmed_no_aggravating(text: str) -> bool:
     if reading.aggravating or (
         reading.recidivism is not None and reading.recidivism.value != "none"
     ):
-        return False
-    return any(
-        re.search(
-            r"отягчающ[^.;]{0,120}(?:не\s+(?:установлен|усматрива|имеется)|отсутству)", s, re.I
-        )
-        or re.search(r"не\s+(?:установил|усматривает)[^.;]{0,80}отягчающ", s, re.I)
-        for s in circumstance_statements(text)
+        return ""
+    return next(
+        (
+            s
+            for s in circumstance_statements(text)
+            if (
+                re.search(
+                    r"отягчающ[^.;]{0,120}(?:не\s+(?:установлен|усматрива|имеется)|отсутству)",
+                    s,
+                    re.I,
+                )
+                or re.search(r"не\s+(?:установил|усматривает)[^.;]{0,80}отягчающ", s, re.I)
+            )
+        ),
+        "",
     )
+
+
+def confirmed_no_aggravating(text: str) -> bool:
+    return bool(no_aggravating_quote(text))

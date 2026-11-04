@@ -8,7 +8,9 @@ from sqlalchemy.orm import selectinload
 
 from src.application.account import AnalysisInProgress
 from src.config import settings
+from src.db.analysis_revisions import AnalysisRevision
 from src.db.models import Attachment, Chat, Message
+from src.db.reports import CaseReport
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,54 @@ async def export_cases(db, user_id, profile):
             .order_by(Chat.id)
         )
     ).all()
+    reports = (
+        await db.scalars(
+            select(CaseReport)
+            .join(Chat)
+            .where(CaseReport.owner_id == user_id, Chat.owner_id == user_id)
+            .order_by(CaseReport.chat_id, CaseReport.version)
+        )
+    ).all()
+    revisions = (
+        await db.scalars(
+            select(AnalysisRevision)
+            .join(Chat)
+            .where(AnalysisRevision.owner_id == user_id, Chat.owner_id == user_id)
+            .order_by(AnalysisRevision.source_message_id, AnalysisRevision.version)
+        )
+    ).all()
     return {
         "schema_version": 1,
+        "analysis_revisions": [
+            {
+                "id": str(row.id),
+                "chat_id": row.chat_id,
+                "source_message_id": row.source_message_id,
+                "version": row.version,
+                "base_revision_id": str(row.base_revision_id) if row.base_revision_id else None,
+                "kind": row.kind,
+                "calculation_inputs": row.calculation_inputs,
+                "inputs_sha256": row.inputs_sha256,
+                "result": row.result,
+                "result_sha256": row.result_sha256,
+                "review": row.review,
+                "created_at": row.created_at,
+            }
+            for row in revisions
+        ],
+        "reports": [
+            {
+                "id": str(report.id),
+                "chat_id": report.chat_id,
+                "source_message_id": report.source_message_id,
+                "version": report.version,
+                "created_at": report.created_at,
+                "snapshot": report.snapshot,
+                "snapshot_sha256": report.snapshot_sha256,
+                "docx_sha256": report.docx_sha256,
+            }
+            for report in reports
+        ],
         "profile": profile,
         "note": "Экспорт содержит текст и результаты анализа; оригиналы файлов не включены.",
         "chats": [

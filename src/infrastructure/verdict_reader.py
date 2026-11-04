@@ -33,7 +33,9 @@ class RegexVerdictReader:
             description=segments.description,
             operative=segments.operative,
             sentence=sentence,
-            fabula=extract_fabula(segments.description),
+            fabula=extract_fabula(
+                segments.description, materials=(segments.introduction, segments.operative)
+            ),
             mitigating=circumstances.mitigating,
             aggravating=circumstances.aggravating,
             applied_general=circumstances.applied_general,

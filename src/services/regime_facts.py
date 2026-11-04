@@ -101,3 +101,20 @@ def read_served_before(text: str) -> tuple[bool | None, str]:
     if never:
         return False, never.group(0)
     return None, ""
+
+
+def prepare_regime_inputs(text: str):
+    from src.domain.prepared_legal import PreparedFact
+    from src.domain.prepared_sentencing import PreparedRegimeInputs
+
+    imposed, regime_quote = read_regime(text)
+    male, sex_quote = read_male(text)
+    served, served_quote = read_served_before(text)
+    return PreparedRegimeInputs(
+        imposed=PreparedFact(imposed.value, regime_quote)
+        if imposed is not None
+        else PreparedFact(),
+        male=PreparedFact(male, sex_quote) if male is not None else PreparedFact(),
+        served_before=PreparedFact(served, served_quote) if served is not None else PreparedFact(),
+        has_regime_statement=imposed is not None,
+    )

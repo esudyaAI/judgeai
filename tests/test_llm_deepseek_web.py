@@ -118,4 +118,8 @@ def test_extract_json_object_rejects_non_objects(text):
 
 def test_factory_selects_deepseek_web(monkeypatch):
     monkeypatch.setattr(llm_client.settings, "LLM_PROVIDER", "deepseek_web")
-    assert isinstance(llm_client.get_llm_client(), DeepSeekWebClient)
+    from src.services.external_processing import GuardedLLMClient
+
+    client = llm_client.get_llm_client()
+    assert isinstance(client, GuardedLLMClient)
+    assert isinstance(client.backend, DeepSeekWebClient)

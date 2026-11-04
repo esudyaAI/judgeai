@@ -11,6 +11,12 @@ class BoundedQueryEmbedder:
         self.model_name = embedder.model_name
         self.timeout = timeout
 
+    def with_materials(self, materials: tuple[str, ...]):
+        bind = getattr(self.embedder, "with_materials", None)
+        return BoundedQueryEmbedder(
+            bind(materials) if callable(bind) else self.embedder, self.timeout
+        )
+
     async def embed_query(self, text: str) -> list[float] | None:
         # Cancellation closes async HTTP clients, including retry sleeps. A local model
         # loading in a worker thread may finish in the background after this deadline.

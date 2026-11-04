@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from src.api import (
     account,
+    analysis_revisions,
     auth,
     chats,
     criminal_sanctions,
@@ -18,6 +19,7 @@ from src.api import (
     knowledge,
     legal_library,
     precedents,
+    reports,
 )
 from src.config import settings
 from src.db.session import async_session_factory
@@ -71,9 +73,11 @@ app.add_middleware(
 )
 
 app.include_router(document_previews.router, prefix="/api", tags=["document previews"])
+app.include_router(reports.router, prefix="/api", tags=["reports"])
 app.include_router(account.router, prefix="/api/account", tags=["account"])
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(chats.router, prefix="/api/chats", tags=["chats"])
+app.include_router(analysis_revisions.router, prefix="/api/chats", tags=["analysis revisions"])
 app.include_router(precedents.router, prefix="/api/chats", tags=["precedents"])
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["knowledge"])
 app.include_router(legal_library.router, prefix="/api/legal", tags=["legal library"])
@@ -84,7 +88,9 @@ app.include_router(
 
 @app.exception_handler(RequestValidationError)
 async def hide_auth_validation_inputs(request, exc):
-    if request.url.path.startswith(("/api/auth", "/api/account", "/api/document-previews")):
+    if request.url.path.startswith(
+        ("/api/auth", "/api/account", "/api/document-previews", "/api/reports", "/api/chats")
+    ):
         # A missing field can otherwise echo the entire login body, including passwords.
         errors = [{key: item[key] for key in ("loc", "msg", "type")} for item in exc.errors()]
         return JSONResponse(status_code=422, content={"detail": errors})
@@ -95,7 +101,14 @@ async def hide_auth_validation_inputs(request, exc):
 async def private_response_cache_control(request, call_next):
     response = await call_next(request)
     if request.url.path.startswith(
-        ("/api/chats", "/api/knowledge", "/api/auth", "/api/account", "/api/document-previews")
+        (
+            "/api/chats",
+            "/api/knowledge",
+            "/api/auth",
+            "/api/account",
+            "/api/document-previews",
+            "/api/reports",
+        )
     ):
         response.headers["Cache-Control"] = "no-store"
     return response

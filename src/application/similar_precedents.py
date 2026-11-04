@@ -145,7 +145,7 @@ class IndexPrecedents:
                 )
                 vectors += len(chunk)
         except Exception as exc:  # the cards stay usable through the other two channels
-            logger.warning("precedent embeddings failed", exc_info=True)
+            logger.warning("precedent embeddings failed")
             return VectorsReport(vectors, f"{type(exc).__name__}: {exc}")
         return VectorsReport(vectors)
 
@@ -199,7 +199,7 @@ class FindSimilarPrecedents:
             logger.warning("query embedding timed out; using qualification and fulltext")
             vector = None
         except Exception:  # search continues on the qualification and full-text channels
-            logger.warning("query embedding failed", exc_info=True)
+            logger.warning("query embedding failed")
             vector = None
         self._query_vectors[text] = vector
         return vector

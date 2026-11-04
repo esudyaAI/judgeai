@@ -21,12 +21,11 @@ from typing import Protocol
 import httpx
 
 from src.config import settings
+from src.services.external_processing import GuardedLLMClient, processing_policy
+from src.services.provider_errors import LLMError as LLMError
+from src.services.provider_errors import ProcessingNotApproved
 
 logger = logging.getLogger(__name__)
-
-
-class LLMError(RuntimeError):
-    """The model could not be reached or returned something unusable."""
 
 
 LLM_NOT_CONNECTED = (
@@ -54,17 +53,24 @@ def _retry_pause(attempt: int, response: httpx.Response | None) -> float:
     return RETRY_PAUSES_SECONDS[min(attempt, len(RETRY_PAUSES_SECONDS) - 1)]
 
 
+def _usage_tokens(usage, key: str) -> int | None:
+    value = usage.get(key) if isinstance(usage, dict) else None
+    return value if type(value) is int and value >= 0 else None
+
+
 def _final_status_error(status: int) -> LLMError:
     if status == 429:
         return LLMError(
             f"LLM ответил {status}: превышен лимит запросов к языковой модели, "
-            "попробуйте через минуту."
+            "попробуйте через минуту.",
+            status=status,
         )
     if status in RETRYABLE_STATUSES:
         return LLMError(
-            f"LLM ответил {status}: языковая модель временно недоступна, попробуйте позже."
+            f"LLM ответил {status}: языковая модель временно недоступна, попробуйте позже.",
+            status=status,
         )
-    return LLMError(f"LLM ответил {status}")
+    return LLMError(f"LLM ответил {status}", status=status)
 
 
 class LLMClient(Protocol):
@@ -94,6 +100,7 @@ class OpenAICompatibleClient:
             )
         api_base = (self._api_base or settings.LLM_API_BASE).rstrip("/")
         model = self._model or settings.LLM_MODEL
+        self.last_requested_model = model
         timeout = self._timeout if self._timeout is not None else settings.LLM_TIMEOUT_SECONDS
 
         user_content = user
@@ -117,10 +124,11 @@ class OpenAICompatibleClient:
                 last = attempt == LLM_ATTEMPTS - 1
                 t_req = time.monotonic()
                 logger.info(
-                    "[LLM] OpenAI request attempt %d/%d: model=%s prompt_chars=%d timeout=%.1fs",
+                    "[LLM] OpenAI request attempt %d/%d: model_configured=%s "
+                    "prompt_chars=%d timeout=%.1fs",
                     attempt + 1,
                     LLM_ATTEMPTS,
-                    model,
+                    bool(model),
                     len(user_content) + len(system),
                     timeout,
                 )
@@ -133,10 +141,10 @@ class OpenAICompatibleClient:
                         req_sec,
                         attempt + 1,
                         LLM_ATTEMPTS,
-                        exc,
+                        type(exc).__name__,
                     )
                     if last:
-                        raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+                        raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from None
                     pause = _retry_pause(attempt, None)
                     logger.info("[LLM] Pausing %.1fs before retry...", pause)
                     await _sleep(pause)
@@ -156,18 +164,17 @@ class OpenAICompatibleClient:
                     await _sleep(pause)
                     continue
                 if status >= 400:
-                    # The body helps diagnose 4xx (limits, bad json mode); it may echo the
-                    # request, so keep it short and never log headers (they carry the key).
-                    logger.warning("LLM API error %d: %s", status, response.text[:500])
+                    # Provider bodies may echo case material or credentials. Log status only.
+                    logger.warning("LLM API error %d", status)
                     # Never include request headers in the message: they carry the API key.
                     raise _final_status_error(status)
                 try:
                     body = response.json()
                     content = body["choices"][0]["message"]["content"]
                 except (ValueError, KeyError, IndexError, TypeError) as exc:
-                    raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+                    raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from None
                 usage = body.get("usage") if isinstance(body, dict) else None
-                completion_tokens = (usage or {}).get("completion_tokens")
+                completion_tokens = _usage_tokens(usage, "completion_tokens")
                 speed = (
                     f"{completion_tokens / req_sec:.0f} tok/s"
                     if completion_tokens and req_sec
@@ -181,7 +188,7 @@ class OpenAICompatibleClient:
                     LLM_ATTEMPTS,
                     status,
                     len(response.content),
-                    (usage or {}).get("prompt_tokens"),
+                    _usage_tokens(usage, "prompt_tokens"),
                     completion_tokens,
                     speed,
                 )
@@ -189,8 +196,8 @@ class OpenAICompatibleClient:
 
         try:
             data = json.loads(content)
-        except (json.JSONDecodeError, TypeError) as exc:
-            raise LLMError("LLM вернул не JSON") from exc
+        except (json.JSONDecodeError, TypeError):
+            raise LLMError("LLM вернул не JSON") from None
         if not isinstance(data, dict):
             raise LLMError("LLM вернул JSON не в виде объекта")
         return data
@@ -235,6 +242,7 @@ class DeepSeekWebClient:
         api_base = self._api_base or settings.LLM_FALLBACK_API_BASE or settings.LLM_API_BASE
         base = api_base.rstrip("/")
         model = self._model or settings.LLM_FALLBACK_MODEL or settings.LLM_MODEL
+        self.last_requested_model = model
         if self._api_key is not None:
             api_key = self._api_key
         elif settings.LLM_FALLBACK_API_KEY is not None:
@@ -259,9 +267,8 @@ class DeepSeekWebClient:
 
         t_req = time.monotonic()
         logger.info(
-            "[LLM-WEB] DeepSeek web request: base=%s model=%s prompt_chars=%d timeout=%.1fs",
-            base,
-            model,
+            "[LLM-WEB] DeepSeek web request: model_configured=%s prompt_chars=%d timeout=%.1fs",
+            bool(model),
             len(prompt),
             timeout,
         )
@@ -282,16 +289,17 @@ class DeepSeekWebClient:
             except httpx.HTTPStatusError as exc:
                 req_sec = time.monotonic() - t_req
                 logger.warning(
-                    "[LLM-WEB] HTTP error %d in %.2fs: %s",
+                    "[LLM-WEB] HTTP error %d in %.2fs",
                     exc.response.status_code,
                     req_sec,
-                    exc.response.text,
                 )
-                raise LLMError(f"LLM ответил {exc.response.status_code}") from exc
+                raise LLMError(
+                    f"LLM ответил {exc.response.status_code}", status=exc.response.status_code
+                ) from None
             except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
                 req_sec = time.monotonic() - t_req
-                logger.warning("[LLM-WEB] Error in %.2fs: %s", req_sec, exc)
-                raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from exc
+                logger.warning("[LLM-WEB] Error in %.2fs: %s", req_sec, type(exc).__name__)
+                raise LLMError(f"Ошибка обращения к LLM: {type(exc).__name__}") from None
             finally:
                 await self._reset(client, base, conversation_id, headers)
 
@@ -325,7 +333,7 @@ class FallbackLLMClient:
                 "Основной LLM провайдер завершился с ошибкой (за %.2fs): %s. "
                 "Переключение на фолбэк %s.",
                 primary_sec,
-                primary_exc,
+                type(primary_exc).__name__,
                 type(self.fallback).__name__,
             )
             t_fb = time.monotonic()
@@ -339,16 +347,20 @@ class FallbackLLMClient:
                 )
                 return result
             except LLMError as fallback_exc:
+                if isinstance(primary_exc, ProcessingNotApproved) and isinstance(
+                    fallback_exc, ProcessingNotApproved
+                ):
+                    raise ProcessingNotApproved() from None
                 logger.warning(
                     "[LLM-FALLBACK] Fallback %s failed in %.2fs: %s",
                     type(self.fallback).__name__,
                     time.monotonic() - t_fb,
-                    fallback_exc,
+                    type(fallback_exc).__name__,
                 )
                 raise LLMError(
-                    f"Основной LLM шлюз ({primary_exc}) и фолбэк ({fallback_exc}) "
-                    "оба вернули ошибку."
-                ) from fallback_exc
+                    "Основной LLM шлюз и фолбэк оба вернули ошибку.",
+                    status=fallback_exc.status or primary_exc.status,
+                ) from None
 
 
 class FakeLLMClient:
@@ -396,23 +408,64 @@ def get_llm_client() -> LLMClient:
         if not settings.LLM_ALLOW_FAKE:
             raise LLMError(LLM_NOT_CONNECTED)
         return FakeLLMClient()
-    if settings.LLM_PROVIDER == "deepseek_web":
-        return DeepSeekWebClient(
-            api_base=settings.LLM_API_BASE,
-            model=settings.LLM_MODEL,
-            api_key=settings.LLM_API_KEY,
-        )
 
-    primary = OpenAICompatibleClient(
-        api_base=settings.LLM_API_BASE,
-        api_key=settings.LLM_API_KEY,
-        model=settings.LLM_MODEL,
+    def guard(backend, endpoint):
+        return GuardedLLMClient(backend, endpoint, processing_policy())
+
+    if settings.LLM_PROVIDER == "deepseek_web":
+        return guard(
+            DeepSeekWebClient(
+                api_base=settings.LLM_API_BASE,
+                model=settings.LLM_MODEL,
+                api_key=settings.LLM_API_KEY,
+            ),
+            settings.LLM_API_BASE,
+        )
+    primary = guard(
+        OpenAICompatibleClient(
+            api_base=settings.LLM_API_BASE,
+            api_key=settings.LLM_API_KEY,
+            model=settings.LLM_MODEL,
+        ),
+        settings.LLM_API_BASE,
     )
     if settings.LLM_FALLBACK_PROVIDER == "deepseek_web" or settings.LLM_PROVIDER == "fallback":
-        fallback = DeepSeekWebClient(
-            api_base=settings.LLM_FALLBACK_API_BASE,
-            model=settings.LLM_FALLBACK_MODEL,
-            api_key=settings.LLM_FALLBACK_API_KEY,
+        fallback = guard(
+            DeepSeekWebClient(
+                api_base=settings.LLM_FALLBACK_API_BASE,
+                model=settings.LLM_FALLBACK_MODEL,
+                api_key=settings.LLM_FALLBACK_API_KEY,
+            ),
+            settings.LLM_FALLBACK_API_BASE,
         )
         return FallbackLLMClient(primary=primary, fallback=fallback)
     return primary
+
+
+def prepare_llm_materials(client: LLMClient, sources: tuple[str, ...]) -> LLMClient:
+    if isinstance(client, GuardedLLMClient):
+        return client.with_materials(sources)
+    if isinstance(client, FallbackLLMClient):
+        return FallbackLLMClient(
+            prepare_llm_materials(client.primary, sources),
+            prepare_llm_materials(client.fallback, sources),
+        )
+    return client
+
+
+def llm_provenance(client: LLMClient) -> dict:
+    """Only actual successful guarded calls; no input, identifiers or credential URLs."""
+    if isinstance(client, GuardedLLMClient):
+        return {"mode": "external", "calls": list(client.receipts), "resolved_model_revision": None}
+    if isinstance(client, FallbackLLMClient):
+        branches = [llm_provenance(client.primary), llm_provenance(client.fallback)]
+        return {
+            "mode": "external",
+            "calls": [call for branch in branches for call in branch.get("calls", [])],
+            "resolved_model_revision": None,
+        }
+    return {
+        "mode": "synthetic" if isinstance(client, FakeLLMClient) else "unknown",
+        "calls": [],
+        "resolved_model_revision": None,
+    }

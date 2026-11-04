@@ -41,6 +41,7 @@ async def load_conversation(db, user_id: int, chat_id: int, request_id: int, que
         (
             await db.execute(
                 select(
+                    Attachment.id,
                     Attachment.filename,
                     func.left(Attachment.extracted_text, 60001),
                     Attachment.page_count,
@@ -59,6 +60,7 @@ async def load_conversation(db, user_id: int, chat_id: int, request_id: int, que
         ).all()
     )
     documents = [
-        DocumentContext(name, text or "", pages or 0) for name, text, pages in reversed(records)
+        DocumentContext(name, text or "", pages or 0, attachment_id)
+        for attachment_id, name, text, pages in reversed(records)
     ]
     return build_context(question, turns, documents)

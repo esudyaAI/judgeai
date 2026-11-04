@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # The fake provider is refused unless this flag is set (tests, local UI work), so a
     # misconfigured server reports an error instead of showing a sample verdict.
     LLM_ALLOW_FAKE: bool = False
+    # Recorded decision and exact provider bases; absent approval blocks external processing.
+    EXTERNAL_PROCESSING_APPROVAL_ID: str | None = None
+    EXTERNAL_PROCESSING_ALLOWED_ENDPOINTS: str = ""
     LLM_API_BASE: str = "https://api.openai.com/v1"
     LLM_API_KEY: str | None = None
     LLM_MODEL: str = "gpt-4o-mini"

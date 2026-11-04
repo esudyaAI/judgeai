@@ -130,7 +130,8 @@ class FineCreditRead(ApiModel):
     count_index: int | None = None
     original_amount: float | None = None
     reduced_amount: float | None = None
-    released: bool = False
+    released: bool | None = False
+    unknown: bool = False
     status: Literal["stated", "requires_review"]
     quote: str
 
@@ -141,7 +142,8 @@ class ImposedSentenceRead(ApiModel):
     counts: list[ImposedCountRead] = []
     final: str | None = None
     aggregation_rule: str | None = None
-    conditional: bool = False
+    conditional: bool | None = False
+    unknown_fields: list[str] = Field(default_factory=list)
     probation_months: int | None = None
     final_quote: str | None = None
     intermediate: str | None = None
@@ -165,6 +167,42 @@ class DefendantAnalysisRead(ApiModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class ExtractionDocumentRead(ApiModel):
+    attachment_id: int | None = None
+    filename: str | None = None
+    document_index: int
+    document_hash: str
+    original_sha256: str | None = None
+    characters: int
+
+
+class ExtractionSegmentRead(ApiModel):
+    document_index: int
+    document_hash: str
+    start: int
+    end: int
+
+
+class ExtractedFactRead(ExtractionSegmentRead):
+    """Character offsets in extracted text; document_index=-1 means CaseAnalysis.prompt."""
+
+    path: list[str]
+    value: StrictStr | StrictInt | StrictBool
+    quote: str
+
+
+class ExtractionRead(ApiModel):
+    version: str = "segmented-facts/1"
+    complete: bool = Field(
+        description="All text windows were read; not a claim of legal completeness"
+    )
+    documents: list[ExtractionDocumentRead] = Field(default_factory=list)
+    segments: list[ExtractionSegmentRead] = Field(default_factory=list)
+    facts: list[ExtractedFactRead] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    rejected: list[str] = Field(default_factory=list)
+
+
 class CaseAnalysis(ApiModel):
     # Engine that produced the analysis; None in results saved before T43 (they are stale).
     engine_version: str | None = None
@@ -172,6 +210,10 @@ class CaseAnalysis(ApiModel):
     legal_checks: list["LegalCheck"] = Field(default_factory=list)
     imposed_sentence: ImposedSentenceRead | None = None
     schema_version: Literal[1] = SCHEMA_VERSION
+    extraction: ExtractionRead | None = None
+    provenance: dict | None = None
+    revision: dict | None = None
+    human_review: dict | None = None
     stats: AnalysisStats
     prompt: str
     fabula: str

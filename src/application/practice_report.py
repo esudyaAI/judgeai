@@ -30,17 +30,24 @@ class PracticeReport:
     vector_used: bool
     comparison: PracticeComparison
     episodes: list["PracticeReport"] = field(default_factory=list)
+    candidate_pool: list[SimilarPrecedent] = field(default_factory=list)
 
 
 async def compare_draft_with_practice(
-    store: PrecedentStore, embedder: EmbeddingPort, query: PrecedentCard
+    store: PrecedentStore,
+    embedder: EmbeddingPort,
+    query: PrecedentCard,
+    *,
+    statistics_pool: int = STATISTICS_POOL,
 ) -> PracticeReport:
     # Search each count separately: the first article must not hide another composition.
+    if type(statistics_pool) is not int or statistics_pool < 1:
+        raise ValueError("Invalid statistics pool")
     reports = []
-    search = FindSimilarPrecedents(store, embedder)
+    search = FindSimilarPrecedents(store, embedder, channel_limit=statistics_pool)
     for episode in query.episodes:
         single = replace(query, episodes=(episode,), final=None)
-        found = await search.execute(single, STATISTICS_POOL)
+        found = await search.execute(single, statistics_pool)
         comparable = []
         for item in found.items:
             card = item.stored.card
@@ -66,9 +73,14 @@ async def compare_draft_with_practice(
                 found.excluded + len(found.items) - len(comparable),
                 found.vector_used,
                 compare_with_practice(comparable, single.imprisonment_months),
+                candidate_pool=list(found.items),
             )
         )
     shown = {}
+    pool = {}
+    for report in reports:
+        for candidate in report.candidate_pool:
+            pool.setdefault(candidate.stored.id, candidate)
     for rank in range(SHOWN):
         for report in reports:
             if rank < len(report.shown):
@@ -84,4 +96,5 @@ async def compare_draft_with_practice(
         any(r.vector_used for r in reports),
         comparison,
         reports,
+        list(pool.values()),
     )

@@ -6,22 +6,18 @@ Every candidate therefore requires human review; no inference from absent histor
 
 import re
 
-from legal_core.entities import Category, Guilt, SanctionCeiling
+from legal_core.entities import Guilt, SanctionCeiling
 from legal_core.precedents import Recidivism
 from legal_core.rules.art15 import SOURCE as ART15_SOURCE
-from legal_core.rules.art15 import categorize
 from legal_core.rules.art18 import SOURCE as ART18_SOURCE
-from legal_core.rules.art18 import CurrentOffence, PriorConviction, classify_recidivism
 
+from src.domain.prepared_legal import (
+    PRIOR_FIELD_KINDS,
+    PreparedFact,
+    PreparedLegalInputs,
+    evaluate_legal_inputs,
+)
 from src.schemas.analysis import CitedFact, LegalCheck, LegalFacts
-
-_CATEGORIES = {
-    "small": Category.SMALL,
-    "medium": Category.MEDIUM,
-    "grave": Category.GRAVE,
-    "especially_grave": Category.ESPECIALLY_GRAVE,
-}
-
 
 _INTENT = re.compile(r"[^.\n]{0,160}\bумышленн\w*[^.\n]{0,160}", re.IGNORECASE)
 _NEGLIGENCE = re.compile(r"[^.\n]{0,160}\bпо\s+неосторожности[^.\n]{0,160}", re.IGNORECASE)
@@ -44,6 +40,52 @@ def _value(fact: CitedFact | None, text: str, kind: type):
     return fact.value
 
 
+def _prepared(fact, text, kind):
+    try:
+        return PreparedFact(_value(fact, text, kind), fact.quote)
+    except ValueError:
+        return PreparedFact()
+
+
+def prepare_legal_inputs(
+    facts: LegalFacts | None,
+    source_text: str,
+    *,
+    extracted_recidivism: Recidivism | None = None,
+    recidivism_quote: str = "",
+    extracted_source_text: str | None = None,
+    text_guilt: CitedFact | None = None,
+) -> PreparedLegalInputs:
+    full_text = extracted_source_text if extracted_source_text is not None else source_text
+    model = facts.guilt if facts is not None else None
+    model_guilt = _prepared(model, source_text, str)
+    use_text = model is None and text_guilt is not None
+    selected = _prepared(text_guilt, full_text, str) if use_text else model_guilt
+    priors = (
+        tuple(
+            tuple(
+                (name, _prepared(row.get(name), source_text, kind))
+                for name, kind in PRIOR_FIELD_KINDS
+            )
+            for row in facts.prior_convictions
+        )
+        if facts is not None
+        else ()
+    )
+    stated = extracted_recidivism if recidivism_quote and recidivism_quote in full_text else None
+    return PreparedLegalInputs(
+        model_guilt=model_guilt,
+        category_guilt=selected,
+        category_uses_text=use_text,
+        category=_prepared(facts.category if facts else None, source_text, str),
+        real_imprisonment=_prepared(facts.real_imprisonment if facts else None, source_text, bool),
+        history_complete=_prepared(facts.history_complete if facts else None, source_text, bool),
+        prior_convictions=priors,
+        stated_recidivism=stated,
+        stated_quote=recidivism_quote if stated is not None else "",
+    )
+
+
 def build_legal_checks(
     facts: LegalFacts | None,
     source_text: str,
@@ -52,103 +94,68 @@ def build_legal_checks(
     recidivism_quote: str = "",
     extracted_source_text: str | None = None,
     text_guilt: CitedFact | None = None,
+    *,
+    prepared: PreparedLegalInputs | None = None,
 ) -> list[LegalCheck]:
-    """statutory_ceiling comes from the imported УК РФ text; it replaces model-cited sanctions.
-    text_guilt (quoted from extracted_source_text) is used when the model cited no guilt."""
-    full_text = extracted_source_text if extracted_source_text is not None else source_text
-    results = []
-    for norm, source in [("ст. 15 УК РФ", ART15_SOURCE), ("ст. 18 УК РФ", ART18_SOURCE)]:
-        check = LegalCheck(
+    inputs = (
+        prepared
+        if prepared is not None
+        else prepare_legal_inputs(
+            facts,
+            source_text,
+            extracted_recidivism=extracted_recidivism,
+            recidivism_quote=recidivism_quote,
+            extracted_source_text=extracted_source_text,
+            text_guilt=text_guilt,
+        )
+    )
+    evaluated = evaluate_legal_inputs(inputs, statutory_ceiling)
+    checks = [
+        LegalCheck(
             norm=norm,
             source=source,
             status="insufficient_data",
             explanation="Недостаточно подтверждённых фактов; правовой вывод не сделан.",
         )
-        try:
-            cited = facts.guilt if facts is not None else None
-            if cited is not None:
-                guilt = Guilt(_value(cited, source_text, str))
-            elif norm == "ст. 15 УК РФ" and statutory_ceiling is not None and text_guilt:
-                cited = text_guilt
-                guilt = Guilt(_value(cited, full_text, str))
-            else:
-                raise ValueError("no cited guilt")
-            evidence = [cited.quote]
-            if norm == "ст. 15 УК РФ":
-                if statutory_ceiling is None:
-                    # The sanction maximum is never taken from the model: only the imported
-                    # УК text can categorise the offence (без санкции — недостаточно данных).
-                    raise ValueError("no statutory ceiling")
-                category = categorize(guilt, statutory_ceiling)
-                check.value = next(key for key, val in _CATEGORIES.items() if val == category)
-                check.explanation = (
-                    "Предварительная категория по процитированным данным. Проверьте санкцию "
-                    "статьи, дату преступления и применимую редакцию закона."
-                )
-                if cited is text_guilt:
-                    check.explanation += " Форма вины взята из текста приговора."
-            else:
-                if facts is None:
-                    raise ValueError("no legal facts")
-                category = _CATEGORIES[_value(facts.category, source_text, str)]
-                real = _value(facts.real_imprisonment, source_text, bool)
-                complete = _value(facts.history_complete, source_text, bool)
-                if not complete:
-                    raise ValueError("incomplete history")
-                evidence += [
-                    facts.category.quote,
-                    facts.real_imprisonment.quote,
-                    facts.history_complete.quote,
-                ]
-                priors = []
-                for item in facts.prior_convictions:
-                    values = {}
-                    for name in PriorConviction.__dataclass_fields__:
-                        kind = str if name in ("judgment_id", "guilt", "category") else bool
-                        values[name] = _value(item.get(name), source_text, kind)
-                        evidence.append(item[name].quote)
-                    values["guilt"] = Guilt(values["guilt"])
-                    values["category"] = _CATEGORIES[values["category"]]
-                    priors.append(PriorConviction(**values))
-                check.value = classify_recidivism(
-                    CurrentOffence(guilt, category, real),
-                    priors,
-                    history_complete=complete,
-                ).value
-                check.explanation = (
-                    "Предварительный вид рецидива. Проверьте полноту сведений о судимостях, "
-                    "отдельность приговоров, их действительность и все даты на момент преступления."
-                )
-            check.status = "ok"
-            check.evidence = list(dict.fromkeys(evidence))
-        except (ValueError, KeyError):
-            pass
-        results.append(check)
-    if (
-        extracted_recidivism is not None
-        and recidivism_quote
-        and recidivism_quote
-        in (extracted_source_text if extracted_source_text is not None else source_text)
-    ):
-        art18 = results[1]
-        stated = {
+        for norm, source in [("ст. 15 УК РФ", ART15_SOURCE), ("ст. 18 УК РФ", ART18_SOURCE)]
+    ]
+    category, recidivism = checks
+    if evaluated.category is not None:
+        category.status, category.value = "ok", evaluated.category
+        category.evidence = list(evaluated.category_evidence)
+        category.explanation = (
+            "Предварительная категория по процитированным данным. Проверьте санкцию "
+            "статьи, дату преступления и применимую редакцию закона."
+        )
+        if inputs.category_uses_text:
+            category.explanation += " Форма вины взята из текста приговора."
+    if evaluated.recidivism is not None:
+        recidivism.status, recidivism.value = "ok", evaluated.recidivism
+        recidivism.explanation = (
+            "Предварительный вид рецидива. Проверьте полноту сведений о судимостях, "
+            "отдельность приговоров, их действительность и все даты на момент преступления."
+        )
+    recidivism.evidence = list(evaluated.recidivism_evidence)
+    stated = evaluated.stated_recidivism
+    if stated is not None:
+        label = {
             Recidivism.NONE: "отсутствует",
             Recidivism.SIMPLE: "простой",
             Recidivism.DANGEROUS: "опасный",
             Recidivism.ESPECIALLY_DANGEROUS: "особо опасный",
-        }[extracted_recidivism]
-        if art18.value is not None and art18.value != extracted_recidivism.value:
-            art18.status = "insufficient_data"
-            art18.explanation += " Расчёт расходится с указанием рецидива в тексте; нужна сверка."
-        elif art18.value is None:
-            art18.explanation = (
+        }[stated]
+        if evaluated.recidivism_conflict:
+            recidivism.status = "insufficient_data"
+            recidivism.explanation += (
+                " Расчёт расходится с указанием рецидива в тексте; нужна сверка."
+            )
+        elif evaluated.recidivism is None:
+            recidivism.explanation = (
                 "В тексте указан вид рецидива. Это извлечённый факт, а не проверка его "
                 "правильности по ст. 18; для расчёта недостаточно сведений о судимостях."
             )
-        if art18.value is None or art18.value == extracted_recidivism.value:
-            art18.recidivism_input = extracted_recidivism.value
-        if art18.value is None:
-            art18.value = f"В тексте: {stated}"
-        art18.explanation += f" В тексте: {stated}."
-        art18.evidence = list(dict.fromkeys([*art18.evidence, recidivism_quote]))
-    return results
+        recidivism.recidivism_input = evaluated.recidivism_input
+        if evaluated.recidivism is None:
+            recidivism.value = f"В тексте: {label}"
+        recidivism.explanation += f" В тексте: {label}."
+    return checks

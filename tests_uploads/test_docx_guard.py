@@ -221,9 +221,10 @@ class DocxGuardTests(unittest.TestCase):
         # never frameworks, storage, HTTP or the outer src layers. datetime (domain) and
         # threading/concurrent.futures (application) stay pure stdlib: computation and
         # in-process orchestration only, no I/O.
-        pure = {"dataclasses", "datetime", "enum", "hashlib", "re", "typing", "legal_core"}
+        pure = {"dataclasses", "datetime", "enum", "hashlib", "json", "re", "typing", "legal_core"}
         for layer, allowed in [
-            ("domain", pure),
+            # Domain modules can reuse one another; every module is still scanned.
+            ("domain", pure | {"src.domain"}),
             (
                 "application",
                 pure
@@ -256,6 +257,34 @@ class DocxGuardTests(unittest.TestCase):
                             ),
                             (path.name, name),
                         )
+
+    def test_layer_guard_still_rejects_outward_dependencies(self):
+        import tempfile
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src/domain").mkdir(parents=True)
+            (root / "src/application").mkdir()
+            module = root / "src/domain/candidate.py"
+            module.write_text("from src.domain.extraction import input_hash\n")
+            with patch.dict(
+                self.test_layers_keep_dependencies_pointing_inward.__globals__,
+                {"__file__": str(root / "tests_uploads/test_docx_guard.py")},
+            ):
+                self.test_layers_keep_dependencies_pointing_inward()
+                for dependency in (
+                    "fastapi",
+                    "sqlalchemy",
+                    "httpx",
+                    "src.schemas.analysis",
+                    "src.application.account",
+                    "src.infrastructure.conversation",
+                ):
+                    with self.subTest(dependency=dependency):
+                        module.write_text(f"import {dependency}\n")
+                        with self.assertRaises(AssertionError):
+                            self.test_layers_keep_dependencies_pointing_inward()
 
     def test_exact_limit_boundaries_are_accepted(self):
         raw = archive(compression=zipfile.ZIP_STORED)

@@ -84,3 +84,15 @@ def test_shares_of_conditional_and_general_part_rules():
     assert result.conditional_share == 0.5
     assert result.art64_share == 0.25
     assert result.art73_share == 0.5
+
+
+def test_fractional_months_from_day_terms_are_not_truncated():
+    from dataclasses import replace
+
+    from legal_core.entities import MeasureUnit, PunishmentTerm
+
+    value = card(1)
+    days = replace(value, final=PunishmentTerm(PunishmentKind.IMPRISONMENT, 15, MeasureUnit.DAYS))
+    result = compare_with_practice([days] * 5, draft_months=0.5)
+    assert result.min_months == result.max_months == result.median_months == 0.5
+    assert result.draft_months == 0.5 and result.draft_percentile == 50

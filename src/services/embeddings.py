@@ -6,6 +6,12 @@ from typing import Any
 import httpx
 
 from src.config import settings
+from src.services.external_processing import (
+    EMBEDDING_PRIVACY_VERSION,
+    GuardedEmbeddings,
+    processing_policy,
+)
+from src.services.provider_errors import EmbeddingError as EmbeddingError
 
 # fastembed retries a failed download for about 40 s; without a pause every call (each file of
 # an upload, each analysis) would wait that long again while the model source is unreachable.
@@ -34,10 +40,6 @@ def _jina_pause(attempt: int, response: httpx.Response | None) -> float:
         if requested is not None and requested >= 0:
             return min(requested, JINA_MAX_PAUSE_SECONDS)
     return JINA_PAUSES_SECONDS[min(attempt, len(JINA_PAUSES_SECONDS) - 1)]
-
-
-class EmbeddingError(RuntimeError):
-    """The embedding service could not be reached or returned something unusable."""
 
 
 class JinaEmbeddings:
@@ -112,13 +114,22 @@ class JinaEmbeddings:
         return vectors
 
 
-def _jina() -> JinaEmbeddings:
-    return JinaEmbeddings(
+def _jina(materials: tuple[str, ...] = ()) -> GuardedEmbeddings:
+    backend = JinaEmbeddings(
         settings.JINA_API_KEY,
         settings.EMBEDDING_MODEL,
         settings.EMBEDDING_DIM,
         settings.JINA_API_BASE,
         settings.EMBEDDING_TIMEOUT_SECONDS,
+    )
+    client = GuardedEmbeddings(backend, settings.JINA_API_BASE, processing_policy())
+    return client.with_materials(materials) if materials else client
+
+
+def embedding_cache_model(model_name: str | None = None) -> str:
+    model = model_name or settings.EMBEDDING_MODEL
+    return (
+        f"{model}::{EMBEDDING_PRIVACY_VERSION}" if settings.EMBEDDING_PROVIDER == "jina" else model
     )
 
 
@@ -178,13 +189,13 @@ async def embed_texts(texts: list[str], prefix: str = "") -> list[list[float]]:
     return await asyncio.to_thread(_embed)
 
 
-async def embed_query(text: str) -> list[float] | None:
+async def embed_query(text: str, *, materials: tuple[str, ...] = ()) -> list[float] | None:
     if not text.strip():
         return None
     if not settings.EMBEDDING_ENABLED:
         return None
     if settings.EMBEDDING_PROVIDER == "jina":
-        return (await _jina().embed([_clean_text(text)], "retrieval.query"))[0]
+        return (await _jina(materials).embed([text], "retrieval.query"))[0]
 
     prefix = "query:" if _requires_prefix() else ""
     vectors = await embed_texts([text], prefix=prefix)
@@ -192,13 +203,13 @@ async def embed_query(text: str) -> list[float] | None:
     return vectors[0] if vectors else None
 
 
-async def embed_passages(texts: list[str]) -> list[list[float]]:
+async def embed_passages(texts: list[str], *, materials: tuple[str, ...] = ()) -> list[list[float]]:
     if not texts:
         return []
     if not settings.EMBEDDING_ENABLED:
         return []
     if settings.EMBEDDING_PROVIDER == "jina":
-        return await _jina().embed([_clean_text(text) for text in texts], "retrieval.passage")
+        return await _jina(materials).embed(texts, "retrieval.passage")
 
     prefix = "passage:" if _requires_prefix() else ""
     return await embed_texts(texts, prefix=prefix)

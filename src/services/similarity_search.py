@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import settings
 from src.db.models import KnowledgeChunk, KnowledgeVerdict
 from src.domain.practice import PRIVATE_SOURCE_TYPES
-from src.services.embeddings import embed_query
+from src.services.embeddings import embed_query, embedding_cache_model
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ async def _vector_search(
         )
         .where(
             KnowledgeChunk.embedding.is_not(None),
-            KnowledgeChunk.embedding_model == settings.EMBEDDING_MODEL,
+            KnowledgeChunk.embedding_model == embedding_cache_model(),
             KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES),
         )
         .order_by(distance.asc())
@@ -110,6 +110,7 @@ async def find_similar_verdicts(
     if not query and document_texts:
         query = next((text for text in document_texts if text.strip()), "")
 
+    embedding_input = query
     query = query[:5000]
 
     if not query:
@@ -119,14 +120,18 @@ async def find_similar_verdicts(
 
     t_embed = time.monotonic()
     try:
-        query_vector = await embed_query(query)
+        query_vector = (
+            await embed_query(embedding_input, materials=(*tuple(document_texts or ()), query_text))
+            if settings.EMBEDDING_PROVIDER == "jina"
+            else await embed_query(query)
+        )
         logger.info(
             "[SEARCH] embed_query completed in %.2fs (dim=%d)",
             time.monotonic() - t_embed,
             len(query_vector),
         )
     except Exception:
-        logger.warning("query embedding failed, falling back to keyword search", exc_info=True)
+        logger.warning("query embedding failed, falling back to keyword search")
         query_vector = None
 
     if query_vector:
@@ -141,6 +146,6 @@ async def find_similar_verdicts(
             if items:
                 return items
         except Exception:
-            logger.warning("vector search failed, falling back to keyword search", exc_info=True)
+            logger.warning("vector search failed, falling back to keyword search")
 
     return await _keyword_fallback(db, query, limit)

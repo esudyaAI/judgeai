@@ -1,7 +1,19 @@
+import asyncio
+import json
 import logging
 import time
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,12 +23,15 @@ from src.application.account import AnalysisInProgress
 from src.application.chat_deletion import ChatNotFound, delete_chat
 from src.application.chat_pinning import pin_chat
 from src.db.models import Attachment, Chat, Message
+from src.db.session import async_session_factory
+from src.infrastructure.analysis_revisions import SqlAnalysisRevisionStore
 from src.infrastructure.chat_deletion import SqlChatDeletionRepository
 from src.infrastructure.chat_pinning import SqlChatPinRepository
 from src.infrastructure.chat_queries import owned_chat_query
 from src.schemas.chat import ChatCreate, ChatPin, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
 from src.services.analysis_runner import run_analysis
+from src.services.auth import resolve_session
 from src.services.file_reader import save_upload_file, validate_extension
 
 logger = logging.getLogger(__name__)
@@ -107,12 +122,7 @@ async def get_chat(chat_id: int, db: DbSession, user: CurrentUser):
     return _chat_read(chat, statuses.get(chat.id, "draft"))
 
 
-@router.get("/{chat_id}/messages", response_model=list[MessageRead])
-async def list_messages(chat_id: int, db: DbSession, user: CurrentUser):
-    chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
-    if not chat:
-        raise HTTPException(status_code=404, detail="Чат не найден")
-
+async def _load_messages(db: AsyncSession, chat_id: int) -> list[MessageRead]:
     stmt = (
         select(Message)
         .options(selectinload(Message.attachments))
@@ -121,6 +131,84 @@ async def list_messages(chat_id: int, db: DbSession, user: CurrentUser):
     )
     result = await db.scalars(stmt)
     return [MessageRead.model_validate(message) for message in result.all()]
+
+
+@router.get("/{chat_id}/messages", response_model=list[MessageRead])
+async def list_messages(chat_id: int, db: DbSession, user: CurrentUser):
+    chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    return await _load_messages(db, chat_id)
+
+
+_STREAM_POLL_SECONDS = 1.0
+_STREAM_HEARTBEAT_SECONDS = 15.0
+_STREAM_MAX_SECONDS = 1800.0
+
+
+@router.get("/{chat_id}/messages/stream")
+async def stream_messages(chat_id: int, request: Request):
+    """T48: pushes the message list over SSE whenever it changes (replaces polling).
+
+    A `messages` event carries the whole list (same shape as the REST endpoint);
+    a `done` event marks a terminal state and the stream closes. The loop watches
+    the database, so it works no matter which worker runs the analysis.
+    """
+    # Authenticate in a short session: request-scoped dependencies would hold a
+    # database connection for the lifetime of this streaming response.
+    async with async_session_factory() as db:
+        user = await resolve_session(db, request.cookies.get("judgeai_session", ""))
+        if user is None:
+            raise HTTPException(status_code=401, detail="Требуется вход")
+        chat = await db.scalar(
+            select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id)
+        )
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+
+    async def events():
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _STREAM_MAX_SECONDS
+        snapshot: list | None = None
+        heartbeat = 0.0
+        while loop.time() < deadline:
+            async with async_session_factory() as db:
+                current = await resolve_session(db, request.cookies.get("judgeai_session", ""))
+                owned = await db.scalar(
+                    select(Chat.id).where(Chat.id == chat_id, Chat.owner_id == user.user_id)
+                )
+                if current is None or current.user_id != user.user_id or owned is None:
+                    yield "event: access_revoked\ndata: {}\n\n"
+                    return
+                messages = await _load_messages(db, chat_id)
+            payload = [message.model_dump(mode="json") for message in messages]
+            if payload != snapshot:
+                snapshot = payload
+                yield "event: messages\ndata: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+                heartbeat = 0.0
+            busy = any(
+                message.role == "assistant" and message.status in ("pending", "running")
+                for message in messages
+            )
+            if not busy:
+                yield "event: done\ndata: {}\n\n"
+                return
+            slept = 0.0
+            while slept < _STREAM_POLL_SECONDS:
+                if await request.is_disconnected():
+                    return
+                await asyncio.sleep(0.2)
+                slept += 0.2
+            heartbeat += _STREAM_POLL_SECONDS
+            if heartbeat >= _STREAM_HEARTBEAT_SECONDS:
+                yield ": ping\n\n"
+                heartbeat = 0.0
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{chat_id}/messages/{message_id}", response_model=MessageRead)
@@ -169,6 +257,7 @@ async def recalculate_message(
     )
     if active is not None:
         raise HTTPException(409, "Дождитесь завершения текущего анализа")
+    await SqlAnalysisRevisionStore(db).archive_current(user.user_id, chat_id, message_id)
     message.status = "pending"
     message.stage = None
     message.error = None

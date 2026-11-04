@@ -293,7 +293,9 @@ class RulingReader:
         found = list(_RESOLUTION.finditer(description))
         if found:
             description = description[: found[-1].start()]
-        fabula = _without_names(extract_fabula(description), _surname_stems(flat))
+        fabula = _without_names(
+            extract_fabula(description, materials=(flat,)), _surname_stems(flat)
+        )
         readings = []
         person_segments = list(_restated_sentences(head))
         person_names, person_introductions = _person_identifiers(head)

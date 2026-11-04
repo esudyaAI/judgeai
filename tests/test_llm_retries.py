@@ -109,7 +109,7 @@ async def test_user_prompt_preserves_existing_json_word(pauses):
     assert user_msg == "верни ответ в JSON формате"
 
 
-async def test_error_status_logs_response_text(pauses):
+async def test_error_status_does_not_log_response_text(pauses):
     requests: list = []
     error_body = '{"error": {"message": "invalid request", "code": "invalid_request"}}'
     client = _client([httpx.Response(400, text=error_body)], requests)
@@ -118,9 +118,10 @@ async def test_error_status_logs_response_text(pauses):
             await client.complete_json("s", "u")
 
     mock_warning.assert_called_once()
-    _, status_code, message = mock_warning.call_args[0]
+    template, status_code = mock_warning.call_args[0]
     assert status_code == 400
-    assert "invalid request" in message
+    assert "invalid request" not in template
+    assert error_body not in str(mock_warning.call_args)
 
 
 def test_app_logging_emits_info_to_stdout_when_root_has_no_handler():

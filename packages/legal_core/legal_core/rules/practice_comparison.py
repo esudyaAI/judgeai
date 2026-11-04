@@ -28,15 +28,15 @@ class Position(StrEnum):
 class PracticeComparison:
     total: int  # precedents compared
     with_term: int  # of them, with a known imprisonment term
-    min_months: int | None
+    min_months: float | None
     p25_months: float | None
     median_months: float | None
     p75_months: float | None
-    max_months: int | None
+    max_months: float | None
     conditional_share: float | None
     art64_share: float | None
     art73_share: float | None
-    draft_months: int | None
+    draft_months: float | None
     draft_percentile: float | None  # mid-rank: share of terms below, plus half of equal ones
     position: Position | None
 
@@ -51,7 +51,7 @@ def _share(cards: Sequence[PrecedentCard], predicate) -> float | None:
     return round(sum(1 for c in cards if predicate(c)) / len(cards), 4)
 
 
-def _quartiles(terms: list[int]) -> tuple[float, float, float]:
+def _quartiles(terms: list[float]) -> tuple[float, float, float]:
     if len(terms) == 1:
         return terms[0], terms[0], terms[0]
     p25, median, p75 = statistics.quantiles(terms, n=4, method="inclusive")
@@ -59,7 +59,7 @@ def _quartiles(terms: list[int]) -> tuple[float, float, float]:
 
 
 def compare_with_practice(
-    precedents: Sequence[PrecedentCard], draft_months: int | None
+    precedents: Sequence[PrecedentCard], draft_months: float | None
 ) -> PracticeComparison:
     terms = sorted(m for c in precedents if (m := c.imprisonment_months) is not None)
     shares = (

@@ -6,7 +6,7 @@ the model found nothing, so the same window is never sent twice for the same pro
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,4 +24,27 @@ class LlmWindowExtraction(Base):
     field: Mapped[str] = mapped_column(String(80))
     prompt_version: Mapped[str] = mapped_column(String(80))
     value: Mapped[dict] = mapped_column(JSONB)
+    provenance: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PrivateLlmWindowExtraction(Base):
+    __tablename__ = "private_llm_window_extractions"
+    __table_args__ = (
+        UniqueConstraint(
+            "chat_id",
+            "input_hash",
+            "field",
+            "prompt_version",
+            name="uq_private_llm_window_extraction",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    input_hash: Mapped[str] = mapped_column(String(64))
+    field: Mapped[str] = mapped_column(String(80))
+    prompt_version: Mapped[str] = mapped_column(String(80))
+    value: Mapped[dict] = mapped_column(JSONB)
+    provenance: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

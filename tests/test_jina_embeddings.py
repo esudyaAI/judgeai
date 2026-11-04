@@ -82,6 +82,12 @@ async def test_jina_provider_routes_queries_and_passages(monkeypatch):
         return [[0.5] * 4 for _ in texts]
 
     monkeypatch.setattr(embeddings.settings, "EMBEDDING_PROVIDER", "jina")
+    monkeypatch.setattr(embeddings.settings, "EXTERNAL_PROCESSING_APPROVAL_ID", "synthetic-only")
+    monkeypatch.setattr(
+        embeddings.settings,
+        "EXTERNAL_PROCESSING_ALLOWED_ENDPOINTS",
+        embeddings.settings.JINA_API_BASE,
+    )
     monkeypatch.setattr(JinaEmbeddings, "embed", fake_embed)
     assert await embeddings.embed_query("кража ноутбука") == [0.5] * 4
     assert await embeddings.embed_passages(["фабула"]) == [[0.5] * 4]

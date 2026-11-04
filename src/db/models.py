@@ -125,8 +125,10 @@ class KnowledgeChunk(Base):
 
 
 # Register the public legal corpus and derived sanctions in the metadata used by Alembic.
+from src.db.analysis_revisions import AnalysisRevision  # noqa: E402, F401
 from src.db.auth import LoginBucket, User, UserSession  # noqa: E402,F401
 from src.db.criminal_sanctions import CriminalArticleSanction  # noqa: E402,F401
 from src.db.legal_library import LegalAct, LegalEdition, LegalProvision, LegalRuleReference  # noqa: E402,F401
 from src.db.llm_window_extractions import LlmWindowExtraction  # noqa: E402,F401
 from src.db.precedents import PrecedentCardField, PrecedentCardRow, PrecedentEmbedding  # noqa: E402,F401
+from src.db.reports import CaseReport  # noqa: E402,F401

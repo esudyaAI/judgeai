@@ -22,6 +22,7 @@ async def test_api_returns_isolated_personal_sentences_and_recidivism(client):
     message_id = response.json()["assistant_message"]["id"]
     reply = (await client.get(f"/api/chats/{chat_id}/messages/{message_id}")).json()
     assert reply["status"] == "completed", reply["error"]
+    assert reply["stale"] is False
     result = reply["result"]
     assert len(result["defendants"]) == 2 and not result["legal_checks"]
     first, second = result["defendants"]

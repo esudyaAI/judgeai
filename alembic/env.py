@@ -7,8 +7,8 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from src.config import settings
+from src.db import models  # noqa: F401 (register ORM tables for migrations)
 from src.db.base import Base
-from src.db import models
 
 config = context.config
 

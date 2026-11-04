@@ -43,12 +43,17 @@ from legal_core.rules.sentence_edges import (
 from pydantic import ValidationError
 
 from src.application.practice_report import PracticeReport
+from src.domain.analysis_segments import MODEL_DOCUMENT_CHARS
 from src.domain.analysis_version import ANALYSIS_VERSION
+from src.domain.prepared_legal import PreparedFact, PreparedLegalInputs
+from src.domain.prepared_sentencing import PreparedCircumstance, PreparedSentencingInputs
 from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import (
     AnalysisStats,
     CaseAnalysis,
+    Circumstance,
     DefendantAnalysisRead,
+    ExtractionRead,
     ImposedCountRead,
     ImposedSentenceRead,
     LegalCheck,
@@ -63,13 +68,14 @@ from src.schemas.analysis import (
 )
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
 from src.services.defendant_blocks import scoped_verdicts
-from src.services.legal_checks import build_legal_checks, guilt_from_text
+from src.services.legal_checks import build_legal_checks, guilt_from_text, prepare_legal_inputs
 from src.services.llm_client import LLMClient, LLMError
 from src.services.punishment_extractor import (
     extract_imposed_sentence,
     read_chronology,
     read_prior_terms,
 )
+from src.services.regime_facts import prepare_regime_inputs
 from src.services.sanction_summary import (
     describe_main_alternatives,
     describe_precedent_punishment,
@@ -80,13 +86,14 @@ from src.services.sentencing import art62_part1_limit
 from src.services.verdict_segmenter import segment_verdict
 from src.services.verified_circumstances import (
     confirmed_no_aggravating,
+    no_aggravating_quote,
     read_court_circumstances,
     verified_circumstances,
 )
 
 logger = logging.getLogger(__name__)
 
-DOCUMENT_CHARS_LIMIT = 30000
+DOCUMENT_CHARS_LIMIT = MODEL_DOCUMENT_CHARS
 DEFAULT_QUESTION = "Подготовь проект приговора: квалификация, обстоятельства, варианты наказания."
 
 SYSTEM_PROMPT = """Ты — ассистент судьи по уголовным делам (УК РФ).
@@ -311,93 +318,81 @@ def _precedent_refs(report: PracticeReport) -> list[SimilarVerdictRef]:
     ]
 
 
-def assemble_analysis(
-    facts: LlmCaseFacts,
-    *,
-    prompt: str,
-    documents: int,
-    pages: int,
-    seconds: int,
-    similar_items: list[dict],
-    extra_warnings: list[str],
-    document_texts: list[str] | None = None,
-    statute: StatuteSanctionReading | None = None,
-    sentence: ImposedSentence | None = None,
-    count_statutes: dict[ArticleReference, StatuteSanctionReading] | None = None,
-    model_texts: list[str] | None = None,
-    practice: PracticeReport | None = None,
-    precedent_source: str | None = None,
-    defendant_practice: dict[int, PracticeReport] | None = None,
-) -> CaseAnalysis:
-    """sentence/count_statutes come from the operative part read by regex; when present, the
-    imposed punishment is checked per count instead of the single model-cited term.
-    practice holds the precedent cards found for the draft and the T28 comparison."""
-    warnings = list(extra_warnings)
+def _analysis_source(prompt, document_texts, model_texts, extraction):
+    warnings = []
+    if extraction is not None and extraction.complete:
+        # Every source window was read and citations checked before merging.
+        source_text = "\n".join([prompt, *(document_texts or [])])
+    else:
+        prompt_texts = model_texts if model_texts is not None else document_texts or []
+        context_size = len("\n\n---\n\n".join(t for t in prompt_texts if t.strip()))
+        if model_texts is not None and sum(map(len, model_texts)) < sum(
+            map(len, document_texts or [])
+        ):
+            warnings.append(
+                "Для модели сокращена описательная часть; вводная и резолютивная части "
+                "переданы полностью."
+            )
+        if context_size > DOCUMENT_CHARS_LIMIT:
+            warnings.append(
+                f"Модели передано не больше {DOCUMENT_CHARS_LIMIT} символов; "
+                f"{context_size - DOCUMENT_CHARS_LIMIT} символов не вошли. "
+                "Анализ охватывает документы не полностью."
+            )
+        # Quotes are accepted only from what the model actually saw.
+        source_text = "\n".join(
+            [
+                prompt,
+                "\n\n---\n\n".join(t for t in prompt_texts if t.strip())[:DOCUMENT_CHARS_LIMIT],
+            ]
+        )
+    return source_text, warnings
+
+
+def _prepared_legal_scope(facts, prompt, document_texts, model_texts, extraction):
+    source_text, _ = _analysis_source(prompt, document_texts, model_texts, extraction)
     full_text = "\n\n".join(document_texts or [])
+    court = read_court_circumstances(full_text)
+    return prepare_legal_inputs(
+        facts,
+        source_text,
+        extracted_recidivism=court.recidivism,
+        recidivism_quote=court.recidivism_quote,
+        extracted_source_text=full_text,
+        text_guilt=guilt_from_text(full_text),
+    )
+
+
+def prepare_assembly_legal_inputs(
+    facts, *, prompt="", document_texts=None, model_texts=None, extraction=None
+):
     people = [person for text in (document_texts or []) for person in scoped_verdicts(text)]
     if people:
-        individual = []
-        for index, (person, text) in enumerate(people):
-            # Global model facts cannot be attributed to any person without a subject contract.
-            own_facts = LlmCaseFacts(fabula=facts.fabula)
-            own_parts = segment_verdict(text)
-            own_extraction = extract_imposed_sentence(
-                own_parts.operative, own_parts.description, introduction=own_parts.introduction
-            )
-            own_sentence = own_extraction.sentence
-            own_warnings = (
-                ["Не все наказания прочитаны; нераспознанные назначения требуют ручной сверки."]
-                if own_extraction.ambiguous_windows or own_sentence.is_empty
-                else []
-            )
-            own = assemble_analysis(
-                own_facts,
-                prompt="",
-                documents=documents,
-                pages=pages,
-                seconds=seconds,
-                similar_items=[],
-                extra_warnings=own_warnings,
-                document_texts=[text],
-                sentence=own_sentence,
-                count_statutes=count_statutes,
-                practice=(defendant_practice or {}).get(index),
-                precedent_source=precedent_source,
-            )
-            display_person = person.upper() if person.startswith("фио") else person.title()
-            individual.append(
-                DefendantAnalysisRead(
-                    label=f"Осуждённый {index + 1}: {display_person}",
-                    legal_checks=own.legal_checks,
-                    imposed_sentence=own.imposed_sentence,
-                    mitigating=own.mitigating,
-                    aggravating=own.aggravating,
-                    practice_episodes=own.practice_episodes,
-                    similar=own.similar,
-                    warnings=own.warnings,
-                )
-            )
-        return CaseAnalysis(
-            stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
-            prompt=prompt,
-            fabula=facts.fabula,
-            defendants=individual,
-            warnings=[
-                *warnings,
-                "Проверки разделены по осуждённым. Непривязанные "
-                "факты модели не использованы для персональных расчётов.",
-            ],
-        )
+        return {
+            index: _prepared_legal_scope(None, "", [text], None, extraction)
+            for index, (_, text) in enumerate(people)
+        }
+    return {
+        0: _prepared_legal_scope(facts.legal_facts, prompt, document_texts, model_texts, extraction)
+    }
 
+
+def _aggregate_guilt(facts, source_text, count):
+    guilt = facts.legal_facts.guilt if facts.legal_facts else None
+    if guilt is not None and guilt.quote not in source_text:
+        guilt = None
+    guilt = guilt or guilt_from_text(count.quote) or guilt_from_text(source_text)
+    return (
+        PreparedFact(guilt.value, guilt.quote)
+        if guilt and guilt.value in set(Guilt)
+        else PreparedFact()
+    )
+
+
+def _prepared_sentencing_scope(facts, document_texts, sentence, subject_warnings=()):
+    full_text = "\n\n".join(document_texts or [])
     mitigating, rejected_m = verified_circumstances(facts.mitigating, full_text, mitigating=True)
     aggravating, rejected_a = verified_circumstances(facts.aggravating, full_text, mitigating=False)
-    facts = facts.model_copy(update={"mitigating": mitigating, "aggravating": aggravating})
-    if rejected_m or rejected_a:
-        warnings.append(
-            "Часть обстоятельств модели не подтверждена положительным выводом суда "
-            "с цитатой; они исключены из расчётов и требуют проверки."
-        )
-
     if sentence is not None and sentence.unserved is None:
         balance, balance_quote, _, _ = read_prior_terms(
             full_text,
@@ -417,6 +412,211 @@ def assemble_analysis(
             credited=sentence.credited or credit,
             credited_quote=sentence.credited_quote or credit_quote,
         )
+    absence_quote = no_aggravating_quote(full_text)
+    art64 = []
+    for count in sentence.counts if sentence is not None else ():
+        quote = extract_circumstances(count.quote, sentence.final_quote).applied_general.get("64")
+        art64.append(PreparedFact(True, quote) if quote else PreparedFact())
+    return PreparedSentencingInputs(
+        sentence=sentence,
+        mitigating=tuple(
+            PreparedCircumstance(item.name, item.norm, item.quote) for item in mitigating
+        ),
+        aggravating=tuple(
+            PreparedCircumstance(item.name, item.norm, item.quote) for item in aggravating
+        ),
+        rejected_circumstances=bool(rejected_m or rejected_a),
+        no_aggravating=PreparedFact(True, absence_quote) if absence_quote else PreparedFact(),
+        art64_by_count=tuple(art64),
+        aggregate_absorption=tuple(
+            bool(re.search(r"поглощени", q, re.I))
+            for q in (sentence.intermediate_quote, sentence.final_quote)
+        )
+        if sentence is not None
+        else (False, False),
+        guilt_by_count=tuple(_aggregate_guilt(facts, full_text, c) for c in sentence.counts)
+        if sentence is not None
+        else (),
+        regime=prepare_regime_inputs(full_text),
+        subject_warnings=tuple(subject_warnings),
+    )
+
+
+def _personal_sentence(text):
+    parts = segment_verdict(text)
+    extraction = extract_imposed_sentence(
+        parts.operative, parts.description, introduction=parts.introduction
+    )
+    warnings = (
+        ["Не все наказания прочитаны; нераспознанные назначения требуют ручной сверки."]
+        if (extraction.ambiguous_windows or extraction.sentence.is_empty)
+        else []
+    )
+    return extraction.sentence, warnings
+
+
+def prepare_assembly_sentencing_inputs(facts, *, document_texts=None, sentence=None):
+    people = [person for text in (document_texts or []) for person in scoped_verdicts(text)]
+    if people:
+        result = {}
+        for index, (_, text) in enumerate(people):
+            own_sentence, warnings = _personal_sentence(text)
+            result[index] = _prepared_sentencing_scope(
+                LlmCaseFacts(fabula=facts.fabula), [text], own_sentence, warnings
+            )
+        return result
+    return {0: _prepared_sentencing_scope(facts, document_texts, sentence)}
+
+
+def _validate_subjects(mapping, people, kind):
+    if mapping is not None and (
+        set(mapping) != set(range(len(people) or 1))
+        or any(not isinstance(item, kind) for item in mapping.values())
+    ):
+        raise ValueError("Prepared inputs do not match the analysed subjects")
+
+
+def assemble_analysis(
+    facts: LlmCaseFacts,
+    *,
+    prompt: str,
+    documents: int,
+    pages: int,
+    seconds: int,
+    similar_items: list[dict],
+    extra_warnings: list[str],
+    document_texts: list[str] | None = None,
+    statute: StatuteSanctionReading | None = None,
+    sentence: ImposedSentence | None = None,
+    count_statutes: dict[ArticleReference, StatuteSanctionReading] | None = None,
+    model_texts: list[str] | None = None,
+    extraction: ExtractionRead | None = None,
+    practice: PracticeReport | None = None,
+    precedent_source: str | None = None,
+    defendant_practice: dict[int, PracticeReport] | None = None,
+    prepared_legal_inputs: dict[int, PreparedLegalInputs] | None = None,
+    prepared_sentencing_inputs: dict[int, PreparedSentencingInputs] | None = None,
+) -> CaseAnalysis:
+    """sentence/count_statutes come from the operative part read by regex; when present, the
+    imposed punishment is checked per count instead of the single model-cited term.
+    practice holds the precedent cards found for the draft and the T28 comparison."""
+    warnings = list(extra_warnings)
+    full_text = "\n\n".join(document_texts or [])
+    people = [person for text in (document_texts or []) for person in scoped_verdicts(text)]
+    _validate_subjects(prepared_legal_inputs, people, PreparedLegalInputs)
+    _validate_subjects(prepared_sentencing_inputs, people, PreparedSentencingInputs)
+    if people:
+        individual = []
+        for index, (person, text) in enumerate(people):
+            # Global model facts cannot be attributed to any person without a subject contract.
+            own_facts = LlmCaseFacts(fabula=facts.fabula)
+            if prepared_sentencing_inputs is not None:
+                own_sentence = prepared_sentencing_inputs[index].sentence
+                own_warnings = list(prepared_sentencing_inputs[index].subject_warnings)
+            else:
+                own_sentence, own_warnings = _personal_sentence(text)
+            own = assemble_analysis(
+                own_facts,
+                prompt="",
+                documents=documents,
+                pages=pages,
+                seconds=seconds,
+                similar_items=[],
+                extra_warnings=own_warnings,
+                document_texts=[text],
+                sentence=own_sentence,
+                count_statutes=count_statutes,
+                practice=(defendant_practice or {}).get(index),
+                precedent_source=precedent_source,
+                extraction=extraction,
+                prepared_legal_inputs={0: prepared_legal_inputs[index]}
+                if prepared_legal_inputs is not None
+                else None,
+                prepared_sentencing_inputs={0: prepared_sentencing_inputs[index]}
+                if prepared_sentencing_inputs is not None
+                else None,
+            )
+            display_person = person.upper() if person.startswith("фио") else person.title()
+            individual.append(
+                DefendantAnalysisRead(
+                    label=f"Осуждённый {index + 1}: {display_person}",
+                    legal_checks=own.legal_checks,
+                    imposed_sentence=own.imposed_sentence,
+                    mitigating=own.mitigating,
+                    aggravating=own.aggravating,
+                    practice_episodes=own.practice_episodes,
+                    similar=own.similar,
+                    warnings=own.warnings,
+                )
+            )
+        return CaseAnalysis(
+            engine_version=ANALYSIS_VERSION,
+            extraction=extraction,
+            stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
+            prompt=prompt,
+            fabula=facts.fabula,
+            defendants=individual,
+            warnings=[
+                *warnings,
+                "Проверки разделены по осуждённым. Непривязанные "
+                "факты модели не использованы для персональных расчётов.",
+            ],
+        )
+
+    sentencing = (
+        prepared_sentencing_inputs[0]
+        if prepared_sentencing_inputs is not None
+        else (_prepared_sentencing_scope(facts, document_texts, sentence))
+    )
+    sentence = sentencing.sentence
+    invalid_statutes = (
+        {
+            sentence.counts[int(key.split("/")[1])].reference
+            for key in sentencing.unknown_fields
+            if key.startswith("statute/")
+        }
+        if sentence is not None
+        else set()
+    )
+    if invalid_statutes:
+        count_statutes = {
+            ref: reading
+            for ref, reading in (count_statutes or {}).items()
+            if ref not in invalid_statutes
+        }
+        statute = None
+        facts = facts.model_copy(update={"sanction_max_months": None})
+        warnings.append(
+            "Дата преступления изменена; применимость сохранённой редакции закона "
+            "не подтверждена. Зависимые санкции сняты до сверки редакции."
+        )
+    facts = facts.model_copy(
+        update={
+            "mitigating": [
+                Circumstance(name=item.name, norm=item.norm, quote=item.quote)
+                for item in sentencing.mitigating
+                if item.established is True
+            ],
+            "aggravating": [
+                Circumstance(name=item.name, norm=item.norm, quote=item.quote)
+                for item in sentencing.aggravating
+                if item.established is True
+            ],
+        }
+    )
+    if sentencing.unknown_fields or any(
+        c.established is None for c in (*sentencing.mitigating, *sentencing.aggravating)
+    ):
+        warnings.append(
+            "Часть назначений или обстоятельств оставлена пользователем неизвестной; "
+            "зависимые проверки требуют сверки."
+        )
+    if sentencing.rejected_circumstances:
+        warnings.append(
+            "Часть обстоятельств модели не подтверждена положительным выводом суда "
+            "с цитатой; они исключены из расчётов и требуют проверки."
+        )
+
     per_count = sentence is not None and bool(sentence.counts)
     ceiling = _statutory_ceiling(statute)
     sanction_max_months = facts.sanction_max_months
@@ -435,33 +635,17 @@ def assemble_analysis(
                 f"{statutory_max} мес.; использовано значение из текста УК РФ."
             )
         sanction_max_months = statutory_max
-    prompt_texts = model_texts if model_texts is not None else document_texts or []
-    context_size = len("\n\n---\n\n".join(t for t in prompt_texts if t.strip()))
-    if model_texts is not None and sum(map(len, model_texts)) < sum(map(len, document_texts or [])):
-        warnings.append(
-            "Для модели сокращена описательная часть; вводная и резолютивная части "
-            "переданы полностью."
-        )
-    if context_size > DOCUMENT_CHARS_LIMIT:
-        warnings.append(
-            f"Модели передано не больше {DOCUMENT_CHARS_LIMIT} символов; "
-            f"{context_size - DOCUMENT_CHARS_LIMIT} символов не вошли. "
-            "Анализ охватывает документы не полностью."
-        )
-    # Quotes are accepted only from what the model actually saw.
-    source_text = "\n".join(
-        [
-            prompt,
-            "\n\n---\n\n".join(t for t in prompt_texts if t.strip())[:DOCUMENT_CHARS_LIMIT],
-        ]
-    )
+    source_text, source_warnings = _analysis_source(prompt, document_texts, model_texts, extraction)
+    warnings.extend(source_warnings)
     art62_limit = (
         art62_part1_limit(sanction_max_months, facts.mitigating, facts.aggravating)
-        if sanction_max_months and confirmed_no_aggravating(full_text)
+        if sanction_max_months and sentencing.no_aggravating.value is True
         else None
     )
     if per_count:
-        statute_checks = _count_checks(sentence, count_statutes or {}, facts, full_text)
+        statute_checks = _count_checks(
+            sentence, count_statutes or {}, facts, full_text, prepared=sentencing
+        )
     elif _single_part(statute):
         statute_checks.append(
             _imposed_term_check(statute, facts.legal_facts, source_text, art62_limit)
@@ -484,7 +668,7 @@ def assemble_analysis(
             exact62 = part1_limit_amount(
                 reduced,
                 (c.norm for c in facts.mitigating),
-                has_aggravating=not confirmed_no_aggravating(full_text),
+                has_aggravating=sentencing.no_aggravating.value is not True,
             )
             limit = float(exact62) if exact62 is not None else reduced
             limit_norm = "ч. 1 ст. 62" if exact62 is not None else ART66_NORMS[stage]
@@ -515,17 +699,19 @@ def assemble_analysis(
         if rec is not None and rec > cap:
             warnings.append("Рекомендованный срок выходит за допустимый предел — проверьте.")
 
-    extracted = read_court_circumstances("\n\n".join(document_texts or []))
-    text_guilt = guilt_from_text("\n\n".join(document_texts or []))
+    prepared = (
+        prepared_legal_inputs[0]
+        if prepared_legal_inputs is not None
+        else _prepared_legal_scope(
+            facts.legal_facts, prompt, document_texts, model_texts, extraction
+        )
+    )
     most_serious = _most_serious_ceiling(sentence, count_statutes or {}) if per_count else None
     legal_checks = statute_checks + build_legal_checks(
         facts.legal_facts,
         source_text,
         statutory_ceiling=most_serious or ceiling,
-        extracted_recidivism=extracted.recidivism,
-        recidivism_quote=extracted.recidivism_quote,
-        extracted_source_text="\n\n".join(document_texts or []),
-        text_guilt=text_guilt,
+        prepared=prepared,
     )
     if per_count and most_serious is None:
         for check in legal_checks:
@@ -534,8 +720,9 @@ def assemble_analysis(
                 check.explanation = (
                     "Не прочитаны санкции всех эпизодов; самая тяжкая категория не определена."
                 )
-    cited_guilt = facts.legal_facts.guilt if facts.legal_facts is not None else None
-    cited_guilt = cited_guilt or text_guilt
+    cited_guilt = (
+        prepared.model_guilt if prepared.model_guilt.value is not None else prepared.category_guilt
+    )
     legal_checks += build_sentence_checks(
         sentence,
         count_statutes or {},
@@ -543,11 +730,13 @@ def assemble_analysis(
         facts.mitigating,
         document_text="\n".join(document_texts or []),
         guilt=cited_guilt.value if cited_guilt is not None else None,
+        prepared=sentencing,
     )
     return CaseAnalysis(
+        extraction=extraction,
         engine_version=ANALYSIS_VERSION,
         legal_checks=legal_checks,
-        imposed_sentence=_sentence_read(sentence),
+        imposed_sentence=_sentence_read(sentence, sentencing.unknown_fields),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
         prompt=prompt,
         fabula=facts.fabula,
@@ -717,12 +906,30 @@ def _count_checks(
     statutes: dict[ArticleReference, StatuteSanctionReading],
     facts: LlmCaseFacts,
     source_text: str = "",
+    *,
+    prepared: PreparedSentencingInputs | None = None,
 ) -> list[LegalCheck]:
     """Sanction and imposed-punishment checks for every count of the operative part."""
+    if prepared is not None and prepared.sentence != sentence:
+        raise ValueError("Prepared sentencing inputs do not match the sentence")
     checks: list[LegalCheck] = []
     seen_sanctions: set[ArticleReference] = set()
-    for count in sentence.counts:
+    unknown = set(prepared.unknown_fields) if prepared is not None else set()
+    for index, count in enumerate(sentence.counts):
         reading = statutes.get(count.reference) if count.reference else None
+        if f"count/{index}/main" in unknown:
+            checks.append(
+                LegalCheck(
+                    norm=f"Наказание · {count.qualification}",
+                    status="insufficient_data",
+                    source="",
+                    explanation=(
+                        "Основное наказание оставлено неизвестным пользователем; "
+                        "сравнение с санкцией не выполнено."
+                    ),
+                )
+            )
+            continue
         if count.stage_conflict:
             checks.append(
                 LegalCheck(
@@ -743,7 +950,15 @@ def _count_checks(
             checks.append(_statute_sanction_check(reading))
         top = most_severe_alternative(reading.sanctions)
         exact_limit = None
-        if top and top.max_value and confirmed_no_aggravating(source_text):
+        if (
+            top
+            and top.max_value
+            and (
+                prepared.no_aggravating.value is True
+                if prepared is not None
+                else confirmed_no_aggravating(source_text)
+            )
+        ):
             exact_limit = part1_limit_amount(
                 reduced_maximum(top.max_value, count.unfinished),
                 (c.norm for c in facts.mitigating),
@@ -756,8 +971,9 @@ def _count_checks(
             art62_limit_months=None,
             unfinished=count.unfinished,
             art62_limit_amount=exact_limit,
-            art64_applied="64"
-            in extract_circumstances(count.quote, sentence.final_quote).applied_general,
+            art64_applied=prepared.art64_by_count[index].value is True
+            if prepared is not None
+            else ("64" in extract_circumstances(count.quote, sentence.final_quote).applied_general),
         )
         checks.append(
             LegalCheck(
@@ -769,9 +985,19 @@ def _count_checks(
                 evidence=[count.quote] if count.quote else [],
             )
         )
-    for count in sentence.counts:
+    for count_index, count in enumerate(sentence.counts):
         reading = statutes.get(count.reference) if count.reference else None
-        for additional in count.additional:
+        for extra_index, additional in enumerate(count.additional):
+            if f"count/{count_index}/additional/{extra_index}" in unknown:
+                checks.append(
+                    LegalCheck(
+                        norm=f"Дополнительное наказание · {count.qualification}",
+                        status="insufficient_data",
+                        source="",
+                        explanation="Дополнительное наказание оставлено неизвестным пользователем.",
+                    )
+                )
+                continue
             result = check_additional(additional, reading.sanctions) if reading else None
             checks.append(
                 LegalCheck(
@@ -785,23 +1011,50 @@ def _count_checks(
                     else "Санкция дополнительного наказания не найдена.",
                 )
             )
-    for credit in sentence.fine_credits:
+    for credit_index, credit in enumerate(sentence.fine_credits):
+        credit_unknown = f"fine_credit/{credit_index}" in unknown
         checks.append(
             LegalCheck(
                 norm="Смягчение штрафа · ч. 5 ст. 72 УК РФ",
                 status="insufficient_data",
                 source="",
-                explanation="Указанное судом смягчение сохранено отдельно от назначенного штрафа. "
-                "Его законность и связь с совокупностью требуют проверки; "
-                "пересчёт дней в рубли не выполняется.",
-                evidence=[credit.quote],
+                explanation=(
+                    "Решение о зачёте штрафа оставлено неизвестным пользователем; "
+                    "автоматическая сверка не выполнена."
+                )
+                if credit_unknown
+                else (
+                    "Указанное судом смягчение сохранено отдельно от назначенного штрафа. "
+                    "Его законность и связь с совокупностью требуют проверки; "
+                    "пересчёт дней в рубли не выполняется."
+                ),
+                evidence=[] if credit_unknown else [credit.quote],
             )
         )
-    for term, rule, quote in (
-        (sentence.intermediate, sentence.intermediate_rule, sentence.intermediate_quote),
-        (sentence.final, sentence.aggregation_rule, sentence.final_quote),
+    aggregate_unknown = any(
+        key in {"final", "intermediate", "unserved", "joined"}
+        or (key.startswith("count/") and key.endswith("/main"))
+        for key in unknown
+    )
+    if aggregate_unknown:
+        checks.append(
+            LegalCheck(
+                norm="Совокупность наказаний · ст. 69/70 УК РФ",
+                status="insufficient_data",
+                source="",
+                explanation=(
+                    "Одно из назначений оставлено неизвестным пользователем; "
+                    "расчёт совокупности не выполнен."
+                ),
+            )
+        )
+    for aggregate_index, (term, rule, quote) in enumerate(
+        (
+            (sentence.intermediate, sentence.intermediate_rule, sentence.intermediate_quote),
+            (sentence.final, sentence.aggregation_rule, sentence.final_quote),
+        )
     ):
-        if term is None:
+        if term is None or aggregate_unknown:
             continue
         if sentence.fine_credits:
             label = "Промежуточное" if term is sentence.intermediate else "Окончательное"
@@ -811,13 +1064,44 @@ def _count_checks(
                     status="insufficient_data",
                     source="",
                     value=describe_term(term),
-                    explanation="В приговоре указано смягчение штрафа по ч. 5 ст. 72 УК РФ. "
-                    "Автоматический расчёт совокупности с таким зачётом не поддерживается.",
-                    evidence=[q for q in [quote, *(c.quote for c in sentence.fine_credits)] if q],
+                    explanation=(
+                        "Сведения о зачёте штрафа оставлены неизвестными пользователем. "
+                        "Автоматический расчёт совокупности с неустановленным зачётом не выполнен."
+                    )
+                    if any(key.startswith("fine_credit/") for key in unknown)
+                    else (
+                        "В приговоре указано смягчение штрафа по ч. 5 ст. 72 УК РФ. "
+                        "Автоматический расчёт совокупности с таким зачётом не поддерживается."
+                    ),
+                    evidence=[
+                        q
+                        for q in [
+                            quote,
+                            *(
+                                c.quote
+                                for index, c in enumerate(sentence.fine_credits)
+                                if f"fine_credit/{index}" not in unknown
+                            ),
+                        ]
+                        if q
+                    ],
                 )
             )
             continue
         parsed = _aggregation_rule(rule)
+        if parsed == "70" and any("additional" in key for key in unknown):
+            checks.append(
+                LegalCheck(
+                    norm="ст. 70 УК РФ",
+                    status="insufficient_data",
+                    source="",
+                    explanation=(
+                        "Вид дополнительного наказания неизвестен; "
+                        "способ присоединения не проверен."
+                    ),
+                )
+            )
+            continue
         if parsed == "70":
             new = sentence.intermediate or (
                 sentence.counts[0].main if len(sentence.counts) == 1 else None
@@ -896,25 +1180,43 @@ def _count_checks(
             )
         if parsed and parsed.startswith("69"):
             categories = []
-            for count in sentence.counts:
+            for count_index, count in enumerate(sentence.counts):
                 reading = statutes.get(count.reference)
                 ceiling = _statutory_ceiling(reading)
-                guilt = facts.legal_facts.guilt if facts.legal_facts else None
-                if guilt is not None and guilt.quote not in source_text:
-                    guilt = None
-                guilt = guilt or guilt_from_text(count.quote) or guilt_from_text(source_text)
+                guilt = (
+                    prepared.guilt_by_count[count_index]
+                    if prepared is not None and prepared.guilt_by_count is not None
+                    else _aggregate_guilt(facts, source_text, count)
+                )
                 # Facts of different guilt are never inferred from the article number.
                 category = (
                     categorize(Guilt(guilt.value), ceiling)
-                    if ceiling and guilt and guilt.value in set(Guilt) and not count.stage_conflict
+                    if ceiling and guilt.value in set(Guilt) and not count.stage_conflict
                     else None
                 )
                 categories.append(category)
+            absorption = (
+                prepared.aggregate_absorption[aggregate_index]
+                if prepared is not None and prepared.aggregate_absorption is not None
+                else bool(re.search(r"поглощени", quote, re.I))
+            )
+            if absorption is None:
+                checks.append(
+                    LegalCheck(
+                        norm="Способ совокупности · ст. 69 УК РФ",
+                        status="insufficient_data",
+                        source="",
+                        explanation=(
+                            "Поглощение или сложение наказаний не установлено пользователем."
+                        ),
+                    )
+                )
+                continue
             part_result = check_article69_part(
                 int(parsed.split(".")[1]),
                 categories,
                 [c.unfinished for c in sentence.counts],
-                absorption=bool(re.search(r"поглощени", quote, re.I)),
+                absorption=absorption,
             )
             checks.append(
                 LegalCheck(
@@ -925,7 +1227,21 @@ def _count_checks(
                     evidence=[quote],
                 )
             )
-    for final_extra in sentence.final_additional:
+    for final_index, final_extra in enumerate(sentence.final_additional):
+        if f"final_additional/{final_index}" in unknown or any(
+            "/additional/" in key for key in unknown
+        ):
+            checks.append(
+                LegalCheck(
+                    norm="Совокупность дополнительных наказаний",
+                    status="insufficient_data",
+                    source="",
+                    explanation=(
+                        "Одно из дополнительных наказаний оставлено неизвестным пользователем."
+                    ),
+                )
+            )
+            continue
         existing = [extra for c in sentence.counts for extra in c.additional]
         maxima = [
             s.max_value
@@ -994,31 +1310,64 @@ def _unchecked_count(count: CountSentence) -> LegalCheck:
     )
 
 
-def _sentence_read(sentence: ImposedSentence | None) -> ImposedSentenceRead | None:
+def _sentence_read(
+    sentence: ImposedSentence | None, unknown_fields=()
+) -> ImposedSentenceRead | None:
     if sentence is None or sentence.is_empty:
         return None
+    unknown = set(unknown_fields)
     return ImposedSentenceRead(
-        fine_credits=[asdict(c) for c in sentence.fine_credits],
+        unknown_fields=list(unknown_fields),
+        fine_credits=[
+            {
+                **asdict(c),
+                "scope": "unassigned",
+                "count_index": None,
+                "original_amount": None,
+                "reduced_amount": None,
+                "released": None,
+                "unknown": True,
+                "status": "requires_review",
+                "quote": "",
+            }
+            if f"fine_credit/{index}" in unknown
+            else asdict(c)
+            for index, c in enumerate(sentence.fine_credits)
+        ],
         counts=[
             ImposedCountRead(
                 qualification=c.qualification,
-                punishment=describe_term(c.main),
-                additional=[describe_term(a) for a in c.additional],
-                imprisonment_months=c.main.imprisonment_months,
+                punishment="Не установлено пользователем"
+                if f"count/{index}/main" in unknown
+                else describe_term(c.main),
+                additional=[
+                    "Не установлено пользователем"
+                    if f"count/{index}/additional/{extra}" in unknown
+                    else describe_term(a)
+                    for extra, a in enumerate(c.additional)
+                ],
+                imprisonment_months=None
+                if f"count/{index}/main" in unknown
+                else c.main.imprisonment_months,
                 quote=c.quote,
             )
-            for c in sentence.counts
+            for index, c in enumerate(sentence.counts)
         ],
         final=describe_term(sentence.final) if sentence.final else None,
         aggregation_rule=sentence.aggregation_rule,
-        conditional=sentence.conditional,
+        conditional=None if "conditional" in unknown else sentence.conditional,
         probation_months=sentence.probation_months,
         final_quote=sentence.final_quote or None,
         intermediate=describe_term(sentence.intermediate) if sentence.intermediate else None,
         intermediate_rule=sentence.intermediate_rule,
         unserved=describe_term(sentence.unserved) if sentence.unserved else None,
         joined=describe_term(sentence.joined) if sentence.joined else None,
-        final_additional=[describe_term(t) for t in sentence.final_additional],
+        final_additional=[
+            "Не установлено пользователем"
+            if f"final_additional/{index}" in unknown
+            else describe_term(t)
+            for index, t in enumerate(sentence.final_additional)
+        ],
         prior_judgment_date=sentence.prior_judgment_date.isoformat()
         if sentence.prior_judgment_date
         else None,
@@ -1072,7 +1421,6 @@ async def extract_facts(
     )
     user = build_user_prompt(question, document_texts, similar_items)
 
-    last_error: Exception | None = None
     retry_user = user
     for attempt in (1, 2):  # one retry for malformed output
         t_llm = time.monotonic()
@@ -1087,9 +1435,9 @@ async def extract_facts(
         try:
             facts = LlmCaseFacts.model_validate(data)
             logger.info(
-                "[CASE-ANALYZER] Facts validated in %.2fs (qualification=%s)",
+                "[CASE-ANALYZER] Facts validated in %.2fs (has_qualification=%s)",
                 time.monotonic() - t_llm,
-                facts.qualification.article if facts.qualification else None,
+                facts.qualification is not None,
             )
             # Sizes only (no content): shows where the completion tokens go (T39).
             logger.info(
@@ -1106,14 +1454,30 @@ async def extract_facts(
             )
             return facts
         except ValidationError as exc:
-            last_error = exc
             logger.warning(
                 "LLM output failed validation (attempt %s): %s", attempt, exc.error_count()
             )
-            # The retry repeats the prompt but names the schema errors: the model fixes them
-            # from the exact messages instead of guessing again.
+            # Validation messages can contain restored private values. Send schema-only
+            # locations/types, never Pydantic's input/context or arbitrary dictionary keys.
+            schema = LlmCaseFacts.model_json_schema()
+            known_fields = {
+                field
+                for item in (schema, *schema.get("$defs", {}).values())
+                for field in item.get("properties", {})
+            }
+            errors = [
+                {
+                    "type": item["type"],
+                    "loc": [
+                        part if type(part) is int or part in known_fields else "<field>"
+                        for part in item["loc"]
+                    ],
+                }
+                for item in exc.errors(include_input=False, include_context=False)[:10]
+            ]
             retry_user = (
                 f"{user}\n\nПредыдущий ответ не соответствовал схеме. Ошибки: "
-                f"{str(exc)[:1200]}\nВерни исправленный JSON строго по схеме."
+                f"{json.dumps(errors, ensure_ascii=False)}"
+                "\nВерни исправленный JSON строго по схеме."
             )
-    raise LLMError("Ответ модели не соответствует схеме анализа") from last_error
+    raise LLMError("Ответ модели не соответствует схеме анализа") from None

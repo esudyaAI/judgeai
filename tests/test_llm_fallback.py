@@ -86,8 +86,9 @@ async def test_both_primary_and_fallback_failing_raises_combined_error():
         await client.complete_json("sys", "user")
 
     msg = str(exc_info.value)
-    assert "OpenAI gateway 502" in msg
-    assert "DeepSeek web 504" in msg
+    assert "оба вернули ошибку" in msg
+    assert "OpenAI gateway 502" not in msg
+    assert "DeepSeek web 504" not in msg
 
 
 async def test_integration_primary_http_429_falls_back_to_deepseek_web(monkeypatch):
@@ -125,15 +126,22 @@ def test_factory_selects_fallback_by_default(monkeypatch):
     monkeypatch.setattr(llm_client.settings, "LLM_FALLBACK_PROVIDER", "deepseek_web")
     client = get_llm_client()
     assert isinstance(client, FallbackLLMClient)
-    assert isinstance(client.primary, OpenAICompatibleClient)
-    assert isinstance(client.fallback, DeepSeekWebClient)
+    from src.services.external_processing import GuardedLLMClient
+
+    assert isinstance(client.primary, GuardedLLMClient)
+    assert isinstance(client.primary.backend, OpenAICompatibleClient)
+    assert isinstance(client.fallback, GuardedLLMClient)
+    assert isinstance(client.fallback.backend, DeepSeekWebClient)
 
 
 def test_factory_fallback_disabled_returns_openai_client(monkeypatch):
     monkeypatch.setattr(llm_client.settings, "LLM_PROVIDER", "openai")
     monkeypatch.setattr(llm_client.settings, "LLM_FALLBACK_PROVIDER", "none")
     client = get_llm_client()
-    assert isinstance(client, OpenAICompatibleClient)
+    from src.services.external_processing import GuardedLLMClient
+
+    assert isinstance(client, GuardedLLMClient)
+    assert isinstance(client.backend, OpenAICompatibleClient)
 
 
 def test_factory_explicit_fallback_provider(monkeypatch):

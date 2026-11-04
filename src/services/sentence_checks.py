@@ -23,17 +23,21 @@ from legal_core.entities import (
     PunishmentTerm,
 )
 from legal_core.rules.art18 import Recidivism
-from legal_core.rules.art58 import check_regime
 from legal_core.rules.art66 import NORMS as ART66_NORMS
 from legal_core.rules.art66 import reduced_maximum
 from legal_core.rules.art68 import check_recidivism_amount
 from legal_core.rules.art73 import ConditionalKind, check_conditional_sentence
 from legal_core.rules.imposed_term import most_severe_alternative
 
+from src.domain.prepared_sentencing import (
+    PreparedRegimeInputs,
+    PreparedSentencingInputs,
+    evaluate_regime_inputs,
+)
 from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import Circumstance, LegalCheck
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
-from src.services.regime_facts import read_male, read_regime, read_served_before
+from src.services.regime_facts import prepare_regime_inputs
 
 ART15_NORM = "ст. 15 УК РФ"
 ART18_NORM = "ст. 18 УК РФ"
@@ -84,6 +88,8 @@ def _art68_count(
     recidivism: Recidivism,
     art61: bool,
     final_quote: str,
+    *,
+    art64: bool | None = None,
 ) -> LegalCheck:
     if count.stage_conflict:
         return LegalCheck(
@@ -120,7 +126,9 @@ def _art68_count(
         maximum=maximum,
         most_severe_kind=top is None or count.main.kind is top.kind,
         mitigating=art61,
-        art64="64" in extract_circumstances(count.quote, final_quote).applied_general,
+        art64=("64" in extract_circumstances(count.quote, final_quote).applied_general)
+        if art64 is None
+        else art64,
         unit_name={
             MeasureUnit.MONTHS: "мес.",
             MeasureUnit.HOURS: "ч.",
@@ -173,21 +181,18 @@ def _art58(
     recidivism: Recidivism,
     category: Category | None,
     guilt: Guilt | None,
+    prepared: PreparedRegimeInputs | None = None,
 ) -> LegalCheck | None:
-    imposed, regime_quote = read_regime(document_text)
-    if imposed is None:
+    inputs = prepared if prepared is not None else prepare_regime_inputs(document_text)
+    result = evaluate_regime_inputs(inputs, recidivism, category, guilt)
+    if result is None:
         return None
-    male, sex_quote = read_male(document_text)
-    served, served_quote = read_served_before(document_text)
-    result = check_regime(
-        imposed=imposed,
-        guilt=guilt,
-        category=category,
-        male=male,
-        recidivism=recidivism,
-        served_imprisonment_before=served,
+    return _legal_check(
+        result,
+        "",
+        inputs.imposed.quote,
+        [inputs.imposed.quote, inputs.male.quote, inputs.served_before.quote],
     )
-    return _legal_check(result, "", regime_quote, [regime_quote, sex_quote, served_quote])
 
 
 def build_sentence_checks(
@@ -198,24 +203,77 @@ def build_sentence_checks(
     *,
     document_text: str = "",
     guilt: str | None = None,
+    prepared: PreparedSentencingInputs | None = None,
 ) -> list[LegalCheck]:
     """ст. 68 for every count when recidivism is established; ст. 73 when the sentence is
     conditional. Nothing is added for a draft without an operative part."""
+    if prepared is not None and prepared.sentence != sentence:
+        raise ValueError("Prepared sentencing inputs do not match the sentence")
     if sentence is None or sentence.is_empty:
         return []
     recidivism = recidivism_of(earlier_checks)
     checks: list[LegalCheck] = []
+    unknown = set(prepared.unknown_fields) if prepared is not None else set()
     if recidivism in _ESTABLISHED:
         art61 = any(_ART61.search(item.norm or "") for item in mitigating)
-        for count in sentence.counts:
+        for index, count in enumerate(sentence.counts):
+            if f"count/{index}/main" in unknown:
+                checks.append(
+                    LegalCheck(
+                        norm=f"ст. 68 УК РФ · {count.qualification}",
+                        status="insufficient_data",
+                        source="",
+                        explanation="Основное наказание оставлено неизвестным пользователем.",
+                    )
+                )
+                continue
             reading = statutes.get(count.reference) if count.reference else None
-            checks.append(_art68_count(count, reading, recidivism, art61, sentence.final_quote))
-    if sentence.conditional:
-        checks.append(_art73(sentence, recidivism))
+            checks.append(
+                _art68_count(
+                    count,
+                    reading,
+                    recidivism,
+                    art61,
+                    sentence.final_quote,
+                    art64=prepared.art64_by_count[index].value is True
+                    if prepared is not None
+                    else None,
+                )
+            )
+    if "conditional" in unknown:
+        checks.append(
+            LegalCheck(
+                norm="ст. 73 / ст. 58 УК РФ",
+                status="insufficient_data",
+                source="",
+                explanation=(
+                    "Условность осуждения оставлена неизвестной пользователем; "
+                    "проверки условного осуждения и вида учреждения не выполнены."
+                ),
+            )
+        )
+    elif sentence.conditional:
+        if "final" in unknown or (sentence.final is None and "count/0/main" in unknown):
+            checks.append(
+                LegalCheck(
+                    norm="ст. 73 УК РФ",
+                    status="insufficient_data",
+                    source="",
+                    explanation="Назначенное наказание оставлено неизвестным пользователем.",
+                )
+            )
+        else:
+            checks.append(_art73(sentence, recidivism))
     else:
         category = _category_of(earlier_checks)
         known_guilt = Guilt(guilt) if category is not None and guilt in set(Guilt) else None
-        regime = _art58(document_text, recidivism, category, known_guilt)
+        regime = _art58(
+            document_text,
+            recidivism,
+            category,
+            known_guilt,
+            prepared.regime if prepared is not None else None,
+        )
         if regime is not None:
             checks.append(regime)
     for earlier in earlier_checks:
