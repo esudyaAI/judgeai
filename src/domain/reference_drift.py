@@ -1,1 +1,82 @@
-IiIiRG9tYWluIOKAlCBoYXMgdGhlIHJ1bGUgcmVmZXJlbmNlIGNoYW5nZWQgc2luY2UgYW4gYW5hbHlzaXMgd2FzIG1hZGUgKFQxNS42KS4KCkFuIGFuYWx5c2lzIHN0b3JlcyB0aGUgZmluZ2VycHJpbnRzIG9mIHRoZSByZWZlcmVuY2UgaXQgd2FzIG1hZGUgd2l0aCAoVDE1LjUpOiB0aGUgY2F0YWxvZyB2ZXJzaW9uCmFuZCwgZm9yIGV2ZXJ5IGZpbmRpbmcgYnVpbHQgYnkgYSBydWxlLCB0aGF0IHJ1bGUncyBiYXNpcyB2ZXJzaW9uLiBDb21wYXJpbmcgdGhlbSB3aXRoIHRoZSBjdXJyZW50CmZpbmdlcnByaW50cyAoVDE1LjQpIHRlbGxzIGEgcmVhZGVyIHdoZXRoZXIgdGhlIGNvbmNsdXNpb25zIHN0aWxsIHJlc3Qgb24gdGhlIHNhbWUgcmVmZXJlbmNlLCBhbmQKd2hpY2ggZmluZGluZ3Mgbm93IHJlc3Qgb24gYSBjaGFuZ2VkIGJhc2lzLiBBIHJlc3VsdCB0aGF0IHJlY29yZGVkIG5vIHZlcnNpb24gaXMgYHVua25vd25gLCBuZXZlcgpyZXBvcnRlZCBhcyBjdXJyZW50LgoiIiIKCmZyb20gZGF0YWNsYXNzZXMgaW1wb3J0IGRhdGFjbGFzcywgZmllbGQKZnJvbSB0eXBpbmcgaW1wb3J0IExpdGVyYWwKClJlZmVyZW5jZVN0YXR1cyA9IExpdGVyYWxbImN1cnJlbnQiLCAiY2hhbmdlZCIsICJ1bmtub3duIl0KQ2hlY2tTdGF0dXMgPSBMaXRlcmFsWyJjdXJyZW50IiwgImNoYW5nZWQiLCAidW5rbm93biIsICJub19ydWxlIl0KCgpAZGF0YWNsYXNzKGZyb3plbj1UcnVlKQpjbGFzcyBTdG9yZWRDaGVjazoKICAgICIiIldoYXQgYSBzdG9yZWQgZmluZGluZyByZW1lbWJlcnM6IGl0cyBjYXRhbG9nIHJ1bGUgYW5kIHRoYXQgcnVsZSdzIGJhc2lzIHZlcnNpb24uIiIiCgogICAgcnVsZV9rZXk6IHN0ciB8IE5vbmUKICAgIGJhc2lzX3ZlcnNpb246IHN0ciB8IE5vbmUKCgpAZGF0YWNsYXNzKGZyb3plbj1UcnVlKQpjbGFzcyBDaGVja0RyaWZ0OgogICAgaW5kZXg6IGludAogICAgcnVsZV9rZXk6IHN0ciB8IE5vbmUKICAgIGJhc2lzX3ZlcnNpb246IHN0ciB8IE5vbmUKICAgIGN1cnJlbnRfYmFzaXNfdmVyc2lvbjogc3RyIHwgTm9uZQogICAgc3RhdHVzOiBDaGVja1N0YXR1cwoKCkBkYXRhY2xhc3MoZnJvemVuPVRydWUpCmNsYXNzIFJlZmVyZW5jZURyaWZ0OgogICAgc3RhdHVzOiBSZWZlcmVuY2VTdGF0dXMKICAgIHN0b3JlZF92ZXJzaW9uOiBzdHIgfCBOb25lCiAgICBjdXJyZW50X3ZlcnNpb246IHN0cgogICAgY2hlY2tzOiBsaXN0W0NoZWNrRHJpZnRdID0gZmllbGQoZGVmYXVsdF9mYWN0b3J5PWxpc3QpCiAgICBjaGFuZ2VkX3J1bGVzOiBsaXN0W3N0cl0gPSBmaWVsZChkZWZhdWx0X2ZhY3Rvcnk9bGlzdCkKCgpkZWYgX2NoZWNrX3N0YXR1cyhjaGVjazogU3RvcmVkQ2hlY2ssIGN1cnJlbnQ6IHN0ciB8IE5vbmUpIC0+IENoZWNrU3RhdHVzOgogICAgaWYgY2hlY2sucnVsZV9rZXkgaXMgTm9uZToKICAgICAgICByZXR1cm4gIm5vX3J1bGUiCiAgICBpZiBjaGVjay5iYXNpc192ZXJzaW9uIGlzIE5vbmU6CiAgICAgICAgcmV0dXJuICJ1bmtub3duIgogICAgIyBhIHJ1bGUgZHJvcHBlZCBmcm9tIHRoZSByZWZlcmVuY2UgKGN1cnJlbnQgaXMgTm9uZSkgYWxzbyBjb3VudHMgYXMgYSBjaGFuZ2VkIGJhc2lzCiAgICByZXR1cm4gImN1cnJlbnQiIGlmIGNoZWNrLmJhc2lzX3ZlcnNpb24gPT0gY3VycmVudCBlbHNlICJjaGFuZ2VkIgoKCmRlZiBjb21wYXJlX3JlZmVyZW5jZSgKICAgIHN0b3JlZF92ZXJzaW9uOiBzdHIgfCBOb25lLAogICAgY2hlY2tzOiBsaXN0W1N0b3JlZENoZWNrXSwKICAgIGN1cnJlbnRfdmVyc2lvbjogc3RyLAogICAgY3VycmVudF9ydWxlczogZGljdFtzdHIsIHN0cl0sCikgLT4gUmVmZXJlbmNlRHJpZnQ6CiAgICAiIiJDb21wYXJlIHRoZSB2ZXJzaW9ucyBzdG9yZWQgaW4gYSByZXN1bHQgd2l0aCB0aGUgY3VycmVudCByZWZlcmVuY2UgZmluZ2VycHJpbnRzLiIiIgogICAgZHJpZnRzID0gW10KICAgIGZvciBpbmRleCwgY2hlY2sgaW4gZW51bWVyYXRlKGNoZWNrcyk6CiAgICAgICAgY3VycmVudCA9IGN1cnJlbnRfcnVsZXMuZ2V0KGNoZWNrLnJ1bGVfa2V5KSBpZiBjaGVjay5ydWxlX2tleSBlbHNlIE5vbmUKICAgICAgICBkcmlmdHMuYXBwZW5kKAogICAgICAgICAgICBDaGVja0RyaWZ0KAogICAgICAgICAgICAgICAgaW5kZXg9aW5kZXgsCiAgICAgICAgICAgICAgICBydWxlX2tleT1jaGVjay5ydWxlX2tleSwKICAgICAgICAgICAgICAgIGJhc2lzX3ZlcnNpb249Y2hlY2suYmFzaXNfdmVyc2lvbiwKICAgICAgICAgICAgICAgIGN1cnJlbnRfYmFzaXNfdmVyc2lvbj1jdXJyZW50LAogICAgICAgICAgICAgICAgc3RhdHVzPV9jaGVja19zdGF0dXMoY2hlY2ssIGN1cnJlbnQpLAogICAgICAgICAgICApCiAgICAgICAgKQogICAgaWYgc3RvcmVkX3ZlcnNpb24gaXMgTm9uZToKICAgICAgICBzdGF0dXM6IFJlZmVyZW5jZVN0YXR1cyA9ICJ1bmtub3duIgogICAgZWxzZToKICAgICAgICBzdGF0dXMgPSAiY3VycmVudCIgaWYgc3RvcmVkX3ZlcnNpb24gPT0gY3VycmVudF92ZXJzaW9uIGVsc2UgImNoYW5nZWQiCiAgICBjaGFuZ2VkID0gc29ydGVkKHtkLnJ1bGVfa2V5IGZvciBkIGluIGRyaWZ0cyBpZiBkLnN0YXR1cyA9PSAiY2hhbmdlZCIgYW5kIGQucnVsZV9rZXl9KQogICAgcmV0dXJuIFJlZmVyZW5jZURyaWZ0KAogICAgICAgIHN0YXR1cz1zdGF0dXMsCiAgICAgICAgc3RvcmVkX3ZlcnNpb249c3RvcmVkX3ZlcnNpb24sCiAgICAgICAgY3VycmVudF92ZXJzaW9uPWN1cnJlbnRfdmVyc2lvbiwKICAgICAgICBjaGVja3M9ZHJpZnRzLAogICAgICAgIGNoYW5nZWRfcnVsZXM9Y2hhbmdlZCwKICAgICkK
+"""Domain — has the rule reference changed since an analysis was made (T15.6).
+
+An analysis stores the fingerprints of the reference it was made with (T15.5): the catalog version
+and, for every finding built by a rule, that rule's basis version. Comparing them with the current
+fingerprints (T15.4) tells a reader whether the conclusions still rest on the same reference, and
+which findings now rest on a changed basis. A result that recorded no version is `unknown`, never
+reported as current.
+"""
+
+from dataclasses import dataclass, field
+from typing import Literal
+
+ReferenceStatus = Literal["current", "changed", "unknown"]
+CheckStatus = Literal["current", "changed", "unknown", "no_rule"]
+
+
+@dataclass(frozen=True)
+class StoredCheck:
+    """What a stored finding remembers: its catalog rule and that rule's basis version."""
+
+    rule_key: str | None
+    basis_version: str | None
+
+
+@dataclass(frozen=True)
+class CheckDrift:
+    index: int
+    rule_key: str | None
+    basis_version: str | None
+    current_basis_version: str | None
+    status: CheckStatus
+
+
+@dataclass(frozen=True)
+class ReferenceDrift:
+    status: ReferenceStatus
+    stored_version: str | None
+    current_version: str
+    checks: list[CheckDrift] = field(default_factory=list)
+    changed_rules: list[str] = field(default_factory=list)
+
+
+def _check_status(check: StoredCheck, current: str | None) -> CheckStatus:
+    if check.rule_key is None:
+        return "no_rule"
+    if check.basis_version is None:
+        return "unknown"
+    # a rule dropped from the reference (current is None) also counts as a changed basis
+    return "current" if check.basis_version == current else "changed"
+
+
+def compare_reference(
+    stored_version: str | None,
+    checks: list[StoredCheck],
+    current_version: str,
+    current_rules: dict[str, str],
+) -> ReferenceDrift:
+    """Compare the versions stored in a result with the current reference fingerprints."""
+    drifts = []
+    for index, check in enumerate(checks):
+        current = current_rules.get(check.rule_key) if check.rule_key else None
+        drifts.append(
+            CheckDrift(
+                index=index,
+                rule_key=check.rule_key,
+                basis_version=check.basis_version,
+                current_basis_version=current,
+                status=_check_status(check, current),
+            )
+        )
+    if stored_version is None:
+        status: ReferenceStatus = "unknown"
+    else:
+        status = "current" if stored_version == current_version else "changed"
+    changed = sorted({d.rule_key for d in drifts if d.status == "changed" and d.rule_key})
+    return ReferenceDrift(
+        status=status,
+        stored_version=stored_version,
+        current_version=current_version,
+        checks=drifts,
+        changed_rules=changed,
+    )

@@ -1,1 +1,98 @@
-IiIiVDE1LjY6INC40LfQvNC10L3QuNC70LDRgdGMINC70Lgg0YHQv9GA0LDQstC60LAg0L/QvtGB0LvQtSDQsNC90LDQu9C40LfQsC4KCmBHRVQgL2FwaS9jaGF0cy97aWR9L21lc3NhZ2VzL3ttaWR9L3JlZmVyZW5jZS1zdGF0dXNgLgoK0KHQvtGF0YDQsNC90ZHQvdC90YvQtSDQsiDRgNC10LfRg9C70YzRgtCw0YLQtSDQstC10YDRgdC40LggKFQxNS41KSDRgdCy0LXRgNGP0Y7RgtGB0Y8g0YEg0YLQtdC60YPRidC40LzQuCDQvtGC0L/QtdGH0LDRgtC60LDQvNC4INGB0L/RgNCw0LLQutC4INC40Lcg0JHQlCAoVDE1LjQpLgrQp9GD0LbQvtC1INC00LXQu9C+IOKAlCA0MDQ7INGB0L7QvtCx0YnQtdC90LjQtSDQsdC10Lcg0YDQtdC30YPQu9GM0YLQsNGC0LAg0LDQvdCw0LvQuNC30LAg4oCUIDQwOTsg0YDQtdC30YPQu9GM0YLQsNGCINC00L4gVDE1LjUg4oCUIGB1bmtub3duYC4KIiIiCgpmcm9tIHNxbGFsY2hlbXkgaW1wb3J0IHVwZGF0ZQoKZnJvbSBzcmMuZGIubW9kZWxzIGltcG9ydCBNZXNzYWdlCmZyb20gc3JjLmRiLnNlc3Npb24gaW1wb3J0IGFzeW5jX3Nlc3Npb25fZmFjdG9yeQpmcm9tIHNyYy5zZXJ2aWNlcy5sZWdhbF9saWJyYXJ5IGltcG9ydCBpbXBvcnRfc25hcHNob3QKZnJvbSBzcmMuc2VydmljZXMubGVnYWxfcnVsZV9jYXRhbG9nIGltcG9ydCBsaW5rX3J1bGUKZnJvbSB0ZXN0cy50ZXN0X2F1dGggaW1wb3J0IGFjY291bnQsIGFub255bW91cywgbG9naW4KZnJvbSB0ZXN0cy50ZXN0X2xlZ2FsX3J1bGVfY2F0YWxvZ192ZXJzaW9uIGltcG9ydCBSQVcsIG1hbmlmZXN0CgpEUkFGVCA9ICgiZmlsZXMiLCAoItCf0YDQvtC10LrRgi50eHQiLCAi0J/QvtC00YHRg9C00LjQvNGL0Lkg0LTQtdC50YHRgtCy0L7QstCw0Lsg0YPQvNGL0YjQu9C10L3QvdC+LiIuZW5jb2RlKCksICJ0ZXh0L3BsYWluIikpCgoKYXN5bmMgZGVmIF9hbmFseXNlZChjbGllbnQpOgogICAgY2hhdF9pZCA9IChhd2FpdCBjbGllbnQucG9zdCgiL2FwaS9jaGF0cyIsIGpzb249eyJ0aXRsZSI6IE5vbmV9KSkuanNvbigpWyJpZCJdCiAgICBzZW50ID0gYXdhaXQgY2xpZW50LnBvc3QoCiAgICAgICAgZiIvYXBpL2NoYXRzL3tjaGF0X2lkfS9tZXNzYWdlcyIsIGRhdGE9eyJjb250ZW50IjogItCf0YDQvtCy0LXRgNGMINC/0YDQvtC10LrRgiJ9LCBmaWxlcz1bRFJBRlRdCiAgICApCiAgICBtZXNzYWdlID0gc2VudC5qc29uKClbImFzc2lzdGFudF9tZXNzYWdlIl1bImlkIl0KICAgIHBvbGxlZCA9IChhd2FpdCBjbGllbnQuZ2V0KGYiL2FwaS9jaGF0cy97Y2hhdF9pZH0vbWVzc2FnZXMve21lc3NhZ2V9IikpLmpzb24oKQogICAgYXNzZXJ0IHBvbGxlZFsic3RhdHVzIl0gPT0gImNvbXBsZXRlZCIsIHBvbGxlZFsiZXJyb3IiXQogICAgcmV0dXJuIGNoYXRfaWQsIG1lc3NhZ2UsIHBvbGxlZFsicmVzdWx0Il0KCgpkZWYgX3VybChjaGF0X2lkLCBtZXNzYWdlKToKICAgIHJldHVybiBmIi9hcGkvY2hhdHMve2NoYXRfaWR9L21lc3NhZ2VzL3ttZXNzYWdlfS9yZWZlcmVuY2Utc3RhdHVzIgoKCmFzeW5jIGRlZiB0ZXN0X2ZyZXNoX2FuYWx5c2lzX21hdGNoZXNfY3VycmVudF9yZWZlcmVuY2UoY2xpZW50KToKICAgIGNoYXRfaWQsIG1lc3NhZ2UsIHJlc3VsdCA9IGF3YWl0IF9hbmFseXNlZChjbGllbnQpCiAgICBzdGF0dXMgPSAoYXdhaXQgY2xpZW50LmdldChfdXJsKGNoYXRfaWQsIG1lc3NhZ2UpKSkuanNvbigpCiAgICBhc3NlcnQgc3RhdHVzWyJzdGF0dXMiXSA9PSAiY3VycmVudCIKICAgIGFzc2VydCBzdGF0dXNbInN0b3JlZF92ZXJzaW9uIl0gPT0gcmVzdWx0WyJyZWZlcmVuY2VfdmVyc2lvbiJdCiAgICBhc3NlcnQgc3RhdHVzWyJjdXJyZW50X3ZlcnNpb24iXSA9PSAoYXdhaXQgY2xpZW50LmdldCgiL2FwaS9sZWdhbC9ydWxlcyIpKS5qc29uKClbInZlcnNpb24iXQogICAgYXNzZXJ0IHN0YXR1c1siY2hhbmdlZF9ydWxlcyJdID09IFtdCiAgICBhc3NlcnQgbGVuKHN0YXR1c1siY2hlY2tzIl0pID09IGxlbihyZXN1bHRbImxlZ2FsX2NoZWNrcyJdKQogICAgZm9yIGNoZWNrLCBzdG9yZWQgaW4gemlwKHN0YXR1c1siY2hlY2tzIl0sIHJlc3VsdFsibGVnYWxfY2hlY2tzIl0sIHN0cmljdD1UcnVlKToKICAgICAgICBhc3NlcnQgY2hlY2tbInJ1bGVfa2V5Il0gPT0gc3RvcmVkWyJydWxlX2tleSJdCiAgICAgICAgYXNzZXJ0IGNoZWNrWyJzdGF0dXMiXSA9PSAoImN1cnJlbnQiIGlmIHN0b3JlZFsicnVsZV9rZXkiXSBlbHNlICJub19ydWxlIikKCgphc3luYyBkZWYgdGVzdF9uZXdfYmFzaXNfYWZ0ZXJfYW5hbHlzaXNfaXNfcmVwb3J0ZWQoY2xpZW50KToKICAgIGNoYXRfaWQsIG1lc3NhZ2UsIHJlc3VsdCA9IGF3YWl0IF9hbmFseXNlZChjbGllbnQpCiAgICBrZXlzID0ge2NoZWNrWyJydWxlX2tleSJdIGZvciBjaGVjayBpbiByZXN1bHRbImxlZ2FsX2NoZWNrcyJdfQogICAgYXNzZXJ0ICJhcnQxNS5jYXRlZ29yeSIgaW4ga2V5cwogICAgYXN5bmMgd2l0aCBhc3luY19zZXNzaW9uX2ZhY3RvcnkoKSBhcyBkYjoKICAgICAgICBlZGl0aW9uLCBfID0gYXdhaXQgaW1wb3J0X3NuYXBzaG90KGRiLCBtYW5pZmVzdCgpLCBSQVcpCiAgICAgICAgYXdhaXQgbGlua19ydWxlKGRiLCAiYXJ0MTUuY2F0ZWdvcnkiLCAidWstcmYiLCBlZGl0aW9uLmlkLCAiYXJ0aWNsZS41OCIsICLRgdGCLiAxNSIpCiAgICAgICAgYXdhaXQgZGIuY29tbWl0KCkKICAgIHN0YXR1cyA9IChhd2FpdCBjbGllbnQuZ2V0KF91cmwoY2hhdF9pZCwgbWVzc2FnZSkpKS5qc29uKCkKICAgIGFzc2VydCBzdGF0dXNbInN0YXR1cyJdID09ICJjaGFuZ2VkIgogICAgYXNzZXJ0IHN0YXR1c1siY2hhbmdlZF9ydWxlcyJdID09IFsiYXJ0MTUuY2F0ZWdvcnkiXQogICAgY2hhbmdlZCA9IFtjIGZvciBjIGluIHN0YXR1c1siY2hlY2tzIl0gaWYgY1sicnVsZV9rZXkiXSA9PSAiYXJ0MTUuY2F0ZWdvcnkiXQogICAgYXNzZXJ0IGNoYW5nZWQgYW5kIGFsbChjWyJzdGF0dXMiXSA9PSAiY2hhbmdlZCIgZm9yIGMgaW4gY2hhbmdlZCkKICAgIGFzc2VydCBhbGwoY1siYmFzaXNfdmVyc2lvbiJdICE9IGNbImN1cnJlbnRfYmFzaXNfdmVyc2lvbiJdIGZvciBjIGluIGNoYW5nZWQpCgoKYXN5bmMgZGVmIHRlc3RfcmVzdWx0X3N0b3JlZF9iZWZvcmVfdmVyc2lvbnNfaXNfdW5rbm93bihjbGllbnQpOgogICAgY2hhdF9pZCwgbWVzc2FnZSwgXyA9IGF3YWl0IF9hbmFseXNlZChjbGllbnQpCiAgICBhc3luYyB3aXRoIGFzeW5jX3Nlc3Npb25fZmFjdG9yeSgpIGFzIGRiOgogICAgICAgIHN0b3JlZCA9IGF3YWl0IGRiLmdldChNZXNzYWdlLCBtZXNzYWdlKQogICAgICAgIGFuYWx5c2lzID0gZGljdChzdG9yZWQuYW5hbHlzaXMpCiAgICAgICAgYW5hbHlzaXMucG9wKCJyZWZlcmVuY2VfdmVyc2lvbiIpCiAgICAgICAgYW5hbHlzaXNbImxlZ2FsX2NoZWNrcyJdID0gWwogICAgICAgICAgICB7azogdiBmb3IgaywgdiBpbiBjaGVjay5pdGVtcygpIGlmIGsgIT0gImJhc2lzX3ZlcnNpb24ifQogICAgICAgICAgICBmb3IgY2hlY2sgaW4gYW5hbHlzaXNbImxlZ2FsX2NoZWNrcyJdCiAgICAgICAgXQogICAgICAgIGF3YWl0IGRiLmV4ZWN1dGUodXBkYXRlKE1lc3NhZ2UpLndoZXJlKE1lc3NhZ2UuaWQgPT0gbWVzc2FnZSkudmFsdWVzKGFuYWx5c2lzPWFuYWx5c2lzKSkKICAgICAgICBhd2FpdCBkYi5jb21taXQoKQogICAgc3RhdHVzID0gKGF3YWl0IGNsaWVudC5nZXQoX3VybChjaGF0X2lkLCBtZXNzYWdlKSkpLmpzb24oKQogICAgYXNzZXJ0IHN0YXR1c1sic3RhdHVzIl0gPT0gInVua25vd24iCiAgICBhc3NlcnQgc3RhdHVzWyJzdG9yZWRfdmVyc2lvbiJdIGlzIE5vbmUKICAgIGFzc2VydCB7Y1sic3RhdHVzIl0gZm9yIGMgaW4gc3RhdHVzWyJjaGVja3MiXX0gPD0geyJ1bmtub3duIiwgIm5vX3J1bGUifQoKCmFzeW5jIGRlZiB0ZXN0X21lc3NhZ2Vfd2l0aG91dF9hbmFseXNpc19pc180MDkoY2xpZW50KToKICAgIGNoYXRfaWQsIG1lc3NhZ2UsIF8gPSBhd2FpdCBfYW5hbHlzZWQoY2xpZW50KQogICAgcmVzcG9uc2UgPSBhd2FpdCBjbGllbnQuZ2V0KF91cmwoY2hhdF9pZCwgbWVzc2FnZSAtIDEpKSAgIyB0aGUgdXNlcidzIHJlcXVlc3QgbWVzc2FnZQogICAgYXNzZXJ0IHJlc3BvbnNlLnN0YXR1c19jb2RlID09IDQwOQoKCmFzeW5jIGRlZiB0ZXN0X3Vua25vd25fbWVzc2FnZV9hbmRfZm9yZWlnbl9jYXNlX2FyZV80MDQoY2xpZW50KToKICAgIGNoYXRfaWQsIG1lc3NhZ2UsIF8gPSBhd2FpdCBfYW5hbHlzZWQoY2xpZW50KQogICAgYXNzZXJ0IChhd2FpdCBjbGllbnQuZ2V0KF91cmwoY2hhdF9pZCwgbWVzc2FnZSArIDEwMCkpKS5zdGF0dXNfY29kZSA9PSA0MDQKICAgIG90aGVyID0gKGF3YWl0IGNsaWVudC5wb3N0KCIvYXBpL2NoYXRzIiwganNvbj17InRpdGxlIjogTm9uZX0pKS5qc29uKClbImlkIl0KICAgIGFzc2VydCAoYXdhaXQgY2xpZW50LmdldChfdXJsKG90aGVyLCBtZXNzYWdlKSkpLnN0YXR1c19jb2RlID09IDQwNAogICAgYXdhaXQgYWNjb3VudCgibWFsbG9yeSIpCiAgICBhc3luYyB3aXRoIGFub255bW91cygpIGFzIG1hbGxvcnk6CiAgICAgICAgYXdhaXQgbG9naW4obWFsbG9yeSwgIm1hbGxvcnkiKQogICAgICAgIHJlc3BvbnNlID0gYXdhaXQgbWFsbG9yeS5nZXQoX3VybChjaGF0X2lkLCBtZXNzYWdlKSkKICAgIGFzc2VydCByZXNwb25zZS5zdGF0dXNfY29kZSA9PSA0MDQK
+"""T15.6: изменилась ли справка после анализа.
+
+`GET /api/chats/{id}/messages/{mid}/reference-status`.
+
+Сохранённые в результате версии (T15.5) сверяются с текущими отпечатками справки из БД (T15.4).
+Чужое дело — 404; сообщение без результата анализа — 409; результат до T15.5 — `unknown`.
+"""
+
+from sqlalchemy import update
+
+from src.db.models import Message
+from src.db.session import async_session_factory
+from src.services.legal_library import import_snapshot
+from src.services.legal_rule_catalog import link_rule
+from tests.test_auth import account, anonymous, login
+from tests.test_legal_rule_catalog_version import RAW, manifest
+
+DRAFT = ("files", ("Проект.txt", "Подсудимый действовал умышленно.".encode(), "text/plain"))
+
+
+async def _analysed(client):
+    chat_id = (await client.post("/api/chats", json={"title": None})).json()["id"]
+    sent = await client.post(
+        f"/api/chats/{chat_id}/messages", data={"content": "Проверь проект"}, files=[DRAFT]
+    )
+    message = sent.json()["assistant_message"]["id"]
+    polled = (await client.get(f"/api/chats/{chat_id}/messages/{message}")).json()
+    assert polled["status"] == "completed", polled["error"]
+    return chat_id, message, polled["result"]
+
+
+def _url(chat_id, message):
+    return f"/api/chats/{chat_id}/messages/{message}/reference-status"
+
+
+async def test_fresh_analysis_matches_current_reference(client):
+    chat_id, message, result = await _analysed(client)
+    status = (await client.get(_url(chat_id, message))).json()
+    assert status["status"] == "current"
+    assert status["stored_version"] == result["reference_version"]
+    assert status["current_version"] == (await client.get("/api/legal/rules")).json()["version"]
+    assert status["changed_rules"] == []
+    assert len(status["checks"]) == len(result["legal_checks"])
+    for check, stored in zip(status["checks"], result["legal_checks"], strict=True):
+        assert check["rule_key"] == stored["rule_key"]
+        assert check["status"] == ("current" if stored["rule_key"] else "no_rule")
+
+
+async def test_new_basis_after_analysis_is_reported(client):
+    chat_id, message, result = await _analysed(client)
+    keys = {check["rule_key"] for check in result["legal_checks"]}
+    assert "art15.category" in keys
+    async with async_session_factory() as db:
+        edition, _ = await import_snapshot(db, manifest(), RAW)
+        await link_rule(db, "art15.category", "uk-rf", edition.id, "article.58", "ст. 15")
+        await db.commit()
+    status = (await client.get(_url(chat_id, message))).json()
+    assert status["status"] == "changed"
+    assert status["changed_rules"] == ["art15.category"]
+    changed = [c for c in status["checks"] if c["rule_key"] == "art15.category"]
+    assert changed and all(c["status"] == "changed" for c in changed)
+    assert all(c["basis_version"] != c["current_basis_version"] for c in changed)
+
+
+async def test_result_stored_before_versions_is_unknown(client):
+    chat_id, message, _ = await _analysed(client)
+    async with async_session_factory() as db:
+        stored = await db.get(Message, message)
+        analysis = dict(stored.analysis)
+        analysis.pop("reference_version")
+        analysis["legal_checks"] = [
+            {k: v for k, v in check.items() if k != "basis_version"}
+            for check in analysis["legal_checks"]
+        ]
+        await db.execute(update(Message).where(Message.id == message).values(analysis=analysis))
+        await db.commit()
+    status = (await client.get(_url(chat_id, message))).json()
+    assert status["status"] == "unknown"
+    assert status["stored_version"] is None
+    assert {c["status"] for c in status["checks"]} <= {"unknown", "no_rule"}
+
+
+async def test_message_without_analysis_is_409(client):
+    chat_id, message, _ = await _analysed(client)
+    response = await client.get(_url(chat_id, message - 1))  # the user's request message
+    assert response.status_code == 409
+
+
+async def test_unknown_message_and_foreign_case_are_404(client):
+    chat_id, message, _ = await _analysed(client)
+    assert (await client.get(_url(chat_id, message + 100))).status_code == 404
+    other = (await client.post("/api/chats", json={"title": None})).json()["id"]
+    assert (await client.get(_url(other, message))).status_code == 404
+    await account("mallory")
+    async with anonymous() as mallory:
+        await login(mallory, "mallory")
+        response = await mallory.get(_url(chat_id, message))
+    assert response.status_code == 404

@@ -1,1 +1,24 @@
-IiIi0J7RgtCy0LXRgiDRgdCy0LXRgNC60Lgg0LLQtdGA0YHQuNC4INGB0L/RgNCw0LLQutC4INGA0LXQt9GD0LvRjNGC0LDRgtCwINCw0L3QsNC70LjQt9CwINGBINGC0LXQutGD0YnQtdC5IChUMTUuNikuIiIiCgpmcm9tIHR5cGluZyBpbXBvcnQgTGl0ZXJhbAoKZnJvbSBweWRhbnRpYyBpbXBvcnQgQmFzZU1vZGVsCgoKY2xhc3MgQ2hlY2tSZWZlcmVuY2VTdGF0dXMoQmFzZU1vZGVsKToKICAgICMgaW5kZXggb2YgdGhlIGZpbmRpbmcgaW4gcmVzdWx0LmxlZ2FsX2NoZWNrcwogICAgaW5kZXg6IGludAogICAgcnVsZV9rZXk6IHN0ciB8IE5vbmUKICAgIGJhc2lzX3ZlcnNpb246IHN0ciB8IE5vbmUKICAgIGN1cnJlbnRfYmFzaXNfdmVyc2lvbjogc3RyIHwgTm9uZQogICAgc3RhdHVzOiBMaXRlcmFsWyJjdXJyZW50IiwgImNoYW5nZWQiLCAidW5rbm93biIsICJub19ydWxlIl0KCgpjbGFzcyBSZWZlcmVuY2VTdGF0dXNSZWFkKEJhc2VNb2RlbCk6CiAgICAjIGN1cnJlbnQg4oCUIHRoZSByZXN1bHQgd2FzIG1hZGUgd2l0aCB0aGUgY3VycmVudCByZWZlcmVuY2U7IGNoYW5nZWQg4oCUIHRoZSByZWZlcmVuY2UgaGFzCiAgICAjIGNoYW5nZWQgc2luY2U7IHVua25vd24g4oCUIHRoZSByZXN1bHQgcmVjb3JkZWQgbm8gdmVyc2lvbiAoc3RvcmVkIGJlZm9yZSBUMTUuNSkuCiAgICBzdGF0dXM6IExpdGVyYWxbImN1cnJlbnQiLCAiY2hhbmdlZCIsICJ1bmtub3duIl0KICAgIHN0b3JlZF92ZXJzaW9uOiBzdHIgfCBOb25lCiAgICBjdXJyZW50X3ZlcnNpb246IHN0cgogICAgY2hhbmdlZF9ydWxlczogbGlzdFtzdHJdCiAgICBjaGVja3M6IGxpc3RbQ2hlY2tSZWZlcmVuY2VTdGF0dXNdCg==
+"""Ответ сверки версии справки результата анализа с текущей (T15.6)."""
+
+from typing import Literal
+
+from pydantic import BaseModel
+
+
+class CheckReferenceStatus(BaseModel):
+    # index of the finding in result.legal_checks
+    index: int
+    rule_key: str | None
+    basis_version: str | None
+    current_basis_version: str | None
+    status: Literal["current", "changed", "unknown", "no_rule"]
+
+
+class ReferenceStatusRead(BaseModel):
+    # current — the result was made with the current reference; changed — the reference has
+    # changed since; unknown — the result recorded no version (stored before T15.5).
+    status: Literal["current", "changed", "unknown"]
+    stored_version: str | None
+    current_version: str
+    changed_rules: list[str]
+    checks: list[CheckReferenceStatus]

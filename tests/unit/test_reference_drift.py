@@ -1,1 +1,70 @@
-IiIiVDE1LjY6INGB0LLQtdGA0LrQsCDQstC10YDRgdC40Lgg0YHQv9GA0LDQstC60LgsINGB0L7RhdGA0LDQvdGR0L3QvdC+0Lkg0LIg0YDQtdC30YPQu9GM0YLQsNGC0LUg0LDQvdCw0LvQuNC30LAsINGBINGC0LXQutGD0YnQtdC5LgoK0KfQuNGB0YLQsNGPINC70L7Qs9C40LrQsCDQsdC10Lcg0JHQlDog0L3QsCDQstGF0L7QtNC1IOKAlCDQstC10YDRgdC40Lgg0LjQtyDRgNC10LfRg9C70YzRgtCw0YLQsCAoVDE1LjUpINC4INGC0LXQutGD0YnQuNC1INC+0YLQv9C10YfQsNGC0LrQuCDRgdC/0YDQsNCy0LrQuAooVDE1LjQpLCDQvdCwINCy0YvRhdC+0LTQtSDigJQg0LjQt9C80LXQvdC40LvQsNGB0Ywg0LvQuCDRgdC/0YDQsNCy0LrQsCDQv9C+0YHQu9C1INCw0L3QsNC70LjQt9CwINC4INGDINC60LDQutC40YUg0LfQsNC80LXRh9Cw0L3QuNC5INGB0LzQtdC90LjQu9C+0YHRjArQvtGB0L3QvtCy0LDQvdC40LUuINCe0YLRgdGD0YLRgdGC0LLQuNC1INGB0L7RhdGA0LDQvdGR0L3QvdC+0Lkg0LLQtdGA0YHQuNC4IOKAlCDCq9C90LXQuNC30LLQtdGB0YLQvdC+wrssINCwINC90LUgwqvRgdC+0LLQv9Cw0LTQsNC10YLCuy4KIiIiCgpmcm9tIHNyYy5kb21haW4ucmVmZXJlbmNlX2RyaWZ0IGltcG9ydCBTdG9yZWRDaGVjaywgY29tcGFyZV9yZWZlcmVuY2UKCk9MRCA9ICJzaGEyNTY6IiArICIxIiAqIDY0Ck5FVyA9ICJzaGEyNTY6IiArICIyIiAqIDY0CkEgPSAic2hhMjU2OiIgKyAiYSIgKiA2NApCID0gInNoYTI1NjoiICsgImIiICogNjQKCgpkZWYgdGVzdF9zYW1lX2NhdGFsb2dfaXNfY3VycmVudCgpOgogICAgZHJpZnQgPSBjb21wYXJlX3JlZmVyZW5jZShPTEQsIFtTdG9yZWRDaGVjaygiYXJ0MTUuY2F0ZWdvcnkiLCBBKV0sIE9MRCwgeyJhcnQxNS5jYXRlZ29yeSI6IEF9KQogICAgYXNzZXJ0IGRyaWZ0LnN0YXR1cyA9PSAiY3VycmVudCIKICAgIGFzc2VydCBkcmlmdC5jaGFuZ2VkX3J1bGVzID09IFtdCiAgICBhc3NlcnQgW2NoZWNrLnN0YXR1cyBmb3IgY2hlY2sgaW4gZHJpZnQuY2hlY2tzXSA9PSBbImN1cnJlbnQiXQogICAgYXNzZXJ0IGRyaWZ0LmNoZWNrc1swXS5jdXJyZW50X2Jhc2lzX3ZlcnNpb24gPT0gQQoKCmRlZiB0ZXN0X2NoYW5nZWRfYmFzaXNfbWFya3NfdGhlX2ZpbmRpbmdfYW5kX3RoZV9ydWxlKCk6CiAgICBkcmlmdCA9IGNvbXBhcmVfcmVmZXJlbmNlKAogICAgICAgIE9MRCwKICAgICAgICBbU3RvcmVkQ2hlY2soImFydDE1LmNhdGVnb3J5IiwgQSksIFN0b3JlZENoZWNrKCJhcnQxOC5yZWNpZGl2aXNtIiwgQildLAogICAgICAgIE5FVywKICAgICAgICB7ImFydDE1LmNhdGVnb3J5IjogQiwgImFydDE4LnJlY2lkaXZpc20iOiBCfSwKICAgICkKICAgIGFzc2VydCBkcmlmdC5zdGF0dXMgPT0gImNoYW5nZWQiCiAgICBhc3NlcnQgZHJpZnQuc3RvcmVkX3ZlcnNpb24gPT0gT0xEIGFuZCBkcmlmdC5jdXJyZW50X3ZlcnNpb24gPT0gTkVXCiAgICBhc3NlcnQgW2NoZWNrLnN0YXR1cyBmb3IgY2hlY2sgaW4gZHJpZnQuY2hlY2tzXSA9PSBbImNoYW5nZWQiLCAiY3VycmVudCJdCiAgICBhc3NlcnQgZHJpZnQuY2hhbmdlZF9ydWxlcyA9PSBbImFydDE1LmNhdGVnb3J5Il0KCgpkZWYgdGVzdF9jYXRhbG9nX2NoYW5nZWRfZWxzZXdoZXJlX2tlZXBzX2ZpbmRpbmdzX2N1cnJlbnQoKToKICAgICMgYW5vdGhlciBydWxlJ3MgYmFzaXMgY2hhbmdlZDogdGhlIGNhdGFsb2cgbW92ZWQsIHRoZXNlIGZpbmRpbmdzIGRpZCBub3QKICAgIGRyaWZ0ID0gY29tcGFyZV9yZWZlcmVuY2UoT0xELCBbU3RvcmVkQ2hlY2soImFydDE1LmNhdGVnb3J5IiwgQSldLCBORVcsIHsiYXJ0MTUuY2F0ZWdvcnkiOiBBfSkKICAgIGFzc2VydCBkcmlmdC5zdGF0dXMgPT0gImNoYW5nZWQiCiAgICBhc3NlcnQgZHJpZnQuY2hlY2tzWzBdLnN0YXR1cyA9PSAiY3VycmVudCIKICAgIGFzc2VydCBkcmlmdC5jaGFuZ2VkX3J1bGVzID09IFtdCgoKZGVmIHRlc3RfcmVzdWx0X3dpdGhvdXRfcmVjb3JkZWRfdmVyc2lvbl9pc191bmtub3duKCk6CiAgICBjaGVja3MgPSBbU3RvcmVkQ2hlY2soImFydDE1LmNhdGVnb3J5IiwgTm9uZSldCiAgICBkcmlmdCA9IGNvbXBhcmVfcmVmZXJlbmNlKE5vbmUsIGNoZWNrcywgTkVXLCB7ImFydDE1LmNhdGVnb3J5IjogQX0pCiAgICBhc3NlcnQgZHJpZnQuc3RhdHVzID09ICJ1bmtub3duIgogICAgYXNzZXJ0IGRyaWZ0LmNoZWNrc1swXS5zdGF0dXMgPT0gInVua25vd24iCiAgICBhc3NlcnQgZHJpZnQuY2hhbmdlZF9ydWxlcyA9PSBbXQoKCmRlZiB0ZXN0X2ZpbmRpbmdfd2l0aG91dF9ydWxlX2lzX25vdF9jb21wYXJlZCgpOgogICAgZHJpZnQgPSBjb21wYXJlX3JlZmVyZW5jZShPTEQsIFtTdG9yZWRDaGVjayhOb25lLCBOb25lKV0sIE9MRCwge30pCiAgICBhc3NlcnQgZHJpZnQuY2hlY2tzWzBdLnN0YXR1cyA9PSAibm9fcnVsZSIKICAgIGFzc2VydCBkcmlmdC5jaGVja3NbMF0uY3VycmVudF9iYXNpc192ZXJzaW9uIGlzIE5vbmUKCgpkZWYgdGVzdF9ydWxlX2Ryb3BwZWRfZnJvbV9yZWZlcmVuY2VfaXNfYV9jaGFuZ2UoKToKICAgIGRyaWZ0ID0gY29tcGFyZV9yZWZlcmVuY2UoT0xELCBbU3RvcmVkQ2hlY2soImFydDE1LmNhdGVnb3J5IiwgQSldLCBORVcsIHt9KQogICAgYXNzZXJ0IGRyaWZ0LmNoZWNrc1swXS5zdGF0dXMgPT0gImNoYW5nZWQiCiAgICBhc3NlcnQgZHJpZnQuY2hlY2tzWzBdLmN1cnJlbnRfYmFzaXNfdmVyc2lvbiBpcyBOb25lCiAgICBhc3NlcnQgZHJpZnQuY2hhbmdlZF9ydWxlcyA9PSBbImFydDE1LmNhdGVnb3J5Il0KCgpkZWYgdGVzdF9jaGFuZ2VkX3J1bGVzX2FyZV91bmlxdWVfYW5kX3NvcnRlZCgpOgogICAgY2hlY2tzID0gW1N0b3JlZENoZWNrKCJiLnJ1bGUiLCBBKSwgU3RvcmVkQ2hlY2soImEucnVsZSIsIEEpLCBTdG9yZWRDaGVjaygiYi5ydWxlIiwgQSldCiAgICBkcmlmdCA9IGNvbXBhcmVfcmVmZXJlbmNlKE9MRCwgY2hlY2tzLCBORVcsIHsiYS5ydWxlIjogQiwgImIucnVsZSI6IEJ9KQogICAgYXNzZXJ0IGRyaWZ0LmNoYW5nZWRfcnVsZXMgPT0gWyJhLnJ1bGUiLCAiYi5ydWxlIl0KICAgIGFzc2VydCBbY2hlY2suaW5kZXggZm9yIGNoZWNrIGluIGRyaWZ0LmNoZWNrc10gPT0gWzAsIDEsIDJdCg==
+"""T15.6: сверка версии справки, сохранённой в результате анализа, с текущей.
+
+Чистая логика без БД: на входе — версии из результата (T15.5) и текущие отпечатки справки
+(T15.4), на выходе — изменилась ли справка после анализа и у каких замечаний сменилось
+основание. Отсутствие сохранённой версии — «неизвестно», а не «совпадает».
+"""
+
+from src.domain.reference_drift import StoredCheck, compare_reference
+
+OLD = "sha256:" + "1" * 64
+NEW = "sha256:" + "2" * 64
+A = "sha256:" + "a" * 64
+B = "sha256:" + "b" * 64
+
+
+def test_same_catalog_is_current():
+    drift = compare_reference(OLD, [StoredCheck("art15.category", A)], OLD, {"art15.category": A})
+    assert drift.status == "current"
+    assert drift.changed_rules == []
+    assert [check.status for check in drift.checks] == ["current"]
+    assert drift.checks[0].current_basis_version == A
+
+
+def test_changed_basis_marks_the_finding_and_the_rule():
+    drift = compare_reference(
+        OLD,
+        [StoredCheck("art15.category", A), StoredCheck("art18.recidivism", B)],
+        NEW,
+        {"art15.category": B, "art18.recidivism": B},
+    )
+    assert drift.status == "changed"
+    assert drift.stored_version == OLD and drift.current_version == NEW
+    assert [check.status for check in drift.checks] == ["changed", "current"]
+    assert drift.changed_rules == ["art15.category"]
+
+
+def test_catalog_changed_elsewhere_keeps_findings_current():
+    # another rule's basis changed: the catalog moved, these findings did not
+    drift = compare_reference(OLD, [StoredCheck("art15.category", A)], NEW, {"art15.category": A})
+    assert drift.status == "changed"
+    assert drift.checks[0].status == "current"
+    assert drift.changed_rules == []
+
+
+def test_result_without_recorded_version_is_unknown():
+    checks = [StoredCheck("art15.category", None)]
+    drift = compare_reference(None, checks, NEW, {"art15.category": A})
+    assert drift.status == "unknown"
+    assert drift.checks[0].status == "unknown"
+    assert drift.changed_rules == []
+
+
+def test_finding_without_rule_is_not_compared():
+    drift = compare_reference(OLD, [StoredCheck(None, None)], OLD, {})
+    assert drift.checks[0].status == "no_rule"
+    assert drift.checks[0].current_basis_version is None
+
+
+def test_rule_dropped_from_reference_is_a_change():
+    drift = compare_reference(OLD, [StoredCheck("art15.category", A)], NEW, {})
+    assert drift.checks[0].status == "changed"
+    assert drift.checks[0].current_basis_version is None
+    assert drift.changed_rules == ["art15.category"]
+
+
+def test_changed_rules_are_unique_and_sorted():
+    checks = [StoredCheck("b.rule", A), StoredCheck("a.rule", A), StoredCheck("b.rule", A)]
+    drift = compare_reference(OLD, checks, NEW, {"a.rule": B, "b.rule": B})
+    assert drift.changed_rules == ["a.rule", "b.rule"]
+    assert [check.index for check in drift.checks] == [0, 1, 2]
