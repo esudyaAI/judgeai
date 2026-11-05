@@ -153,6 +153,9 @@ class CaseAnalysis(ApiModel):
     precedent_source: Literal["cards", "text", "none"] | None = None
     precedents: list[PrecedentMatchRead] = []
     practice: PracticeComparisonRead | None = None
+    # T15.5: catalog_version of the rule reference the checks were made with; None — not
+    # recorded (results stored before T15.5, or an analysis assembled without the reference).
+    reference_version: str | None = None
     # Human-readable caveats the UI must show (e.g. unverified sanction, partial OCR).
     warnings: list[str] = []
 
@@ -203,6 +206,9 @@ class LegalCheck(BaseModel):
     # legal_core.catalog key of the rule behind the finding; its basis: GET /api/legal/rules/{key}.
     # None — a plain reading of the text or a step no rule checks yet.
     rule_key: str | None = None
+    # T15.5: basis_version of that rule at analysis time (GET /api/legal/rules); None — no rule,
+    # or a result stored before versions were recorded.
+    basis_version: str | None = None
 
 
 # Resolve references declared below the backwards-compatible result classes.

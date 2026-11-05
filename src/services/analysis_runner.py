@@ -34,6 +34,7 @@ from src.services.case_analyzer import (
 from src.services.criminal_sanction_lookup import find_article_sanctions
 from src.services.document_parser import extract_document
 from src.services.knowledge_service import create_knowledge_verdict_from_text
+from src.services.legal_rule_catalog import reference_versions
 from src.services.llm_client import LLMError, get_llm_client
 from src.services.punishment_window_resolver import resolve_windows
 from src.services.qualification_reference import parse_qualification_reference
@@ -184,6 +185,7 @@ async def run_analysis(
                 )
                 if reading is not None:
                     count_statutes[count_reference] = reading
+            reference_now = await reference_versions(db)
         if reference is not None and statute is None:
             warnings.append(f"Санкция {reference} не найдена в импортированном тексте УК РФ.")
         analysis = assemble_analysis(
@@ -201,6 +203,7 @@ async def run_analysis(
             model_texts=structure.model_texts,
             practice=practice,
             precedent_source=precedent_source,
+            reference=reference_now,
         )
 
         async with db_session.async_session_factory() as db:

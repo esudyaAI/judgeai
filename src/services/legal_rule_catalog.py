@@ -14,10 +14,14 @@ T15.4 — версия справки. `basis_version` правила — SHA-25
 даты запроса (правило ядра, связи, нормы, редакции, статусы сверки, периоды); `catalog_version` —
 SHA-256 списка пар «ключ правила, basis_version». Версия не зависит от `on` и меняется при любом
 изменении основания; отчёт (T14) хранит её, чтобы сверить, по какой справке сделан вывод.
+
+T15.5 — версия справки в результате анализа: `reference_versions` отдаёт те же отпечатки
+(каталог и основание каждого правила), анализ записывает их в результат и в замечания.
 """
 
 import hashlib
 import json
+from dataclasses import dataclass, field
 from datetime import date
 
 from legal_core import catalog
@@ -179,6 +183,22 @@ def _versioned(references: dict[str, list[dict]], on: date | None) -> list[dict]
 
 async def rule_catalog(db: AsyncSession, on: date | None = None) -> list[dict]:
     return _versioned(await _references(db, [rule.key for rule in catalog.RULES]), on)
+
+
+@dataclass(frozen=True)
+class ReferenceVersions:
+    """Fingerprints of the reference at one moment: the catalog and each rule's basis."""
+
+    catalog: str
+    rules: dict[str, str] = field(default_factory=dict)
+
+
+async def reference_versions(db: AsyncSession) -> ReferenceVersions:
+    items = await rule_catalog(db)
+    return ReferenceVersions(
+        catalog=items[0]["catalog_version"],
+        rules={item["key"]: item["basis_version"] for item in items},
+    )
 
 
 async def rule_basis(db: AsyncSession, key: str, on: date | None = None) -> dict | None:

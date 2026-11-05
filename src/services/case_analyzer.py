@@ -36,6 +36,7 @@ from src.schemas.analysis import (
 )
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
 from src.services.legal_checks import build_legal_checks
+from src.services.legal_rule_catalog import ReferenceVersions
 from src.services.llm_client import LLMClient, LLMError
 from src.services.sanction_summary import (
     describe_main_alternatives,
@@ -225,10 +226,12 @@ def assemble_analysis(
     model_texts: list[str] | None = None,
     practice: PracticeReport | None = None,
     precedent_source: str | None = None,
+    reference: ReferenceVersions | None = None,
 ) -> CaseAnalysis:
     """sentence/count_statutes come from the operative part read by regex; when present, the
     imposed punishment is checked per count instead of the single model-cited term.
-    practice holds the precedent cards found for the draft and the T28 comparison."""
+    practice holds the precedent cards found for the draft and the T28 comparison.
+    reference holds the rule reference versions (T15.5) stamped on the result and the checks."""
     warnings = list(extra_warnings)
     per_count = sentence is not None and bool(sentence.counts)
     ceiling = _statutory_ceiling(statute)
@@ -308,13 +311,13 @@ def assemble_analysis(
         if rec is not None and rec > cap:
             warnings.append("Рекомендованный срок выходит за допустимый предел — проверьте.")
 
+    checks = statute_checks + build_legal_checks(
+        facts.legal_facts,
+        source_text,
+        statutory_ceiling=ceiling,
+    )
     return CaseAnalysis(
-        legal_checks=statute_checks
-        + build_legal_checks(
-            facts.legal_facts,
-            source_text,
-            statutory_ceiling=ceiling,
-        ),
+        legal_checks=_with_basis_versions(checks, reference),
         imposed_sentence=_sentence_read(sentence),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
         prompt=prompt,
@@ -333,7 +336,22 @@ def assemble_analysis(
         precedents=_precedent_reads(practice) if practice else [],
         practice=_practice_read(practice) if practice else None,
         warnings=warnings,
+        reference_version=reference.catalog if reference is not None else None,
     )
+
+
+def _with_basis_versions(
+    checks: list[LegalCheck], reference: ReferenceVersions | None
+) -> list[LegalCheck]:
+    """Each finding of a catalog rule records that rule's basis version; others stay None."""
+    if reference is None:
+        return checks
+    return [
+        check.model_copy(update={"basis_version": reference.rules.get(check.rule_key)})
+        if check.rule_key is not None
+        else check
+        for check in checks
+    ]
 
 
 def _single_part(statute: StatuteSanctionReading | None) -> bool:
