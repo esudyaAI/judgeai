@@ -17,6 +17,9 @@ SHA-256 списка пар «ключ правила, basis_version». Верс
 
 T15.5 — версия справки в результате анализа: `reference_versions` отдаёт те же отпечатки
 (каталог и основание каждого правила), анализ записывает их в результат и в замечания.
+
+T15.6 — сверка: `reference_drift` сравнивает версии, сохранённые в результате, с текущими
+(src/domain/reference_drift.py): изменилась ли справка после анализа и у каких замечаний.
 """
 
 import hashlib
@@ -32,6 +35,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleReference
+from src.domain.reference_drift import ReferenceDrift, StoredCheck, compare_reference
+from src.schemas.analysis import CaseAnalysis
 
 _EDITION_METADATA = (defer(LegalEdition.source_bytes), defer(LegalEdition.full_text))
 
@@ -198,6 +203,17 @@ async def reference_versions(db: AsyncSession) -> ReferenceVersions:
     return ReferenceVersions(
         catalog=items[0]["catalog_version"],
         rules={item["key"]: item["basis_version"] for item in items},
+    )
+
+
+async def reference_drift(db: AsyncSession, result: CaseAnalysis) -> ReferenceDrift:
+    """Versions stored in an analysis result against the current reference."""
+    current = await reference_versions(db)
+    return compare_reference(
+        result.reference_version,
+        [StoredCheck(check.rule_key, check.basis_version) for check in result.legal_checks],
+        current.catalog,
+        current.rules,
     )
 
 

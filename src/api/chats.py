@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,8 +9,10 @@ from src.api.deps import CurrentUser, DbSession
 from src.db.models import Attachment, Chat, Message
 from src.schemas.chat import ChatCreate, ChatRead, ChatStatus
 from src.schemas.message import MessageRead, MessageSendResponse
+from src.schemas.reference_status import ReferenceStatusRead
 from src.services.analysis_runner import run_analysis
 from src.services.file_reader import save_upload_file, validate_extension
+from src.services.legal_rule_catalog import reference_drift
 
 router = APIRouter()
 
@@ -107,6 +111,21 @@ async def get_message(chat_id: int, message_id: int, db: DbSession, user: Curren
     if message.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="Сообщение не найдено")
     return MessageRead.model_validate(message)
+
+
+@router.get("/{chat_id}/messages/{message_id}/reference-status", response_model=ReferenceStatusRead)
+async def get_reference_status(chat_id: int, message_id: int, db: DbSession, user: CurrentUser):
+    """T15.6: has the rule reference changed since this analysis was made."""
+    chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
+    if chat is None:
+        raise HTTPException(404, "Дело не найдено")
+    message = await load_message(db, message_id)
+    if message.chat_id != chat_id:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+    result = MessageRead.model_validate(message).result
+    if result is None:
+        raise HTTPException(status_code=409, detail="У сообщения нет результата анализа")
+    return ReferenceStatusRead.model_validate(asdict(await reference_drift(db, result)))
 
 
 @router.post("/{chat_id}/messages", response_model=MessageSendResponse, status_code=202)
