@@ -20,6 +20,9 @@ T15.5 — версия справки в результате анализа: `r
 
 T15.6 — сверка: `reference_drift` сравнивает версии, сохранённые в результате, с текущими
 (src/domain/reference_drift.py): изменилась ли справка после анализа и у каких замечаний.
+
+T15.8 — область поддержки: `rule_coverage` группирует правила по статусу основания
+(src/domain/reference_coverage.py): какие проверки опираются на подтверждённую норму, а какие нет.
 """
 
 import hashlib
@@ -35,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleReference
+from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import ReferenceDrift, StoredCheck, compare_reference
 from src.schemas.analysis import CaseAnalysis
 
@@ -188,6 +192,23 @@ def _versioned(references: dict[str, list[dict]], on: date | None) -> list[dict]
 
 async def rule_catalog(db: AsyncSession, on: date | None = None) -> list[dict]:
     return _versioned(await _references(db, [rule.key for rule in catalog.RULES]), on)
+
+
+async def rule_coverage(db: AsyncSession, on: date | None = None) -> dict:
+    """T15.8: every catalog rule under its basis status (on `on`, if given), with the version."""
+    items = await rule_catalog(db, on)
+    coverage = summarize_coverage(
+        [RuleState(item["key"], item["basis_status"], item["needs_legal_review"]) for item in items]
+    )
+    return {
+        "version": items[0]["catalog_version"],
+        "on": on,
+        "total": coverage.total,
+        "by_status": coverage.by_status,
+        "confirmed": coverage.confirmed,
+        "unconfirmed": coverage.unconfirmed,
+        "needs_legal_review": coverage.needs_legal_review,
+    }
 
 
 @dataclass(frozen=True)

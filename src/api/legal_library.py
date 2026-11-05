@@ -9,7 +9,8 @@ from sqlalchemy.orm import defer
 from src.api.deps import DbSession
 from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleReference
 from src.schemas.legal_library import ActRead
-from src.services.legal_rule_catalog import rule_basis, rule_catalog
+from src.schemas.reference_coverage import ReferenceCoverageRead
+from src.services.legal_rule_catalog import rule_basis, rule_catalog, rule_coverage
 
 router = APIRouter()
 
@@ -188,6 +189,16 @@ async def list_rules(db: DbSession, on_date: date | None = Query(None, alias="on
         "items": items,
         "references": sum(len(item["references"]) for item in items),
     }
+
+
+@router.get("/rules/coverage", response_model=ReferenceCoverageRead)
+async def rules_coverage(db: DbSession, on_date: date | None = Query(None, alias="on")):
+    """Область поддержки справки (T15.8): какие правила опираются на подтверждённую норму.
+
+    Каждое правило каталога — ровно под одним статусом основания; правило без основания
+    попадает в `unconfirmed`, а не исчезает. С `on` статусы считаются на эту дату (T15.3).
+    """
+    return await rule_coverage(db, on_date)
 
 
 @router.get("/rules/{key}")
