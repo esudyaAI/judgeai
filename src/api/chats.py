@@ -1,18 +1,21 @@
 from dataclasses import asdict
+from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.api.deps import CurrentUser, DbSession
 from src.db.models import Attachment, Chat, Message
+from src.schemas.analysis import CaseAnalysis
 from src.schemas.chat import ChatCreate, ChatRead, ChatStatus
+from src.schemas.check_basis import CheckBasisRead
 from src.schemas.message import MessageRead, MessageSendResponse
 from src.schemas.reference_status import ReferenceStatusRead
 from src.services.analysis_runner import run_analysis
 from src.services.file_reader import save_upload_file, validate_extension
-from src.services.legal_rule_catalog import reference_drift
+from src.services.legal_rule_catalog import check_basis, reference_drift
 
 router = APIRouter()
 

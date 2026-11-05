@@ -224,6 +224,24 @@ async def rule_basis(db: AsyncSession, key: str, on: date | None = None) -> dict
     return next(item for item in await rule_catalog(db, on) if item["key"] == key)
 
 
+async def check_basis(
+    db: AsyncSession, result: CaseAnalysis, index: int, on: date | None = None
+) -> dict | None:
+    """T15.7: one finding of a stored result with its rule basis; None — no such finding."""
+    if not 0 <= index < len(result.legal_checks):
+        return None
+    check = result.legal_checks[index]
+    drift = (await reference_drift(db, result)).checks[index]
+    basis = await rule_basis(db, check.rule_key, on) if check.rule_key else None
+    return {
+        "index": index,
+        "check": check,
+        "reference_status": drift.status,
+        "current_basis_version": drift.current_basis_version,
+        "basis": basis,
+    }
+
+
 async def link_rule(
     db: AsyncSession,
     rule_key: str,
