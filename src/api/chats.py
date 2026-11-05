@@ -116,10 +116,11 @@ async def get_message(chat_id: int, message_id: int, db: DbSession, user: Curren
     return MessageRead.model_validate(message)
 
 
-@router.get("/{chat_id}/messages/{message_id}/reference-status", response_model=ReferenceStatusRead)
-async def get_reference_status(chat_id: int, message_id: int, db: DbSession, user: CurrentUser):
-    """T15.6: has the rule reference changed since this analysis was made."""
-    chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user.user_id))
+async def _owned_result(
+    db: AsyncSession, user_id: int, chat_id: int, message_id: int
+) -> CaseAnalysis:
+    """The analysis result of a message in the user's own case; 404 / 409 otherwise."""
+    chat = await db.scalar(select(Chat).where(Chat.id == chat_id, Chat.owner_id == user_id))
     if chat is None:
         raise HTTPException(404, "Дело не найдено")
     message = await load_message(db, message_id)
@@ -128,7 +129,31 @@ async def get_reference_status(chat_id: int, message_id: int, db: DbSession, use
     result = MessageRead.model_validate(message).result
     if result is None:
         raise HTTPException(status_code=409, detail="У сообщения нет результата анализа")
+    return result
+
+
+@router.get("/{chat_id}/messages/{message_id}/reference-status", response_model=ReferenceStatusRead)
+async def get_reference_status(chat_id: int, message_id: int, db: DbSession, user: CurrentUser):
+    """T15.6: has the rule reference changed since this analysis was made."""
+    result = await _owned_result(db, user.user_id, chat_id, message_id)
     return ReferenceStatusRead.model_validate(asdict(await reference_drift(db, result)))
+
+
+@router.get("/{chat_id}/messages/{message_id}/checks/{index}/basis", response_model=CheckBasisRead)
+async def get_check_basis(
+    chat_id: int,
+    message_id: int,
+    index: int,
+    db: DbSession,
+    user: CurrentUser,
+    on_date: date | None = Query(None, alias="on"),
+):
+    """T15.7: the legal basis of one finding (same body as GET /api/legal/rules/{key})."""
+    result = await _owned_result(db, user.user_id, chat_id, message_id)
+    found = await check_basis(db, result, index, on_date)
+    if found is None:
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+    return CheckBasisRead.model_validate(found)
 
 
 @router.post("/{chat_id}/messages", response_model=MessageSendResponse, status_code=202)
