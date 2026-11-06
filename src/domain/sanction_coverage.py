@@ -87,3 +87,25 @@ def summarize_sanction_coverage(
         confirmed=confirmed,
         unconfirmed=sorted(seen - set(confirmed), key=article_sort_key),
     )
+
+
+def newest_readings(rows: Iterable[tuple[str, Hashable, T]]) -> dict[str, list[T]]:
+    """T15.10: per article, the items of its newest reading only.
+
+    `rows` are `(article, reading, item)` grouped by article, each group newest reading first
+    (the order of the database query); `reading` identifies one reading of an article (edition
+    and parser version). Items of older readings are dropped; an article that comes back after
+    another one means the input is not grouped — an error, not a silent merge.
+    """
+    found: dict[str, list[T]] = {}
+    newest: dict[str, Hashable] = {}
+    previous: str | None = None
+    for article, reading, item in rows:
+        if article != previous and article in found:
+            raise ValueError(f"rows are not grouped by article: {article}")
+        previous = article
+        if article not in found:
+            found[article], newest[article] = [], reading
+        if reading == newest[article]:
+            found[article].append(item)
+    return found
