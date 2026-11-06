@@ -218,8 +218,9 @@ class DocxGuardTests(unittest.TestCase):
 
         root = Path(__file__).resolve().parents[1]
         # Inner layers may use pure standard-library modules and the legal_core domain package,
-        # never frameworks, storage, HTTP or the outer src layers.
-        pure = {"dataclasses", "enum", "hashlib", "re", "typing", "legal_core"}
+        # never frameworks, storage, HTTP or the outer src layers. `collections` (abstract types
+        # such as collections.abc.Iterable) is pure: T15.10 domain code uses it.
+        pure = {"collections", "dataclasses", "enum", "hashlib", "re", "typing", "legal_core"}
         for layer, allowed in [
             ("domain", pure),
             (

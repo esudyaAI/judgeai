@@ -1,6 +1,6 @@
 """Document reading results and user-safe diagnostics, independent of parsers and HTTP."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 MAX_TEXT_CHARACTERS = 2_000_000
 MAX_TEXT_BYTES = 50 * 1024 * 1024
