@@ -46,6 +46,7 @@ from src.db.models import (
 )
 from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import ReferenceDrift, StoredCheck, compare_reference
+from src.domain.sanction_coverage import ArticleSanctionState, summarize_sanction_coverage
 from src.schemas.analysis import CaseAnalysis
 
 _EDITION_METADATA = (defer(LegalEdition.source_bytes), defer(LegalEdition.full_text))
