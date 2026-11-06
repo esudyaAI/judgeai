@@ -32,11 +32,14 @@ T15.10 — версия данных санкций: `sanctions_version` — SHA
 разбора каждой статьи (редакция и её происхождение, статус сверки, период нормы, все
 альтернативы санкции). Как `catalog_version`, не зависит от `on`; отчёт (T14) сохранит её
 рядом с версией каталога правил, чтобы сверить, по каким санкциям сделан вывод.
+
+T15.11 — версия санкций в результате анализа: `reference_versions` отдаёт и `sanctions_version`,
+анализ записывает её в результат, `reference_drift` сверяет её с текущей (блок `sanctions`).
 """
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 
 from legal_core import catalog
@@ -54,7 +57,12 @@ from src.db.models import (
     LegalRuleReference,
 )
 from src.domain.reference_coverage import RuleState, summarize_coverage
-from src.domain.reference_drift import ReferenceDrift, StoredCheck, compare_reference
+from src.domain.reference_drift import (
+    ReferenceDrift,
+    StoredCheck,
+    compare_reference,
+    compare_version,
+)
 from src.domain.sanction_coverage import (
     ArticleSanctionState,
     article_sort_key,
@@ -337,10 +345,12 @@ async def sanction_coverage(db: AsyncSession, on: date | None = None) -> dict:
 
 @dataclass(frozen=True)
 class ReferenceVersions:
-    """Fingerprints of the reference at one moment: the catalog and each rule's basis."""
+    """Fingerprints of the reference at one moment: the catalog, each rule's basis and
+    (T15.11) the sanction data; None — the sanction version was not read."""
 
     catalog: str
     rules: dict[str, str] = field(default_factory=dict)
+    sanctions: str | None = None
 
 
 async def reference_versions(db: AsyncSession) -> ReferenceVersions:
@@ -348,18 +358,21 @@ async def reference_versions(db: AsyncSession) -> ReferenceVersions:
     return ReferenceVersions(
         catalog=items[0]["catalog_version"],
         rules={item["key"]: item["basis_version"] for item in items},
+        sanctions=await sanctions_version(db),
     )
 
 
 async def reference_drift(db: AsyncSession, result: CaseAnalysis) -> ReferenceDrift:
     """Versions stored in an analysis result against the current reference."""
     current = await reference_versions(db)
-    return compare_reference(
+    drift = compare_reference(
         result.reference_version,
         [StoredCheck(check.rule_key, check.basis_version) for check in result.legal_checks],
         current.catalog,
         current.rules,
     )
+    # reference_versions always reads the sanction version, so it is never None here
+    return replace(drift, sanctions=compare_version(result.sanctions_version, current.sanctions))
 
 
 async def rule_basis(db: AsyncSession, key: str, on: date | None = None) -> dict | None:

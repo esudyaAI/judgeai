@@ -156,6 +156,9 @@ class CaseAnalysis(ApiModel):
     # T15.5: catalog_version of the rule reference the checks were made with; None — not
     # recorded (results stored before T15.5, or an analysis assembled without the reference).
     reference_version: str | None = None
+    # T15.11: version of the sanction data the checks read (GET /api/legal/rules/coverage,
+    # sanctions.version); None — not recorded (results stored before T15.11).
+    sanctions_version: str | None = None
     # Human-readable caveats the UI must show (e.g. unverified sanction, partial OCR).
     warnings: list[str] = []
 

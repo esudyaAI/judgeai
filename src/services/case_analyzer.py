@@ -337,6 +337,7 @@ def assemble_analysis(
         practice=_practice_read(practice) if practice else None,
         warnings=warnings,
         reference_version=reference.catalog if reference is not None else None,
+        sanctions_version=reference.sanctions if reference is not None else None,
     )
 
 

@@ -5,6 +5,9 @@ and, for every finding built by a rule, that rule's basis version. Comparing the
 fingerprints (T15.4) tells a reader whether the conclusions still rest on the same reference, and
 which findings now rest on a changed basis. A result that recorded no version is `unknown`, never
 reported as current.
+
+T15.11 — the same comparison for one stored version (the sanction data fingerprint of T15.10):
+`compare_version` tells whether the sanctions the checks read have changed since the analysis.
 """
 
 from dataclasses import dataclass, field
@@ -32,12 +35,32 @@ class CheckDrift:
 
 
 @dataclass(frozen=True)
+class VersionDrift:
+    """One fingerprint stored in a result against the current one."""
+
+    status: ReferenceStatus
+    stored_version: str | None
+    current_version: str
+
+
+@dataclass(frozen=True)
 class ReferenceDrift:
     status: ReferenceStatus
     stored_version: str | None
     current_version: str
     checks: list[CheckDrift] = field(default_factory=list)
     changed_rules: list[str] = field(default_factory=list)
+    # T15.11: the sanction data version; None — not compared
+    sanctions: VersionDrift | None = None
+
+
+def compare_version(stored_version: str | None, current_version: str) -> VersionDrift:
+    """`unknown` when nothing was stored; otherwise `current` only for the very same version."""
+    if stored_version is None:
+        status: ReferenceStatus = "unknown"
+    else:
+        status = "current" if stored_version == current_version else "changed"
+    return VersionDrift(status, stored_version, current_version)
 
 
 def _check_status(check: StoredCheck, current: str | None) -> CheckStatus:
@@ -68,13 +91,9 @@ def compare_reference(
                 status=_check_status(check, current),
             )
         )
-    if stored_version is None:
-        status: ReferenceStatus = "unknown"
-    else:
-        status = "current" if stored_version == current_version else "changed"
     changed = sorted({d.rule_key for d in drifts if d.status == "changed" and d.rule_key})
     return ReferenceDrift(
-        status=status,
+        status=compare_version(stored_version, current_version).status,
         stored_version=stored_version,
         current_version=current_version,
         checks=drifts,
