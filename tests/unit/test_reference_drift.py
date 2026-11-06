@@ -5,7 +5,7 @@
 основание. Отсутствие сохранённой версии — «неизвестно», а не «совпадает».
 """
 
-from src.domain.reference_drift import StoredCheck, compare_reference
+from src.domain.reference_drift import StoredCheck, compare_reference, compare_version
 
 OLD = "sha256:" + "1" * 64
 NEW = "sha256:" + "2" * 64
@@ -68,3 +68,28 @@ def test_changed_rules_are_unique_and_sorted():
     drift = compare_reference(OLD, checks, NEW, {"a.rule": B, "b.rule": B})
     assert drift.changed_rules == ["a.rule", "b.rule"]
     assert [check.index for check in drift.checks] == [0, 1, 2]
+
+
+# T15.11: одна сохранённая версия против текущей (версия данных санкций)
+
+
+def test_same_version_is_current():
+    drift = compare_version(OLD, OLD)
+    assert drift.status == "current"
+    assert drift.stored_version == OLD and drift.current_version == OLD
+
+
+def test_other_version_is_changed():
+    drift = compare_version(OLD, NEW)
+    assert drift.status == "changed"
+    assert drift.stored_version == OLD and drift.current_version == NEW
+
+
+def test_missing_stored_version_is_unknown_not_current():
+    drift = compare_version(None, NEW)
+    assert drift.status == "unknown"
+    assert drift.stored_version is None and drift.current_version == NEW
+
+
+def test_reference_drift_without_sanctions_leaves_them_out():
+    assert compare_reference(OLD, [], OLD, {}).sanctions is None
