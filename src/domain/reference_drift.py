@@ -8,13 +8,20 @@ reported as current.
 
 T15.11 — the same comparison for one stored version (the sanction data fingerprint of T15.10):
 `compare_version` tells whether the sanctions the checks read have changed since the analysis.
+
+T15.12 — per article: the sanction data fingerprint covers every article, so a change of any
+other article read as `changed`. `compare_article_versions` compares only the articles whose
+sanctions the analysis read; an article whose reading is gone from the reference is `removed`.
 """
 
 from dataclasses import dataclass, field
 from typing import Literal
 
+from src.domain.sanction_coverage import article_sort_key
+
 ReferenceStatus = Literal["current", "changed", "unknown"]
 CheckStatus = Literal["current", "changed", "unknown", "no_rule"]
+ArticleStatus = Literal["current", "changed", "removed"]
 
 
 @dataclass(frozen=True)
@@ -44,6 +51,24 @@ class VersionDrift:
 
 
 @dataclass(frozen=True)
+class ArticleDrift:
+    """The stored version of one article's sanctions against its current version."""
+
+    article: str
+    stored_version: str
+    current_version: str | None
+    status: ArticleStatus
+
+
+@dataclass(frozen=True)
+class ArticlesDrift:
+    status: ReferenceStatus
+    articles: list[ArticleDrift] = field(default_factory=list)
+    # changed or removed, in article number order
+    changed_articles: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class ReferenceDrift:
     status: ReferenceStatus
     stored_version: str | None
@@ -52,6 +77,8 @@ class ReferenceDrift:
     changed_rules: list[str] = field(default_factory=list)
     # T15.11: the sanction data version; None — not compared
     sanctions: VersionDrift | None = None
+    # T15.12: the sanctions of the articles the analysis read; None — not compared
+    sanction_articles: ArticlesDrift | None = None
 
 
 def compare_version(stored_version: str | None, current_version: str) -> VersionDrift:
@@ -61,6 +88,27 @@ def compare_version(stored_version: str | None, current_version: str) -> Version
     else:
         status = "current" if stored_version == current_version else "changed"
     return VersionDrift(status, stored_version, current_version)
+
+
+def compare_article_versions(
+    stored: dict[str, str] | None, current: dict[str, str]
+) -> ArticlesDrift:
+    """`unknown` when nothing was stored; `current` only if every read article is unchanged.
+
+    An analysis that read no sanctions stored `{}` — nothing it rests on can change.
+    """
+    if stored is None:
+        return ArticlesDrift("unknown")
+    drifts = []
+    for article in sorted(stored, key=article_sort_key):
+        now = current.get(article)
+        if now is None:
+            status: ArticleStatus = "removed"
+        else:
+            status = "current" if now == stored[article] else "changed"
+        drifts.append(ArticleDrift(article, stored[article], now, status))
+    changed = [d.article for d in drifts if d.status != "current"]
+    return ArticlesDrift("changed" if changed else "current", drifts, changed)
 
 
 def _check_status(check: StoredCheck, current: str | None) -> CheckStatus:

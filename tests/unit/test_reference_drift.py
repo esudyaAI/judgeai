@@ -5,7 +5,12 @@
 основание. Отсутствие сохранённой версии — «неизвестно», а не «совпадает».
 """
 
-from src.domain.reference_drift import StoredCheck, compare_reference, compare_version
+from src.domain.reference_drift import (
+    StoredCheck,
+    compare_article_versions,
+    compare_reference,
+    compare_version,
+)
 
 OLD = "sha256:" + "1" * 64
 NEW = "sha256:" + "2" * 64
@@ -93,3 +98,42 @@ def test_missing_stored_version_is_unknown_not_current():
 
 def test_reference_drift_without_sanctions_leaves_them_out():
     assert compare_reference(OLD, [], OLD, {}).sanctions is None
+
+
+# T15.12 — per-article sanction versions
+
+
+def test_article_versions_not_recorded_are_unknown():
+    drift = compare_article_versions(None, {"158": A})
+    assert drift.status == "unknown"
+    assert drift.articles == []
+    assert drift.changed_articles == []
+
+
+def test_analysis_that_read_no_sanctions_is_current():
+    drift = compare_article_versions({}, {"158": A})
+    assert drift.status == "current"
+    assert drift.articles == []
+
+
+def test_same_article_versions_are_current_whatever_else_changed():
+    drift = compare_article_versions({"158": A}, {"158": A, "159": B})
+    assert drift.status == "current"
+    assert [(d.article, d.status) for d in drift.articles] == [("158", "current")]
+    assert drift.articles[0].current_version == A
+
+
+def test_changed_and_removed_articles_are_reported_in_number_order():
+    drift = compare_article_versions({"264.1": A, "30": A, "105": A}, {"264.1": B, "105": A})
+    assert drift.status == "changed"
+    assert [(d.article, d.status) for d in drift.articles] == [
+        ("30", "removed"),
+        ("105", "current"),
+        ("264.1", "changed"),
+    ]
+    assert drift.articles[0].current_version is None
+    assert drift.changed_articles == ["30", "264.1"]
+
+
+def test_compare_reference_leaves_article_versions_uncompared():
+    assert compare_reference(OLD, [], OLD, {}).sanction_articles is None

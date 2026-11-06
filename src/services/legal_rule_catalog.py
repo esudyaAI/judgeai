@@ -35,6 +35,9 @@ T15.10 — версия данных санкций: `sanctions_version` — SHA
 
 T15.11 — версия санкций в результате анализа: `reference_versions` отдаёт и `sanctions_version`,
 анализ записывает её в результат, `reference_drift` сверяет её с текущей (блок `sanctions`).
+T15.12 — поштучно: `reference_versions` отдаёт и версию новейшего разбора каждой статьи (тот же
+`_reading`, из которого складывается версия всех санкций), анализ записывает версии прочитанных
+им статей, `reference_drift` сверяет только их (блок `sanction_articles`).
 """
 
 import hashlib
@@ -60,6 +63,7 @@ from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import (
     ReferenceDrift,
     StoredCheck,
+    compare_article_versions,
     compare_reference,
     compare_version,
 )
@@ -313,6 +317,12 @@ def _sanctions_version(readings: dict[str, list[SanctionRow]]) -> str:
     return fingerprint([_reading(article, readings[article]) for article in articles])
 
 
+def _article_versions(readings: dict[str, list[SanctionRow]]) -> dict[str, str]:
+    """T15.12: per article, the fingerprint of the reading its sanction checks rest on."""
+    articles = sorted(readings, key=article_sort_key)
+    return {article: fingerprint(_reading(article, readings[article])) for article in articles}
+
+
 async def article_sanction_states(
     db: AsyncSession, on: date | None = None
 ) -> list[ArticleSanctionState]:
@@ -346,19 +356,23 @@ async def sanction_coverage(db: AsyncSession, on: date | None = None) -> dict:
 @dataclass(frozen=True)
 class ReferenceVersions:
     """Fingerprints of the reference at one moment: the catalog, each rule's basis and
-    (T15.11) the sanction data; None — the sanction version was not read."""
+    (T15.11) the sanction data and (T15.12) each article's sanction reading; None — the
+    sanction versions were not read."""
 
     catalog: str
     rules: dict[str, str] = field(default_factory=dict)
     sanctions: str | None = None
+    sanction_articles: dict[str, str] | None = None
 
 
 async def reference_versions(db: AsyncSession) -> ReferenceVersions:
     items = await rule_catalog(db)
+    readings = await _newest_sanction_readings(db)
     return ReferenceVersions(
         catalog=items[0]["catalog_version"],
         rules={item["key"]: item["basis_version"] for item in items},
-        sanctions=await sanctions_version(db),
+        sanctions=_sanctions_version(readings),
+        sanction_articles=_article_versions(readings),
     )
 
 
@@ -371,8 +385,14 @@ async def reference_drift(db: AsyncSession, result: CaseAnalysis) -> ReferenceDr
         current.catalog,
         current.rules,
     )
-    # reference_versions always reads the sanction version, so it is never None here
-    return replace(drift, sanctions=compare_version(result.sanctions_version, current.sanctions))
+    # reference_versions always reads the sanction versions, so they are never None here
+    return replace(
+        drift,
+        sanctions=compare_version(result.sanctions_version, current.sanctions),
+        sanction_articles=compare_article_versions(
+            result.sanction_article_versions, current.sanction_articles or {}
+        ),
+    )
 
 
 async def rule_basis(db: AsyncSession, key: str, on: date | None = None) -> dict | None:

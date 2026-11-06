@@ -21,6 +21,7 @@ from legal_core.rules.sanction_ceiling import sanction_ceiling_for_part
 from pydantic import ValidationError
 
 from src.application.practice_report import PracticeReport
+from src.domain.sanction_coverage import article_sort_key
 from src.schemas.analysis import (
     AnalysisStats,
     CaseAnalysis,
@@ -338,7 +339,30 @@ def assemble_analysis(
         warnings=warnings,
         reference_version=reference.catalog if reference is not None else None,
         sanctions_version=reference.sanctions if reference is not None else None,
+        sanction_article_versions=_read_article_versions(statute, count_statutes, reference),
     )
+
+
+def _read_article_versions(
+    statute: StatuteSanctionReading | None,
+    count_statutes: dict[ArticleReference, StatuteSanctionReading] | None,
+    reference: ReferenceVersions | None,
+) -> dict[str, str] | None:
+    """T15.12: the versions of the articles whose sanctions this analysis read.
+
+    None when the per-article versions were not read, or when a read article has none — a
+    partial record would later report the missing article as unchanged.
+    """
+    if reference is None or reference.sanction_articles is None:
+        return None
+    readings = [statute, *(count_statutes or {}).values()]
+    articles = sorted(
+        {reading.sanctions[0].article for reading in readings if reading and reading.sanctions},
+        key=article_sort_key,
+    )
+    if any(article not in reference.sanction_articles for article in articles):
+        return None
+    return {article: reference.sanction_articles[article] for article in articles}
 
 
 def _with_basis_versions(
