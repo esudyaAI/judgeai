@@ -11,7 +11,6 @@ class SanctionCoverageRead(BaseModel):
     """
 
     version: str
-
     total_articles: int
     by_status: dict[str, list[str]]
     confirmed: list[str]
