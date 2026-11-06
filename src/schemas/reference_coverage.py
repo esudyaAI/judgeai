@@ -22,3 +22,4 @@ class ReferenceCoverageRead(BaseModel):
     confirmed: list[str]
     unconfirmed: list[str]
     needs_legal_review: list[str]
+    sanctions: SanctionCoverageRead

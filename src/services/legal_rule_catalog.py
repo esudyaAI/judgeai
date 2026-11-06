@@ -37,7 +37,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleReference
+from src.db.models import (
+    CriminalArticleSanction,
+    LegalAct,
+    LegalEdition,
+    LegalProvision,
+    LegalRuleReference,
+)
 from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import ReferenceDrift, StoredCheck, compare_reference
 from src.schemas.analysis import CaseAnalysis
