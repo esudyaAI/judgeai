@@ -215,6 +215,49 @@ async def rule_coverage(db: AsyncSession, on: date | None = None) -> dict:
         "confirmed": coverage.confirmed,
         "unconfirmed": coverage.unconfirmed,
         "needs_legal_review": coverage.needs_legal_review,
+        "sanctions": await sanction_coverage(db, on),
+    }
+
+
+async def article_sanction_states(
+    db: AsyncSession, on: date | None = None
+) -> list[ArticleSanctionState]:
+    """T15.9: per article, the newest parsed edition's verification status and, with `on`,
+    whether its provision was in force on that date (`in_force_on`; without `on` — None)."""
+    query = (
+        select(
+            CriminalArticleSanction.article,
+            LegalEdition.verification_status,
+            LegalProvision.effective_from,
+            LegalProvision.effective_to,
+        )
+        .join(LegalProvision, LegalProvision.id == CriminalArticleSanction.provision_id)
+        .join(LegalEdition, LegalEdition.id == LegalProvision.edition_id)
+        .order_by(
+            CriminalArticleSanction.article,
+            LegalEdition.retrieved_at.desc(),
+            CriminalArticleSanction.parser_version.desc(),
+            CriminalArticleSanction.ordinal,
+        )
+    )
+    states: dict[str, ArticleSanctionState] = {}
+    for article, status, start, end in (await db.execute(query)).all():
+        if article not in states:
+            in_force = in_force_on(start, end, on) if on is not None else None
+            states[article] = ArticleSanctionState(article, status, in_force)
+    return list(states.values())
+
+
+async def sanction_coverage(db: AsyncSession, on: date | None = None) -> dict:
+    """T15.9: articles with parsed sanctions grouped by the status of their newest edition."""
+    coverage = summarize_sanction_coverage(
+        await article_sanction_states(db, on), dated=on is not None
+    )
+    return {
+        "total_articles": coverage.total_articles,
+        "by_status": coverage.by_status,
+        "confirmed": coverage.confirmed,
+        "unconfirmed": coverage.unconfirmed,
     }
 
 
