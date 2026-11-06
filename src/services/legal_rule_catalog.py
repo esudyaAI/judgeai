@@ -28,6 +28,10 @@ T15.9 — охват санкций: та же сводка показывает
 редакции, действовавшей на дату, а каких — из несверенной, отклонённой, недействовавшей или
 с неизвестным периодом (src/domain/sanction_coverage.py). Редакция статьи выбирается как в
 `find_article_sanctions`: новейшая по `retrieved_at`, затем по версии парсера.
+T15.10 — версия данных санкций: `sanctions_version` — SHA-256 канонического JSON новейшего
+разбора каждой статьи (редакция и её происхождение, статус сверки, период нормы, все
+альтернативы санкции). Как `catalog_version`, не зависит от `on`; отчёт (T14) сохранит её
+рядом с версией каталога правил, чтобы сверить, по каким санкциям сделан вывод.
 """
 
 import hashlib
@@ -51,7 +55,12 @@ from src.db.models import (
 )
 from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import ReferenceDrift, StoredCheck, compare_reference
-from src.domain.sanction_coverage import ArticleSanctionState, summarize_sanction_coverage
+from src.domain.sanction_coverage import (
+    ArticleSanctionState,
+    article_sort_key,
+    newest_readings,
+    summarize_sanction_coverage,
+)
 from src.schemas.analysis import CaseAnalysis
 
 _EDITION_METADATA = (defer(LegalEdition.source_bytes), defer(LegalEdition.full_text))
@@ -224,18 +233,14 @@ async def rule_coverage(db: AsyncSession, on: date | None = None) -> dict:
     }
 
 
-async def article_sanction_states(
-    db: AsyncSession, on: date | None = None
-) -> list[ArticleSanctionState]:
-    """T15.9: per article, the newest parsed edition's verification status and, with `on`,
-    whether its provision was in force on that date (`in_force_on`; without `on` — None)."""
+SanctionRow = tuple[CriminalArticleSanction, LegalProvision, LegalEdition]
+
+
+async def _newest_sanction_readings(db: AsyncSession) -> dict[str, list[SanctionRow]]:
+    """Per article, the rows of its newest reading (edition by `retrieved_at`, then parser)."""
     query = (
-        select(
-            CriminalArticleSanction.article,
-            LegalEdition.verification_status,
-            LegalProvision.effective_from,
-            LegalProvision.effective_to,
-        )
+        select(CriminalArticleSanction, LegalProvision, LegalEdition)
+        .options(*_EDITION_METADATA)
         .join(LegalProvision, LegalProvision.id == CriminalArticleSanction.provision_id)
         .join(LegalEdition, LegalEdition.id == LegalProvision.edition_id)
         .order_by(
@@ -245,20 +250,84 @@ async def article_sanction_states(
             CriminalArticleSanction.ordinal,
         )
     )
-    states: dict[str, ArticleSanctionState] = {}
-    for article, status, start, end in (await db.execute(query)).all():
-        if article not in states:
-            in_force = in_force_on(start, end, on) if on is not None else None
-            states[article] = ArticleSanctionState(article, status, in_force)
-    return list(states.values())
+    rows = (await db.execute(query)).all()
+    return newest_readings(
+        (sanction.article, (edition.id, sanction.parser_version), (sanction, provision, edition))
+        for sanction, provision, edition in rows
+    )
+
+
+def _state(article: str, rows: list[SanctionRow], on: date | None) -> ArticleSanctionState:
+    _, provision, edition = rows[0]
+    in_force = (
+        in_force_on(provision.effective_from, provision.effective_to, on)
+        if on is not None
+        else None
+    )
+    return ArticleSanctionState(article, edition.verification_status, in_force)
+
+
+def _reading(article: str, rows: list[SanctionRow]) -> dict:
+    """What a sanction check of the article rests on; ids and data, no dates of the query."""
+    first, provision, edition = rows[0]
+    return {
+        "article": article,
+        "edition_id": edition.id,
+        "edition_label": edition.label,
+        "source_url": edition.source_url,
+        "source_sha256": edition.source_sha256,
+        "retrieved_at": edition.retrieved_at,
+        "verification_status": edition.verification_status,
+        "provision_id": provision.id,
+        "locator": provision.locator,
+        "effective_from": provision.effective_from,
+        "effective_to": provision.effective_to,
+        "parser_version": first.parser_version,
+        "sanctions": [
+            {
+                "provision_id": row.provision_id,
+                "part": row.part,
+                "ordinal": row.ordinal,
+                "kind": row.kind,
+                "role": row.role,
+                "min_value": row.min_value,
+                "max_value": row.max_value,
+                "unit": row.unit,
+                "clause": row.clause,
+            }
+            for row, _, _ in rows
+        ],
+    }
+
+
+def _sanctions_version(readings: dict[str, list[SanctionRow]]) -> str:
+    articles = sorted(readings, key=article_sort_key)
+    return fingerprint([_reading(article, readings[article]) for article in articles])
+
+
+async def article_sanction_states(
+    db: AsyncSession, on: date | None = None
+) -> list[ArticleSanctionState]:
+    """T15.9: per article, the newest parsed edition's verification status and, with `on`,
+    whether its provision was in force on that date (`in_force_on`; without `on` — None)."""
+    readings = await _newest_sanction_readings(db)
+    return [_state(article, rows, on) for article, rows in readings.items()]
+
+
+async def sanctions_version(db: AsyncSession) -> str:
+    """T15.10: fingerprint of the sanction data the checks read; independent of any date."""
+    return _sanctions_version(await _newest_sanction_readings(db))
 
 
 async def sanction_coverage(db: AsyncSession, on: date | None = None) -> dict:
-    """T15.9: articles with parsed sanctions grouped by the status of their newest edition."""
+    """T15.9: articles with parsed sanctions grouped by the status of their newest edition;
+    T15.10: with the version of that sanction data."""
+    readings = await _newest_sanction_readings(db)
     coverage = summarize_sanction_coverage(
-        await article_sanction_states(db, on), dated=on is not None
+        [_state(article, rows, on) for article, rows in readings.items()], dated=on is not None
     )
     return {
+        "version": _sanctions_version(readings),
         "total_articles": coverage.total_articles,
         "by_status": coverage.by_status,
         "confirmed": coverage.confirmed,

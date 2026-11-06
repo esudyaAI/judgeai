@@ -96,3 +96,26 @@ def test_empty_reading_is_empty_coverage():
 def test_non_numeric_article_sorts_after_numbers():
     coverage = summarize_sanction_coverage([state("x-1"), state("158")], dated=False)
     assert coverage.unconfirmed == ["158", "x-1"]
+
+
+def test_newest_readings_keep_first_reading_of_each_article():
+    rows = [
+        ("158", (2, "v2"), "a"),
+        ("158", (2, "v2"), "b"),
+        ("158", (2, "v1"), "old parser"),
+        ("158", (1, "v2"), "old edition"),
+        ("30", (1, "v1"), "c"),
+    ]
+    assert newest_readings(rows) == {"158": ["a", "b"], "30": ["c"]}
+
+
+def test_newest_readings_keep_articles_in_given_order_and_handle_empty():
+    rows = [("264.1", (1, "v"), 1), ("105", (1, "v"), 2)]
+    assert list(newest_readings(rows)) == ["264.1", "105"]
+    assert newest_readings([]) == {}
+
+
+def test_newest_readings_reject_article_returning_after_another():
+    rows = [("158", (1, "v"), 1), ("30", (1, "v"), 2), ("158", (1, "v"), 3)]
+    with pytest.raises(ValueError, match="not grouped"):
+        newest_readings(rows)

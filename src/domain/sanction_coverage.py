@@ -24,6 +24,8 @@ EDITION_STATUSES = frozenset({"unreviewed", "verified", "rejected"})
 CONFIRMED = "verified"
 _ARTICLE_NUMBER = re.compile(r"\d+(?:\.\d+)*")
 
+T = TypeVar("T")
+
 
 @dataclass(frozen=True)
 class ArticleSanctionState:
