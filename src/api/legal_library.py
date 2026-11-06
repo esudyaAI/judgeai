@@ -197,6 +197,7 @@ async def rules_coverage(db: DbSession, on_date: date | None = Query(None, alias
 
     Каждое правило каталога — ровно под одним статусом основания; правило без основания
     попадает в `unconfirmed`, а не исчезает. С `on` статусы считаются на эту дату (T15.3).
+    `sanctions` — охват санкций по статьям УК из БД (T15.9) по тем же правилам.
     """
     return await rule_coverage(db, on_date)
 
