@@ -4,7 +4,13 @@ from pydantic import BaseModel
 
 
 class SanctionCoverageRead(BaseModel):
-    """T15.9: охват санкций — статьи УК с разобранными санкциями по статусу их редакции."""
+    """T15.9: охват санкций — статьи УК с разобранными санкциями по статусу их редакции.
+
+    `version` (T15.10) — отпечаток данных санкций, не зависит от `on`; `version` сводки —
+    по-прежнему версия каталога правил.
+    """
+
+    version: str
 
     total_articles: int
     by_status: dict[str, list[str]]

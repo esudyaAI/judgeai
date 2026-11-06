@@ -6,6 +6,7 @@ from src.domain.sanction_coverage import (
     SANCTION_STATUSES,
     ArticleSanctionState,
     article_status,
+    newest_readings,
     summarize_sanction_coverage,
 )
 

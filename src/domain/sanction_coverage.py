@@ -9,7 +9,9 @@
 """
 
 import re
+from collections.abc import Hashable, Iterable
 from dataclasses import dataclass
+from typing import TypeVar
 
 SANCTION_STATUSES: tuple[str, ...] = (
     "verified",
