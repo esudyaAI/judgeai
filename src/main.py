@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from src.api import auth, chats, criminal_sanctions, knowledge, legal_library, precedents
 from src.config import settings
+from src.domain.reference_conflict import CONFLICT_DETAIL, ReferenceDataConflict
 from src.services.analysis_runner import fail_interrupted_analyses
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,13 @@ async def hide_auth_validation_inputs(request, exc):
         errors = [{key: item[key] for key in ("loc", "msg", "type")} for item in exc.errors()]
         return JSONResponse(status_code=422, content={"detail": errors})
     return await request_validation_exception_handler(request, exc)
+
+
+@app.exception_handler(ReferenceDataConflict)
+async def reference_data_conflict(request, exc):
+    """T15.16: contradictory reference data is a refusal to check, not a server error."""
+    logger.warning("reference data conflict on %s: %s", request.url.path, exc)
+    return JSONResponse(status_code=409, content={"detail": CONFLICT_DETAIL})
 
 
 @app.middleware("http")

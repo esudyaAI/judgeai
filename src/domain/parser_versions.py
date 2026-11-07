@@ -10,6 +10,8 @@
 import re
 from collections.abc import Iterable
 
+from src.domain.reference_conflict import ReferenceDataConflict
+
 _VERSION = re.compile(r"(?P<scheme>[^/\s]+)/(?P<number>\d+)")
 
 
@@ -17,7 +19,7 @@ def parser_version_key(version: str) -> tuple[str, int]:
     """`statute-sanction-parser/10` → (`statute-sanction-parser`, 10)."""
     match = _VERSION.fullmatch(version)
     if match is None:
-        raise ValueError(f"parser version without <scheme>/<number>: {version!r}")
+        raise ReferenceDataConflict(f"parser version without <scheme>/<number>: {version!r}")
     return match["scheme"], int(match["number"])
 
 
@@ -31,5 +33,5 @@ def newest_parser_version(versions: Iterable[str]) -> str:
     keys = {version: parser_version_key(version) for version in distinct}
     schemes = {scheme for scheme, _ in keys.values()}
     if len(schemes) > 1:
-        raise ValueError(f"parser versions of different schemes: {sorted(distinct)}")
+        raise ReferenceDataConflict(f"parser versions of different schemes: {sorted(distinct)}")
     return max(distinct, key=lambda version: keys[version][1])

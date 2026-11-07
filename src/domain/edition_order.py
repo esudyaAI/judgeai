@@ -10,6 +10,8 @@
 from collections.abc import Hashable, Iterable
 from typing import Any, TypeVar
 
+from src.domain.reference_conflict import ReferenceDataConflict
+
 E = TypeVar("E", bound=Hashable)
 
 
@@ -17,7 +19,7 @@ def newest_edition(editions: Iterable[tuple[E, Any]]) -> E:
     """The edition with the latest `retrieved_at` among `(edition, retrieved_at)` pairs.
 
     Pairs may repeat (one per sanction row). Two distinct editions sharing the latest moment
-    are refused with ValueError.
+    are refused with ReferenceDataConflict (a ValueError, T15.16).
     """
     moments: dict[E, Any] = {}
     for edition, moment in editions:
@@ -27,5 +29,7 @@ def newest_edition(editions: Iterable[tuple[E, Any]]) -> E:
     latest = max(moments.values())
     newest = [edition for edition, moment in moments.items() if moment == latest]
     if len(newest) > 1:
-        raise ValueError(f"editions retrieved at the same moment: {sorted(newest, key=str)}")
+        raise ReferenceDataConflict(
+            f"editions retrieved at the same moment: {sorted(newest, key=str)}"
+        )
     return newest[0]

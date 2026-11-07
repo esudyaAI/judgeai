@@ -20,6 +20,7 @@ from src.db import session as db_session
 from src.db.auth import User
 from src.db.models import Chat, Message
 from src.domain.documents import UnreadableInput, reading_warnings
+from src.domain.reference_conflict import ReferenceDataConflict
 from src.infrastructure.fastembed_embedder import FastembedEmbedder
 from src.infrastructure.precedent_store import SqlPrecedentStore
 from src.infrastructure.verdict_reader import RegexVerdictReader
@@ -176,17 +177,37 @@ async def run_analysis(
         )
         count_references = {c.reference for c in sentence.counts if c.reference is not None}
         count_statutes = {}
+        conflicted: list[str] = []
+        reference_now = None
         async with db_session.async_session_factory() as db:
+            # T15.16: a data conflict (T15.14/T15.15) leaves that article unchecked, not the case.
             if reference is not None:
-                statute = await find_article_sanctions(db, reference.article, reference.part)
+                try:
+                    statute = await find_article_sanctions(db, reference.article, reference.part)
+                except ReferenceDataConflict:
+                    conflicted.append(str(reference))
             for count_reference in count_references:
-                reading = await find_article_sanctions(
-                    db, count_reference.article, count_reference.part
-                )
+                try:
+                    reading = await find_article_sanctions(
+                        db, count_reference.article, count_reference.part
+                    )
+                except ReferenceDataConflict:
+                    conflicted.append(str(count_reference))
+                    continue
                 if reading is not None:
                     count_statutes[count_reference] = reading
-            reference_now = await reference_versions(db)
-        if reference is not None and statute is None:
+            try:
+                reference_now = await reference_versions(db)
+            except ReferenceDataConflict:
+                warnings.append(
+                    "Версия справки не зафиксирована: конфликт данных о редакциях УК РФ."
+                )
+        for article in dict.fromkeys(conflicted):
+            warnings.append(
+                f"Санкция {article} не проверена: конфликт данных о редакциях УК РФ "
+                "(противоречащие редакции или разборы), ни одна из них не выбрана."
+            )
+        if reference is not None and statute is None and str(reference) not in conflicted:
             warnings.append(f"Санкция {reference} не найдена в импортированном тексте УК РФ.")
         analysis = assemble_analysis(
             facts,
