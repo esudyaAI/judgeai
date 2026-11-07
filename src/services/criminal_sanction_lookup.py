@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import CriminalArticleSanction, LegalEdition, LegalProvision
+from src.domain.parser_versions import newest_parser_version
 from src.schemas.criminal_sanctions import SanctionProvenance
 
 

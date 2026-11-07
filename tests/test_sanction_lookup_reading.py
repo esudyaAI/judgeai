@@ -24,7 +24,7 @@ PART_1_ONLY = (
     "либо лишением свободы на срок до трех лет."
 )
 NEWER_RAW = b"synthetic newer edition with only part 1 of article 158"
-NEWER_PARSER = "zz-test-newer-parser"
+NEWER_PARSER = "statute-sanction-parser/3"
 
 
 def _newer_manifest() -> SnapshotImport:
