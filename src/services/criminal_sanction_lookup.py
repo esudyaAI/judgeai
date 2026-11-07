@@ -25,6 +25,7 @@ async def find_article_sanctions(
     The reading — edition by `retrieved_at`, then parser version — is chosen for the whole
     article, as in the per-article version of the reference (T15.12). A part absent from that
     reading is not parsed (None): it is never read from an older edition or parser (T15.13).
+    Parser versions are ordered by number, not as text (T15.14).
     """
     query = (
         select(CriminalArticleSanction, LegalProvision, LegalEdition)
@@ -33,7 +34,6 @@ async def find_article_sanctions(
         .where(CriminalArticleSanction.article == article)
         .order_by(
             LegalEdition.retrieved_at.desc(),
-            CriminalArticleSanction.parser_version.desc(),
             CriminalArticleSanction.ordinal,
         )
     )
@@ -41,13 +41,12 @@ async def find_article_sanctions(
     if not rows:
         return None
     newest_edition_id = rows[0][2].id
-    newest_version = rows[0][0].parser_version
+    rows = [item for item in rows if item[2].id == newest_edition_id]
+    newest_version = newest_parser_version(row.parser_version for row, _, _ in rows)
     rows = [
-        (row, row_provision, row_edition)
-        for row, row_provision, row_edition in rows
-        if row_edition.id == newest_edition_id
-        and row.parser_version == newest_version
-        and (part is None or row.part == part)
+        item
+        for item in rows
+        if item[0].parser_version == newest_version and (part is None or item[0].part == part)
     ]
     if not rows:
         return None

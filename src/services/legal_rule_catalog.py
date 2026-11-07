@@ -59,6 +59,7 @@ from src.db.models import (
     LegalProvision,
     LegalRuleReference,
 )
+from src.domain.parser_versions import newest_parser_version
 from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import (
     ReferenceDrift,
