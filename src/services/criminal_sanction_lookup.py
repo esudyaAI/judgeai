@@ -19,6 +19,12 @@ class StatuteSanctionReading:
 async def find_article_sanctions(
     db: AsyncSession, article: str, part: int | None = None
 ) -> StatuteSanctionReading | None:
+    """Sanctions of the article (or of one part) from the article's newest reading.
+
+    The reading — edition by `retrieved_at`, then parser version — is chosen for the whole
+    article, as in the per-article version of the reference (T15.12). A part absent from that
+    reading is not parsed (None): it is never read from an older edition or parser (T15.13).
+    """
     query = (
         select(CriminalArticleSanction, LegalProvision, LegalEdition)
         .join(LegalProvision, LegalProvision.id == CriminalArticleSanction.provision_id)
@@ -30,13 +36,21 @@ async def find_article_sanctions(
             CriminalArticleSanction.ordinal,
         )
     )
-    if part is not None:
-        query = query.where(CriminalArticleSanction.part == part)
     rows = (await db.execute(query)).all()
     if not rows:
         return None
-    _, provision, edition = rows[0]
+    newest_edition_id = rows[0][2].id
     newest_version = rows[0][0].parser_version
+    rows = [
+        (row, row_provision, row_edition)
+        for row, row_provision, row_edition in rows
+        if row_edition.id == newest_edition_id
+        and row.parser_version == newest_version
+        and (part is None or row.part == part)
+    ]
+    if not rows:
+        return None
+    _, provision, edition = rows[0]
     sanctions = [
         StatutorySanction(
             article=row.article,
@@ -48,8 +62,7 @@ async def find_article_sanctions(
             unit=MeasureUnit(row.unit) if row.unit else None,
             clause=row.clause,
         )
-        for row, _, row_edition in rows
-        if row_edition.id == edition.id and row.parser_version == newest_version
+        for row, _, _ in rows
     ]
     provenance = SanctionProvenance(
         edition_id=edition.id,
