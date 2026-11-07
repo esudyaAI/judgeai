@@ -59,6 +59,7 @@ from src.db.models import (
     LegalProvision,
     LegalRuleReference,
 )
+from src.domain.edition_order import newest_edition
 from src.domain.parser_versions import newest_parser_version
 from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import (
@@ -252,7 +253,9 @@ SanctionRow = tuple[CriminalArticleSanction, LegalProvision, LegalEdition]
 async def _newest_sanction_readings(db: AsyncSession) -> dict[str, list[SanctionRow]]:
     """Per article, the rows of its newest reading (edition by `retrieved_at`, then parser).
 
-    Parser versions of an edition are ordered by number, not as text (T15.14).
+    Parser versions of an edition are ordered by number, not as text (T15.14). Two editions
+    of one article retrieved at the same moment are refused, not ordered by the database
+    (T15.15).
     """
     query = (
         select(CriminalArticleSanction, LegalProvision, LegalEdition)
@@ -266,6 +269,11 @@ async def _newest_sanction_readings(db: AsyncSession) -> dict[str, list[Sanction
         )
     )
     rows = (await db.execute(query)).all()
+    editions: dict[str, list] = {}
+    for sanction, _, edition in rows:
+        editions.setdefault(sanction.article, []).append((edition.id, edition.retrieved_at))
+    newest_editions = {article: newest_edition(found) for article, found in editions.items()}
+    rows = [item for item in rows if item[2].id == newest_editions[item[0].article]]
     versions: dict[tuple[str, int], list[str]] = {}
     for sanction, _, edition in rows:
         versions.setdefault((sanction.article, edition.id), []).append(sanction.parser_version)

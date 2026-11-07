@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import CriminalArticleSanction, LegalEdition, LegalProvision
+from src.domain.edition_order import newest_edition
 from src.domain.parser_versions import newest_parser_version
 from src.schemas.criminal_sanctions import SanctionProvenance
 
@@ -25,7 +26,8 @@ async def find_article_sanctions(
     The reading — edition by `retrieved_at`, then parser version — is chosen for the whole
     article, as in the per-article version of the reference (T15.12). A part absent from that
     reading is not parsed (None): it is never read from an older edition or parser (T15.13).
-    Parser versions are ordered by number, not as text (T15.14).
+    Parser versions are ordered by number, not as text (T15.14). Two editions of the article
+    retrieved at the same moment are refused, not ordered by the database (T15.15).
     """
     query = (
         select(CriminalArticleSanction, LegalProvision, LegalEdition)
@@ -40,7 +42,7 @@ async def find_article_sanctions(
     rows = (await db.execute(query)).all()
     if not rows:
         return None
-    newest_edition_id = rows[0][2].id
+    newest_edition_id = newest_edition((edition.id, edition.retrieved_at) for _, _, edition in rows)
     rows = [item for item in rows if item[2].id == newest_edition_id]
     newest_version = newest_parser_version(row.parser_version for row, _, _ in rows)
     rows = [
