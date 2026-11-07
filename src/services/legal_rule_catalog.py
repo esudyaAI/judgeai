@@ -250,7 +250,10 @@ SanctionRow = tuple[CriminalArticleSanction, LegalProvision, LegalEdition]
 
 
 async def _newest_sanction_readings(db: AsyncSession) -> dict[str, list[SanctionRow]]:
-    """Per article, the rows of its newest reading (edition by `retrieved_at`, then parser)."""
+    """Per article, the rows of its newest reading (edition by `retrieved_at`, then parser).
+
+    Parser versions of an edition are ordered by number, not as text (T15.14).
+    """
     query = (
         select(CriminalArticleSanction, LegalProvision, LegalEdition)
         .options(*_EDITION_METADATA)
@@ -259,11 +262,19 @@ async def _newest_sanction_readings(db: AsyncSession) -> dict[str, list[Sanction
         .order_by(
             CriminalArticleSanction.article,
             LegalEdition.retrieved_at.desc(),
-            CriminalArticleSanction.parser_version.desc(),
             CriminalArticleSanction.ordinal,
         )
     )
     rows = (await db.execute(query)).all()
+    versions: dict[tuple[str, int], list[str]] = {}
+    for sanction, _, edition in rows:
+        versions.setdefault((sanction.article, edition.id), []).append(sanction.parser_version)
+    newest = {reading: newest_parser_version(found) for reading, found in versions.items()}
+    rows = [
+        (sanction, provision, edition)
+        for sanction, provision, edition in rows
+        if sanction.parser_version == newest[(sanction.article, edition.id)]
+    ]
     return newest_readings(
         (sanction.article, (edition.id, sanction.parser_version), (sanction, provision, edition))
         for sanction, provision, edition in rows
