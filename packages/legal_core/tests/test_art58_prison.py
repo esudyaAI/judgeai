@@ -71,7 +71,7 @@ def test_conditional_with_prison_is_flagged():
 def test_life_imprisonment_is_not_assessed():
     # Ч. 2 и 2.1 говорят о лишении свободы; пожизненное (ст. 57) здесь не оценивается.
     result = check_prison_part(replace(LISTED_21, life_imprisonment=True), NONE)
-    assert result.status is UNKNOWN and "пожизненн" in result.explanation.lower()
+    assert result.status is UNKNOWN and "пожизненн" in result.explanation
 
 
 # --- ч. 2.1: тюрьма обязательна ----------------------------------------------------------------
