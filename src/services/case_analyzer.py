@@ -438,7 +438,10 @@ def _count_checks(
         limit = None
         if ceiling is not None and ceiling.max_imprisonment_months:
             limit = art62_part1_limit(
-                ceiling.max_imprisonment_months, facts.mitigating, facts.aggravating
+                ceiling.max_imprisonment_months,
+                facts.mitigating,
+                facts.aggravating,
+                sanction_has_life_or_death=ceiling.harsher_than_imprisonment,
             )
         result = check_imposed_punishment(
             count.main,

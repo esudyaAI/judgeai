@@ -76,6 +76,14 @@ def _results() -> dict[str, list[CheckResult]]:
                 recidivism=Recidivism.UNKNOWN,
             )
         ],
+        art62.RULE_KEY_PART5: [
+            art62.check_procedure_term(
+                procedure=art62.ProcedureKind.UNKNOWN,
+                imposed_months=None,
+                most_severe_max_months=None,
+                imposed_most_severe_kind=True,
+            )
+        ],
         art63.RULE_KEY: [
             art63.check_recidivism_aggravation(
                 recidivism=none, recognized_in_draft=None, element_convictions_excluded=True

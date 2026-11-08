@@ -25,4 +25,5 @@ def art62_part1_limit(
         sanction_max_months,
         (c.norm or "" for c in mitigating),
         has_aggravating=bool(aggravating),
+        sanction_has_life_or_death=sanction_has_life_or_death,
     )
