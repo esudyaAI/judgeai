@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "uploads"
     UPLOAD_MAX_MB: int = 50
+    UPLOAD_MAX_FILES: int = 20
+    UPLOAD_MAX_REQUEST_MB: int = 200
     UPLOAD_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.dotx,.txt,.md"
 
     # "openai" = any OpenAI-compatible /chat/completions endpoint; "deepseek_web" = local

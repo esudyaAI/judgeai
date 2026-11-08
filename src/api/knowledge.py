@@ -22,7 +22,7 @@ from src.schemas.knowledge import (
     PrecedentIndexRead,
 )
 from src.services.document_parser import extract_document
-from src.services.file_reader import save_upload_file
+from src.services.file_reader import save_upload_file, validate_upload_batch
 from src.services.knowledge_service import create_knowledge_verdict_from_text
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,7 @@ async def upload_verdicts(
         raise HTTPException(status_code=422, detail="Не переданы файлы")
     if source_type in PRIVATE_SOURCE_TYPES:  # set only by the analysis of a user's own case
         raise HTTPException(status_code=422, detail="Недопустимый источник документа")
+    validate_upload_batch(files)
 
     items: list[KnowledgeUploadItem] = []
 

@@ -1,12 +1,19 @@
 import asyncio
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
 
 from src.application.upload_validation import ValidateUpload
 from src.config import settings
-from src.domain.uploads import DocxLimits, PdfLimits, UploadRejected
+from src.domain.uploads import (
+    DocxLimits,
+    PdfLimits,
+    UploadBatchLimits,
+    UploadRejected,
+    check_upload_batch,
+)
 from src.infrastructure.docx_inspector import DocxInspector
 from src.infrastructure.pdf_process import PdfProcessInspector
 
@@ -22,6 +29,21 @@ def validate_extension(filename: str | None) -> str:
             detail=f"Формат «{suffix or 'без расширения'}» не поддерживается. Допустимо: {allowed}",
         )
     return suffix
+
+
+def validate_upload_batch(files: Sequence[UploadFile]) -> None:
+    """Refuse the whole request by its file count and total size before storing any file."""
+    per_file = settings.UPLOAD_MAX_MB * 1024 * 1024
+    # An unknown size must not shrink the total: count it as the largest allowed file.
+    sizes = [per_file if file.size is None else file.size for file in files]
+    limits = UploadBatchLimits(
+        max_files=settings.UPLOAD_MAX_FILES,
+        max_total_bytes=settings.UPLOAD_MAX_REQUEST_MB * 1024 * 1024,
+    )
+    try:
+        check_upload_batch(sizes, limits)
+    except UploadRejected as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from None
 
 
 def _validate_stored_document(path: Path) -> None:
