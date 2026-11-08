@@ -22,6 +22,7 @@ def test_rule_keys_are_unique_and_stable():
         "art66.unfinished_offence",
         "art68.recidivism_term",
         "art73.conditional_ban",
+        "art73.offence_during_supervision",
         "art86.expungement",
         "imposed_term.sanction_limits",
     }
