@@ -226,3 +226,36 @@ def test_model_cited_imposed_term_names_its_rule():
     checks = {c.norm: c for c in _mitigated("на срок 4 года 6 месяцев", 54, text).legal_checks}
     check = checks["Назначенное наказание: пределы санкции и ч. 1 ст. 62 УК РФ"]
     assert check.rule_key == "imposed_term.sanction_limits"
+
+
+LIFE_SANCTION = _statute(
+    _sanction(PunishmentKind.IMPRISONMENT, max_value=240, unit=MeasureUnit.MONTHS),
+    _sanction(PunishmentKind.LIFE_IMPRISONMENT),
+)
+
+
+def test_part3_art62_no_two_thirds_limit_when_sanction_has_life_imprisonment():
+    result = _analyse(
+        LIFE_SANCTION,
+        {"mitigating": [{"name": "Явка с повинной", "norm": "п. «и» ч. 1 ст. 61"}]},
+    )
+    assert result.scale.sanction_max_months == 240
+    assert result.scale.limit_months is None
+    assert result.scale.limit_norm is None
+
+
+def test_part3_art62_count_above_two_thirds_is_not_flagged_when_sanction_has_life():
+    from legal_core.entities import ArticleReference, CountSentence, ImposedSentence, PunishmentTerm
+
+    part2 = ArticleReference("158", 2)
+    term = PunishmentTerm(PunishmentKind.IMPRISONMENT, 200, MeasureUnit.MONTHS)
+    sentence = ImposedSentence(
+        counts=(CountSentence("ч. 2 ст. 158 УК РФ", part2, term, (), "на срок"),),
+        final=term,
+        aggregation_rule=None,
+    )
+    by_norm = {c.norm: c for c in _per_count(sentence, {part2: LIFE_SANCTION}).legal_checks}
+    imposed = by_norm[
+        "Назначенное наказание: пределы санкции и ч. 1 ст. 62 УК РФ · ч. 2 ст. 158 УК РФ"
+    ]
+    assert imposed.status == "ok"

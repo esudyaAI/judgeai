@@ -77,7 +77,20 @@ RULES: tuple[RuleDescriptor, ...] = (
         key=art62.RULE_KEY,
         title="Смягчающие обстоятельства: ч. 1 ст. 62 УК РФ",
         norms=_uk("62", "61"),
-        not_modelled="Не смоделированы ч. 3 и ч. 5 ст. 62 и соотношение со ст. 66 УК РФ.",
+        not_modelled=(
+            "Ч. 3 ст. 62 учитывается по данным санкции; соотношение с ч. 5 ст. 62 и ст. 66 УК РФ "
+            "не смоделировано."
+        ),
+        needs_legal_review=art62.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art62.RULE_KEY_PART5,
+        title=art62.NORM_PART5,
+        norms=_uk("62"),
+        not_modelled=(
+            "Порядок рассмотрения дела передаёт вызывающий; пределы для менее строгих видов "
+            "наказания не вычисляются; ч. 2 и 4 ст. 62 УК РФ не смоделированы."
+        ),
         needs_legal_review=art62.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(

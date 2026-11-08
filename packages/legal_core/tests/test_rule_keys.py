@@ -34,7 +34,8 @@ def test_rule_module_key_is_a_catalog_rule(module):
 
 
 def test_catalog_lists_exactly_the_rule_modules():
-    assert sorted(item.key for item in catalog.RULES) == sorted(m.RULE_KEY for m in MODULES)
+    expected = [m.RULE_KEY for m in MODULES] + [art62.RULE_KEY_PART5]
+    assert sorted(item.key for item in catalog.RULES) == sorted(expected)
 
 
 def test_result_without_key_stays_compatible():

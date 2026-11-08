@@ -17,6 +17,8 @@ def art62_part1_limit(
     sanction_max_months: int,
     mitigating: list[Circumstance],
     aggravating: list[Circumstance],
+    *,
+    sanction_has_life_or_death: bool = False,
 ) -> int | None:
     """Upper limit in whole months, or None when ч. 1 ст. 62 does not apply."""
     return part1_limit_months(

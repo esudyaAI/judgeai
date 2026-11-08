@@ -1,7 +1,18 @@
 # Domain test — ч. 1 ст. 62 УК РФ (предел при смягчающих п. «и», «к» ч. 1 ст. 61).
 import pytest
 
-from legal_core.rules.art62 import NEEDS_LEGAL_REVIEW, has_part1_mitigation, part1_limit_months
+from legal_core.checks import CheckStatus
+from legal_core.rules.art62 import (
+    NEEDS_LEGAL_REVIEW,
+    NORM_PART5,
+    RULE_KEY_PART5,
+    SOURCE_PART5,
+    ProcedureKind,
+    check_procedure_term,
+    has_part1_mitigation,
+    part1_limit_months,
+    procedure_maximum,
+)
 
 I_ITEM = "п. «и» ч. 1 ст. 61"
 

@@ -273,7 +273,12 @@ def assemble_analysis(
         ]
     )
     art62_limit = (
-        art62_part1_limit(sanction_max_months, facts.mitigating, facts.aggravating)
+        art62_part1_limit(
+            sanction_max_months,
+            facts.mitigating,
+            facts.aggravating,
+            sanction_has_life_or_death=ceiling is not None and ceiling.harsher_than_imprisonment,
+        )
         if sanction_max_months
         else None
     )
