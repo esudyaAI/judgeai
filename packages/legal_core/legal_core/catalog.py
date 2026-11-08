@@ -14,6 +14,7 @@ from legal_core.rules import (
     art15,
     art18,
     art58,
+    art58_prison,
     art62,
     art63,
     art66,
@@ -70,8 +71,21 @@ RULES: tuple[RuleDescriptor, ...] = (
         key=art58.RULE_KEY,
         title=art58.NORM,
         norms=_uk("58"),
-        not_modelled="Не смоделированы ч. 2, 2.1 и 4 ст. 58 УК РФ (тюрьма, изменение вида).",
+        not_modelled=(
+            "Не смоделирована ч. 4 ст. 58 УК РФ (изменение вида); часть срока в тюрьме — "
+            "отдельное правило art58.prison_part."
+        ),
         needs_legal_review=art58.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art58_prison.RULE_KEY,
+        title=art58_prison.NORM,
+        norms=_uk("58"),
+        not_modelled=(
+            "Перечни статей ч. 2 и 2.1 ст. 58 УК РФ сообщает вызывающий; п. 7 ППВС № 9 "
+            "(новое преступление во время отбывания в тюрьме) не смоделирован."
+        ),
+        needs_legal_review=art58_prison.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
         key=art62.RULE_KEY,

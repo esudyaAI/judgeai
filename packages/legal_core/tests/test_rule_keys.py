@@ -15,6 +15,7 @@ from legal_core.rules import (
     art15,
     art18,
     art58,
+    art58_prison,
     art62,
     art63,
     art66,
@@ -25,7 +26,19 @@ from legal_core.rules import (
 )
 from legal_core.rules.art18 import Recidivism
 
-MODULES = [art15, art18, art58, art62, art63, art66, art68, art73, art86, imposed_term]
+MODULES = [
+    art15,
+    art18,
+    art58,
+    art58_prison,
+    art62,
+    art63,
+    art66,
+    art68,
+    art73,
+    art86,
+    imposed_term,
+]
 
 
 @pytest.mark.parametrize("module", MODULES, ids=lambda m: m.__name__.rsplit(".", 1)[-1])

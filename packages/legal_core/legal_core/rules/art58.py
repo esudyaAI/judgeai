@@ -9,8 +9,8 @@
 # The caller supplies: the kind of recidivism (art18, on the offence date), whether the person
 # previously served imprisonment in the sense of ППВС № 9 п. 11 (a fact, not computed here),
 # the punishment of each offence of the aggregate. An unknown fact that matters → ``None``.
-# TODO(T4/T23): ч. 2 и 2.1 (часть срока в тюрьме; the ч. 2.1 article list is data, not core
-# code), ч. 4 / ст. 78 УИК (изменение вида), ст. 74 УИК (СИЗО), п. 7 (новое преступление во
+# Часть срока в тюрьме (ч. 2 и 2.1) — отдельное правило legal_core.rules.art58_prison.
+# TODO(T4/T23): ч. 4 / ст. 78 УИК (изменение вида), ст. 74 УИК (СИЗО), п. 7 (новое преступление во
 # время отбывания в тюрьме) are not modelled; the explanation says so.
 from dataclasses import dataclass
 from enum import StrEnum
@@ -58,7 +58,7 @@ NAMES = {
 _ORDER = [Institution.SETTLEMENT, Institution.GENERAL, Institution.STRICT, Institution.SPECIAL]
 
 _NOT_CHECKED = (
-    "Назначение части срока в тюрьме (ч. 2 и 2.1 ст. 58 УК РФ) этой проверкой не оценивалось."
+    "Назначение части срока в тюрьме (ч. 2 и 2.1 ст. 58 УК РФ) проверяется отдельным правилом."
 )
 
 

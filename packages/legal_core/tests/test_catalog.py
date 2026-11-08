@@ -16,6 +16,7 @@ def test_rule_keys_are_unique_and_stable():
         "art15.category",
         "art18.recidivism",
         "art58.institution",
+        "art58.prison_part",
         "art62.part1_mitigation",
         "art62.part5_procedure",
         "art63.recidivism_aggravating",
