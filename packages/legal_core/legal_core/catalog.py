@@ -10,7 +10,18 @@ legal_rule_references, которую заводит импорт после с�
 
 from dataclasses import dataclass
 
-from legal_core.rules import art15, art18, art58, art62, art63, art68, art73, art86, imposed_term
+from legal_core.rules import (
+    art15,
+    art18,
+    art58,
+    art62,
+    art63,
+    art66,
+    art68,
+    art73,
+    art86,
+    imposed_term,
+)
 
 CRIMINAL_CODE = "uk-rf"
 
@@ -77,12 +88,23 @@ RULES: tuple[RuleDescriptor, ...] = (
         needs_legal_review=art63.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
+        key=art66.RULE_KEY,
+        title=art66.NORM,
+        norms=_uk("66", "30"),
+        not_modelled=(
+            "Ч. 1 ст. 66 УК РФ машинно не проверяется; стадию (ст. 30) передаёт вызывающий; "
+            "пределы для менее строгих видов наказания и санкции с пожизненным лишением "
+            "свободы или смертной казнью не вычисляются."
+        ),
+        needs_legal_review=art66.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
         key=art68.RULE_KEY,
         title=art68.NORM,
         norms=_uk("68", "18"),
         not_modelled=(
-            "Ст. 66 УК РФ (неоконченное преступление) не смоделирована — максимум передаёт "
-            "вызывающий; ч. 1 ст. 68 машинно не проверяется."
+            "Максимум для неоконченного преступления (ст. 66 УК РФ) передаёт вызывающий — "
+            "правило art66; ч. 1 ст. 68 машинно не проверяется."
         ),
         needs_legal_review=art68.NEEDS_LEGAL_REVIEW,
     ),

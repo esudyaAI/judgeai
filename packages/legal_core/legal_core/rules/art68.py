@@ -6,8 +6,8 @@
 # Пленум ВС РФ № 58 от 22.12.2015: п. 47 — a milder kind than the most severe one only under
 # ст. 64; п. 48 — not below the minimum of the sanction (checked by imposed_term, not here);
 # п. 49 — for an unfinished offence one third is taken of the maximum reduced under ст. 66.
-# TODO(T4/T23): ст. 66 (unfinished offence) is not modelled — the caller passes the maximum it
-# applies; ч. 1 (circumstances the court must weigh) is not machine-checkable.
+# The caller passes the maximum reduced by `art66.unfinished_maximum` for an unfinished offence.
+# TODO(T4/T23): ч. 1 (circumstances the court must weigh) is not machine-checkable.
 
 import math
 

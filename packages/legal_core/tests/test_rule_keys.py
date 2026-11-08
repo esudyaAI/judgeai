@@ -11,10 +11,21 @@ from legal_core.entities import (
     PunishmentKind,
     PunishmentTerm,
 )
-from legal_core.rules import art15, art18, art58, art62, art63, art68, art73, art86, imposed_term
+from legal_core.rules import (
+    art15,
+    art18,
+    art58,
+    art62,
+    art63,
+    art66,
+    art68,
+    art73,
+    art86,
+    imposed_term,
+)
 from legal_core.rules.art18 import Recidivism
 
-MODULES = [art15, art18, art58, art62, art63, art68, art73, art86, imposed_term]
+MODULES = [art15, art18, art58, art62, art63, art66, art68, art73, art86, imposed_term]
 
 
 @pytest.mark.parametrize("module", MODULES, ids=lambda m: m.__name__.rsplit(".", 1)[-1])
@@ -77,6 +88,15 @@ def _results() -> dict[str, list[CheckResult]]:
                 imposed_most_severe_kind=True,
                 art61_mitigating_established=False,
                 art64_applied=False,
+            )
+        ],
+        art66.RULE_KEY: [
+            art66.check_unfinished_offence_term(
+                stage=art66.OffenceStage.UNKNOWN,
+                imposed_months=None,
+                most_severe_max_months=None,
+                imposed_most_severe_kind=True,
+                imposed_life_or_death=False,
             )
         ],
         art73.RULE_KEY: [

@@ -18,6 +18,7 @@ def test_rule_keys_are_unique_and_stable():
         "art58.institution",
         "art62.part1_mitigation",
         "art63.recidivism_aggravating",
+        "art66.unfinished_offence",
         "art68.recidivism_term",
         "art73.conditional_ban",
         "art86.expungement",
