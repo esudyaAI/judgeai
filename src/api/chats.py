@@ -16,7 +16,6 @@ from src.schemas.reference_status import ReferenceStatusRead
 from src.services.analysis_runner import run_analysis
 from src.services.file_reader import (
     save_upload_file,
-    validate_extension,
     validate_upload_batch,
 )
 from src.services.legal_rule_catalog import check_basis, reference_drift
@@ -178,8 +177,6 @@ async def create_message(
     if not (content and content.strip()) and not files:
         raise HTTPException(status_code=422, detail="Нужен текст запроса или хотя бы один файл")
     validate_upload_batch(files)
-    for file in files:  # reject the whole request before writing anything
-        validate_extension(file.filename)
 
     user_message = Message(chat_id=chat_id, role="user", content=content, status="completed")
     db.add(user_message)

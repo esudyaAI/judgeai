@@ -32,7 +32,7 @@ def validate_extension(filename: str | None) -> str:
 
 
 def validate_upload_batch(files: Sequence[UploadFile]) -> None:
-    """Refuse the whole request by its file count and total size before storing any file."""
+    """Refuse the whole request by count, total size or a format before storing any file."""
     per_file = settings.UPLOAD_MAX_MB * 1024 * 1024
     # An unknown size must not shrink the total: count it as the largest allowed file.
     sizes = [per_file if file.size is None else file.size for file in files]
@@ -44,6 +44,8 @@ def validate_upload_batch(files: Sequence[UploadFile]) -> None:
         check_upload_batch(sizes, limits)
     except UploadRejected as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from None
+    for file in files:
+        validate_extension(file.filename)
 
 
 def _validate_stored_document(path: Path) -> None:
