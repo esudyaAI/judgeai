@@ -52,10 +52,6 @@
         "value": "763233e158c715e45aacb9ae9b55b1b31f53aa22089007e09ea3074460967ebd"
       },
       {
-        "name": "judgeai:input-sha256:src/config.py",
-        "value": "23981d61a61f73f2c7f2e896d1d12e4cf141f52cba59dd8177470214985513ee"
-      },
-      {
         "name": "judgeai:input-sha256:Dockerfile",
         "value": "a157e3a8a83520e068730969455e55868537b903384f48cd526e531e2250f6d9"
       },
