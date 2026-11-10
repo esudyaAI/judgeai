@@ -10,8 +10,11 @@
 # a disciplinary military unit or imprisonment up to eight years may be conditional; the caller
 # passes the final punishment (Пленум № 58, п. 62). «До восьми лет» is read as inclusive —
 # eight years may be conditional; the reading is for legal review (T23).
-# TODO(T4/T23): пп. «а», «а1» ч. 1 (offence list) are not modelled here; the explanation
-# says so instead of silently passing them.
+# пп. «а», «а1» (T4.13): a conditional sentence is barred for offences against the sexual
+# inviolability of minors under fourteen (п. «а») and for the offences listed in п. «а1». The
+# list of п. «а1» changes with editions (last — ФЗ от 17.11.2025 N 420-ФЗ), so it is data: the
+# caller says whether each offence falls under it in the applicable edition; no article
+# numbers are hard-coded here.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -318,4 +321,109 @@ def check_conditional_sentence_during_supervision(
         CheckStatus.OK,
         "Преступление совершено вне периода, запрещающего условное осуждение, — п. «б» ч. 1 "
         "ст. 73 УК РФ не применяется.",
+    )
+
+
+OFFENCE_LIST_RULE_KEY = "art73.offence_list_bar"
+OFFENCE_LIST_NORM = (
+    "Запрет условного осуждения за преступления против половой неприкосновенности "
+    "несовершеннолетних, не достигших четырнадцатилетнего возраста, и за преступления "
+    "перечня п. «а1»: пп. «а», «а1» ч. 1 ст. 73 УК РФ"
+)
+OFFENCE_LIST_SOURCE = (
+    "УК РФ ст. 73 ч. 1 пп. «а», «а1» (ч. 1 в ред. ФЗ от 16.10.2012 N 172-ФЗ; п. «а1» введён "
+    "ФЗ от 05.05.2014 N 130-ФЗ, в ред. ФЗ от 06.07.2016 N 375-ФЗ, от 01.04.2019 N 46-ФЗ, "
+    "от 17.11.2025 N 420-ФЗ) — официальная выгрузка "
+    "http://pravo.gov.ru/proxy/ips/?savertf=&nd=102041891&page=all, получена 27.10.2026, "
+    "sha256 0243481c50d996a3bddd041854f49077bd34fde17734e63735b87e16f4a34d7b (статус "
+    "unreviewed, периоды действия редакций перечня сверить в T23); Пленум ВС РФ от 22.12.2015 "
+    "N 58 (ред. от 23.12.2025), п. 62"
+)
+
+
+@dataclass(frozen=True)
+class ListedOffence:
+    """One offence of the conviction and its place in the lists of пп. «а», «а1».
+
+    ``article`` — how the draft qualifies it (for the explanation);
+    ``child_sexual_inviolability`` — an offence against the sexual inviolability of a minor
+    under fourteen (п. «а»); ``in_a1_list`` — the offence is in the list of п. «а1» in the
+    edition applicable on the offence date. ``None`` — not established.
+    """
+
+    article: str
+    child_sexual_inviolability: bool | None
+    in_a1_list: bool | None
+
+    def __post_init__(self) -> None:
+        if not self.article.strip():
+            raise ValueError("an offence must name its article")
+
+
+def check_conditional_sentence_offence_bar(
+    *,
+    offences: Sequence[ListedOffence] | None,
+    conditional_in_draft: bool | None,
+) -> CheckResult:
+    """Candidate check of пп. «а», «а1» ч. 1 ст. 73 for every offence of the conviction.
+
+    The conditional decision concerns the final punishment (Пленум № 58, п. 62), so one barred
+    offence is enough; an established bar is reported even when other facts are unknown.
+    ``offences`` — ``None`` or empty means the offences were not extracted.
+    """
+
+    def result(status: CheckStatus, why: str) -> CheckResult:
+        return CheckResult(
+            OFFENCE_LIST_NORM,
+            status,
+            why,
+            OFFENCE_LIST_SOURCE,
+            NEEDS_LEGAL_REVIEW,
+            OFFENCE_LIST_RULE_KEY,
+        )
+
+    if conditional_in_draft is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, назначено ли в проекте наказание условно (ст. 73 УК РФ).",
+        )
+    if not conditional_in_draft:
+        return result(
+            CheckStatus.OK,
+            "Условное осуждение не назначено — пп. «а», «а1» ч. 1 ст. 73 УК РФ не затрагиваются.",
+        )
+    if not offences:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлены преступления, за которые назначено наказание, — запрет "
+            "пп. «а», «а1» ч. 1 ст. 73 УК РФ не проверен.",
+        )
+    reasons = []
+    child = [o.article for o in offences if o.child_sexual_inviolability]
+    if child:
+        reasons.append(
+            f"преступление против половой неприкосновенности несовершеннолетнего, не достигшего "
+            f"четырнадцатилетнего возраста ({'; '.join(child)}), — п. «а» ч. 1 ст. 73 УК РФ"
+        )
+    listed = [o.article for o in offences if o.in_a1_list]
+    if listed:
+        reasons.append(f"преступление из перечня п. «а1» ч. 1 ст. 73 УК РФ ({'; '.join(listed)})")
+    if reasons:
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            "Назначено условное осуждение, но осуждённый признан виновным в преступлении, за "
+            f"которое условное осуждение не назначается: {'; '.join(reasons)}.",
+        )
+    unknown = [
+        o.article for o in offences if o.child_sexual_inviolability is None or o.in_a1_list is None
+    ]
+    if unknown:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, относится ли к перечням пп. «а», «а1» ч. 1 ст. 73 УК РФ: "
+            f"{'; '.join(unknown)}.",
+        )
+    return result(
+        CheckStatus.OK,
+        "Ни одно преступление не относится к перечням пп. «а», «а1» ч. 1 ст. 73 УК РФ.",
     )

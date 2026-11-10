@@ -26,6 +26,7 @@ def test_rule_keys_are_unique_and_stable():
         "art73.conditional_ban",
         "art73.conditional_limits",
         "art73.offence_during_supervision",
+        "art73.offence_list_bar",
         "art86.expungement",
         "imposed_term.sanction_limits",
     }
