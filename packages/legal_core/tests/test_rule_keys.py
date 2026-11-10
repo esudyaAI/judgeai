@@ -130,6 +130,19 @@ def _results() -> dict[str, list[CheckResult]]:
                 recidivism=none, conditional_in_draft=None
             )
         ],
+        art58_prison.NEW_OFFENCE_RULE_KEY: [
+            art58_prison.check_new_offence_in_prison(
+                art58_prison.PrisonNewOffenceFacts(True, 12, False),
+                art58_prison.DraftCumulativePrison(True, months, True),
+            )
+            for months in (6, 12)
+        ]
+        + [
+            art58_prison.check_new_offence_in_prison(
+                art58_prison.PrisonNewOffenceFacts(None, None, False),
+                art58_prison.DraftCumulativePrison(None, None, None),
+            )
+        ],
         imposed_term.RULE_KEY: [
             imposed_term.check_imposed_imprisonment(ImposedPunishment(None), [], source="s"),
             imposed_term.check_imposed_imprisonment(ImposedPunishment(12), [], source="s"),
