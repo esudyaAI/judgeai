@@ -50,6 +50,7 @@ def test_catalog_lists_exactly_the_rule_modules():
     expected = [m.RULE_KEY for m in MODULES] + [
         art62.RULE_KEY_PART5,
         art73.SUPERVISION_RULE_KEY,
+        art73.LIMITS_RULE_KEY,
         art58_prison.NEW_OFFENCE_RULE_KEY,
     ]
     assert sorted(item.key for item in catalog.RULES) == sorted(expected)
@@ -128,6 +129,16 @@ def _results() -> dict[str, list[CheckResult]]:
         art73.RULE_KEY: [
             art73.check_conditional_sentence_recidivism_bar(
                 recidivism=none, conditional_in_draft=None
+            )
+        ],
+        art73.LIMITS_RULE_KEY: [
+            art73.check_conditional_sentence_limits(
+                final_kind=kind, final_months=months, conditional_in_draft=conditional
+            )
+            for kind, months, conditional in (
+                (PunishmentKind.IMPRISONMENT, 120, True),
+                (PunishmentKind.FINE, None, True),
+                (None, None, None),
             )
         ],
         art58_prison.NEW_OFFENCE_RULE_KEY: [

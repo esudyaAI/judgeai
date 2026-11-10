@@ -6,9 +6,12 @@
 # The kind of recidivism comes from art18 (the caller classifies it on the offence date).
 # п. «б»: a grave or especially grave offence during probation or the unserved part after parole,
 # the earlier punishment being for an intentional offence; the caller passes the periods.
-# TODO(T4/T23): пп. «а», «а1» ч. 1 (offence list) and
-# the general limits of ч. 1 (punishment kinds, imprisonment up to eight years) are not
-# modelled here; the explanation says so instead of silently passing them.
+# General limits of ч. 1 (T4.12): only correctional works, restriction in military service,
+# a disciplinary military unit or imprisonment up to eight years may be conditional; the caller
+# passes the final punishment (Пленум № 58, п. 62). «До восьми лет» is read as inclusive —
+# eight years may be conditional; the reading is for legal review (T23).
+# TODO(T4/T23): пп. «а», «а1» ч. 1 (offence list) are not modelled here; the explanation
+# says so instead of silently passing them.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -16,7 +19,7 @@ from datetime import date
 from enum import StrEnum
 
 from legal_core.checks import CheckResult, CheckStatus
-from legal_core.entities import Category
+from legal_core.entities import Category, PunishmentKind
 from legal_core.rules.art18 import Recidivism
 
 NEEDS_LEGAL_REVIEW = True
@@ -50,6 +53,32 @@ _BARRED = {
 _NOT_CHECKED = (
     "Пункты «а», «а1», «б» ч. 1 ст. 73 УК РФ и пределы ч. 1 (вид наказания, лишение свободы "
     "до восьми лет) этой проверкой не оценивались."
+)
+
+LIMITS_RULE_KEY = "art73.conditional_limits"
+LIMITS_NORM = (
+    "Виды наказания и предел лишения свободы, которые могут быть назначены условно: "
+    "ч. 1 ст. 73 УК РФ"
+)
+LIMITS_SOURCE = (
+    "УК РФ ст. 73 ч. 1, абзац первый (ч. 1 в ред. ФЗ от 16.10.2012 N 172-ФЗ) — официальная "
+    "выгрузка http://pravo.gov.ru/proxy/ips/?savertf=&nd=102041891&page=all, получена "
+    "27.10.2026, sha256 0243481c50d996a3bddd041854f49077bd34fde17734e63735b87e16f4a34d7b "
+    "(статус unreviewed, периоды действия сверить в T23)"
+)
+MAX_CONDITIONAL_IMPRISONMENT_MONTHS = 96  # «лишение свободы на срок до восьми лет»
+
+_CONDITIONAL_KINDS = frozenset(
+    {
+        PunishmentKind.CORRECTIONAL_WORKS,
+        PunishmentKind.MILITARY_SERVICE_RESTRICTION,
+        PunishmentKind.DISCIPLINARY_MILITARY_UNIT,
+        PunishmentKind.IMPRISONMENT,
+    }
+)
+_ALLOWED_TEXT = (
+    "исправительные работы, ограничение по военной службе, содержание в дисциплинарной "
+    "воинской части или лишение свободы на срок до восьми лет"
 )
 
 
@@ -95,6 +124,71 @@ def check_conditional_sentence_recidivism_bar(
         CheckStatus.OK,
         f"Условное осуждение назначено; {found} — запрет п. «в» ч. 1 ст. 73 УК РФ не "
         f"применяется. {_NOT_CHECKED}",
+    )
+
+
+def check_conditional_sentence_limits(
+    *,
+    final_kind: PunishmentKind | None,
+    final_months: int | None,
+    conditional_in_draft: bool | None,
+) -> CheckResult:
+    """Candidate check of the general limits of ч. 1 ст. 73 for the final punishment.
+
+    ``final_kind`` — the kind of the final main punishment, ``final_months`` — its term in
+    months (needed for imprisonment only); ``None`` — the fact was not extracted.
+    """
+    if final_months is not None and final_months < 0:
+        raise ValueError("a punishment term must not be negative")
+
+    def result(status: CheckStatus, why: str) -> CheckResult:
+        return CheckResult(
+            LIMITS_NORM, status, why, LIMITS_SOURCE, NEEDS_LEGAL_REVIEW, LIMITS_RULE_KEY
+        )
+
+    if conditional_in_draft is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, назначено ли в проекте наказание условно (ст. 73 УК РФ).",
+        )
+    if not conditional_in_draft:
+        return result(
+            CheckStatus.OK,
+            "Условное осуждение не назначено — пределы ч. 1 ст. 73 УК РФ не затрагиваются.",
+        )
+    if final_kind is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлен вид итогового наказания — пределы ч. 1 ст. 73 УК РФ не проверены.",
+        )
+    if final_kind not in _CONDITIONAL_KINDS:
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            "Условным назначено наказание, которое ч. 1 ст. 73 УК РФ условным не допускает: "
+            f"условно могут быть назначены только {_ALLOWED_TEXT}.",
+        )
+    if final_kind is not PunishmentKind.IMPRISONMENT:
+        return result(
+            CheckStatus.OK,
+            "Вид наказания допускает условное осуждение (ч. 1 ст. 73 УК РФ).",
+        )
+    if final_months is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлен срок лишения свободы — предел ч. 1 ст. 73 УК РФ (до восьми лет) "
+            "не проверен.",
+        )
+    if final_months > MAX_CONDITIONAL_IMPRISONMENT_MONTHS:
+        return result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            f"Условно назначено лишение свободы на {final_months} мес., тогда как условное "
+            "осуждение допускается при лишении свободы на срок до восьми лет "
+            "(ч. 1 ст. 73 УК РФ).",
+        )
+    return result(
+        CheckStatus.OK,
+        f"Лишение свободы на {final_months} мес. не превышает восьми лет — условное осуждение "
+        "в пределах ч. 1 ст. 73 УК РФ.",
     )
 
 
