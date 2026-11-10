@@ -174,3 +174,134 @@ def check_prison_part(facts: PrisonPartFacts, draft: DraftPrisonPart) -> CheckRe
     if facts.life_imprisonment:
         return _insufficient("При пожизненном лишении свободы эта проверка не выполняется.")
     return _check_assigned(facts, draft) if draft.assigned else _check_not_assigned(facts)
+
+
+# --- п. 7 ППВС № 9: новое преступление во время отбывания наказания в тюрьме ----------------
+# Наказание назначается по совокупности приговоров (ст. 70 УК РФ); в приговоре указывается, какая
+# его часть отбывается в тюрьме, и этот срок не может быть менее неотбытой части наказания в
+# тюрьме по предыдущему приговору; вид учреждения для оставшейся части определяется по ст. 58 УК РФ
+# и указывается в резолютивной части. Пункт обращён к лицам мужского пола — женщины в тюрьме
+# наказание не отбывают, поэтому пол здесь отдельно не проверяется. Неотбытую часть передаёт
+# вызывающий (она — факт предыдущего приговора, а не вычисление ядра).
+
+NEW_OFFENCE_RULE_KEY = "art58.prison_new_offence"
+NEW_OFFENCE_NORM = (
+    "Новое преступление во время отбывания наказания в тюрьме: ч. 2 ст. 58 УК РФ, п. 7 ППВС № 9"
+)
+NEW_OFFENCE_SOURCE = (
+    "Пленум ВС РФ от 29.05.2014 N 9 (ред. от 26.11.2024 N 36), п. 7 — "
+    "https://www.consultant.ru/document/cons_doc_LAW_163742/, сверено 10.11.2026 по коротким "
+    "цитатам (статус unreviewed); УК РФ ст. 58, ст. 70 — официальная выгрузка "
+    "http://pravo.gov.ru/proxy/ips/?savertf=&nd=102041891&page=all, получена 27.10.2026, sha256 "
+    "0243481c50d996a3bddd041854f49077bd34fde17734e63735b87e16f4a34d7b (статус unreviewed)"
+)
+
+
+def _non_negative(value: int | None, name: str) -> None:
+    if value is not None and value < 0:
+        raise ValueError(f"{name} must not be negative")
+
+
+@dataclass(frozen=True)
+class PrisonNewOffenceFacts:
+    """Facts of the earlier sentence; None means the fact is not extracted.
+
+    offence_while_in_prison — the new offence was committed while serving the prison part of an
+    earlier sentence; unserved_prison_months — the unserved prison part of that sentence.
+    """
+
+    offence_while_in_prison: bool | None
+    unserved_prison_months: int | None
+    life_imprisonment: bool
+
+    def __post_init__(self) -> None:
+        _non_negative(self.unserved_prison_months, "unserved_prison_months")
+
+
+@dataclass(frozen=True)
+class DraftCumulativePrison:
+    """What the draft says; None means not extracted.
+
+    cumulative_sentences — the punishment is imposed by aggregation of sentences (ст. 70);
+    prison_months — the part to be served in prison (0 — none is stated);
+    remaining_regime_stated — the operative part names the institution for the remaining term.
+    """
+
+    cumulative_sentences: bool | None
+    prison_months: int | None
+    remaining_regime_stated: bool | None
+
+    def __post_init__(self) -> None:
+        _non_negative(self.prison_months, "prison_months")
+
+
+def _new_offence_result(status: CheckStatus, why: str) -> CheckResult:
+    return CheckResult(
+        NEW_OFFENCE_NORM, status, why, NEW_OFFENCE_SOURCE, NEEDS_LEGAL_REVIEW, NEW_OFFENCE_RULE_KEY
+    )
+
+
+def _prison_term_finding(facts: PrisonNewOffenceFacts, draft: DraftCumulativePrison) -> bool | None:
+    """True — срок в тюрьме не меньше неотбытой части; False — меньше; None — не установлено."""
+    if draft.prison_months is None or facts.unserved_prison_months is None:
+        return None
+    return draft.prison_months >= facts.unserved_prison_months
+
+
+def check_new_offence_in_prison(
+    facts: PrisonNewOffenceFacts, draft: DraftCumulativePrison
+) -> CheckResult:
+    """Candidate check of п. 7 ППВС № 9 for a new offence committed while serving in prison.
+
+    A known violation is reported even if other facts are missing; otherwise any missing fact
+    gives «недостаточно данных».
+    """
+    if facts.offence_while_in_prison is None:
+        return _new_offence_result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, совершено ли преступление во время отбывания наказания в тюрьме.",
+        )
+    if not facts.offence_while_in_prison:
+        return _new_offence_result(
+            CheckStatus.OK,
+            "Преступление совершено не во время отбывания наказания в тюрьме — п. 7 ППВС № 9 "
+            "не применяется.",
+        )
+    if facts.life_imprisonment:
+        return _new_offence_result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "При пожизненном лишении свободы эта проверка не выполняется.",
+        )
+    findings = (
+        (
+            draft.cumulative_sentences,
+            "Преступление совершено во время отбывания наказания в тюрьме: наказание назначается "
+            "по совокупности приговоров (ст. 70 УК РФ, п. 7 ППВС № 9), в проекте этого нет.",
+            "Не установлено, назначено ли наказание по совокупности приговоров.",
+        ),
+        (
+            _prison_term_finding(facts, draft),
+            "Срок отбывания в тюрьме не может быть менее неотбытой части наказания в тюрьме по "
+            "предыдущему приговору (п. 7 ППВС № 9).",
+            "Не установлены срок отбывания в тюрьме по проекту или неотбытая часть наказания в "
+            "тюрьме по предыдущему приговору.",
+        ),
+        (
+            draft.remaining_regime_stated,
+            "В резолютивной части не указан вид исправительного учреждения для оставшейся части "
+            "наказания (ст. 58 УК РФ, п. 7 ППВС № 9).",
+            "Не установлено, указан ли вид исправительного учреждения для оставшейся части "
+            "наказания.",
+        ),
+    )
+    for finding, violation, _ in findings:
+        if finding is False:
+            return _new_offence_result(CheckStatus.POSSIBLE_VIOLATION, violation)
+    for finding, _, missing in findings:
+        if finding is None:
+            return _new_offence_result(CheckStatus.INSUFFICIENT_DATA, missing)
+    return _new_offence_result(
+        CheckStatus.OK,
+        "Наказание назначено по совокупности приговоров, срок в тюрьме не меньше неотбытой "
+        "части, вид учреждения для оставшейся части указан.",
+    )

@@ -83,7 +83,18 @@ RULES: tuple[RuleDescriptor, ...] = (
         norms=_uk("58"),
         not_modelled=(
             "Перечни статей ч. 2 и 2.1 ст. 58 УК РФ сообщает вызывающий; п. 7 ППВС № 9 "
-            "(новое преступление во время отбывания в тюрьме) не смоделирован."
+            "(новое преступление во время отбывания в тюрьме) — отдельное правило."
+        ),
+        needs_legal_review=art58_prison.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art58_prison.NEW_OFFENCE_RULE_KEY,
+        title=art58_prison.NEW_OFFENCE_NORM,
+        norms=_uk("58", "70"),
+        not_modelled=(
+            "Неотбытую часть наказания в тюрьме по предыдущему приговору и место совершения "
+            "преступления передаёт вызывающий; правильность выбора вида учреждения для "
+            "оставшейся части проверяет правило art58.institution."
         ),
         needs_legal_review=art58_prison.NEEDS_LEGAL_REVIEW,
     ),
