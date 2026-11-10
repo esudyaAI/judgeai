@@ -20,6 +20,7 @@ def test_rule_keys_are_unique_and_stable():
         "art58.prison_new_offence",
         "art62.part1_mitigation",
         "art62.part5_procedure",
+        "art63.intoxication_aggravating",
         "art63.recidivism_aggravating",
         "art66.unfinished_offence",
         "art68.recidivism_term",

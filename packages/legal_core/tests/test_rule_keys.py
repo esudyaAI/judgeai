@@ -53,6 +53,7 @@ def test_catalog_lists_exactly_the_rule_modules():
         art73.LIMITS_RULE_KEY,
         art73.OFFENCE_LIST_RULE_KEY,
         art58_prison.NEW_OFFENCE_RULE_KEY,
+        art63.INTOXICATION_RULE_KEY,
     ]
     assert sorted(item.key for item in catalog.RULES) == sorted(expected)
 
@@ -150,6 +151,14 @@ def _results() -> dict[str, list[CheckResult]]:
                 ([art73.ListedOffence("ст. 134", True, None)], True),
                 ([art73.ListedOffence("ст. 158", False, False)], True),
                 (None, None),
+            )
+        ],
+        art63.INTOXICATION_RULE_KEY: [
+            art63.check_intoxication_aggravation(art63.IntoxicationFacts(*values))
+            for values in (
+                (True, True, False, True),
+                (True, True, True, True),
+                (None, None, None, None),
             )
         ],
         art58_prison.NEW_OFFENCE_RULE_KEY: [

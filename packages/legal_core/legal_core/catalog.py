@@ -122,7 +122,21 @@ RULES: tuple[RuleDescriptor, ...] = (
         key=art63.RULE_KEY,
         title=art63.NORM,
         norms=_uk("63", "18"),
-        not_modelled="Ч. 1.1 и остальные пункты ч. 1 ст. 63 УК РФ не проверяются.",
+        not_modelled=(
+            "Остальные пункты ч. 1 ст. 63 УК РФ не проверяются; ч. 1.1 (состояние опьянения) — "
+            "отдельное правило art63.intoxication_aggravating."
+        ),
+        needs_legal_review=art63.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art63.INTOXICATION_RULE_KEY,
+        title=art63.INTOXICATION_NORM,
+        norms=_uk("63"),
+        not_modelled=(
+            "Признание опьянения отягчающим — право суда: достаточность мотивов по существу не "
+            "оценивается; является ли опьянение признаком состава (например, ст. 264.1 УК РФ), "
+            "передаёт вызывающий по квалификации и редакции на дату преступления."
+        ),
         needs_legal_review=art63.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
