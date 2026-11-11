@@ -20,12 +20,15 @@ from legal_core.rules import (
     art63,
     art66,
     art68,
+    art69,
     art70,
     art73,
     art86,
     imposed_term,
 )
 from legal_core.rules.art18 import Recidivism
+
+_MEDIUM_DONE = art69.CumulatedOffence(Category.MEDIUM, art66.OffenceStage.COMPLETED)
 
 MODULES = [
     art15,
@@ -36,6 +39,7 @@ MODULES = [
     art63,
     art66,
     art68,
+    art69,
     art70,
     art73,
     art86,
@@ -186,6 +190,17 @@ def _results() -> dict[str, list[CheckResult]]:
             art58_prison.check_new_offence_in_prison(
                 art58_prison.PrisonNewOffenceFacts(None, None, False),
                 art58_prison.DraftCumulativePrison(None, None, None),
+            )
+        ],
+        art69.RULE_KEY: [
+            art69.check_offences_cumulation(
+                art69.OffencesCumulationFacts(offences, 60),
+                art69.DraftOffencesCumulation(cumulation, method, months, True),
+            )
+            for offences, cumulation, method, months in (
+                ((_MEDIUM_DONE,), True, art69.CumulationMethod.FULL_ADDITION, 80),
+                ((_MEDIUM_DONE,), True, art69.CumulationMethod.FULL_ADDITION, 100),
+                ((), None, None, None),
             )
         ],
         art70.RULE_KEY: [

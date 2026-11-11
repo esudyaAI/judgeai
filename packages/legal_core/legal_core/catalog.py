@@ -19,6 +19,7 @@ from legal_core.rules import (
     art63,
     art66,
     art68,
+    art69,
     art70,
     art73,
     art86,
@@ -213,6 +214,17 @@ RULES: tuple[RuleDescriptor, ...] = (
             "N 420-ФЗ), возраст потерпевшего для п. «а» — факт дела."
         ),
         needs_legal_review=art73.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art69.RULE_KEY,
+        title=art69.NORM,
+        norms=_uk("69", "15", "30"),
+        not_modelled=(
+            "Категорию и стадию каждого преступления, наиболее тяжкое преступление и максимум "
+            "его санкции из БД передаёт вызывающий; ч. 1, ч. 4, ч. 5 ст. 69 УК РФ и предел "
+            "ч. 3 для видов, кроме лишения свободы, не смоделированы."
+        ),
+        needs_legal_review=art69.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
         key=art70.RULE_KEY,
