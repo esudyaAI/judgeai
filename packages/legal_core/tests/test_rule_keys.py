@@ -61,6 +61,7 @@ def test_catalog_lists_exactly_the_rule_modules():
         art73.OFFENCE_LIST_RULE_KEY,
         art58_prison.NEW_OFFENCE_RULE_KEY,
         art63.INTOXICATION_RULE_KEY,
+        art70.ATTACHMENT_RULE_KEY,
     ]
     assert sorted(item.key for item in catalog.RULES) == sorted(expected)
 
@@ -213,6 +214,15 @@ def _results() -> dict[str, list[CheckResult]]:
                 (False, True, 30),
                 (None, None, None),
             )
+        ],
+        art70.ATTACHMENT_RULE_KEY: [
+            art70.check_sentences_attachment(
+                art70.SentencesCumulationFacts(36, 24, None),
+                art70.DraftSentenceAttachment(
+                    cumulation, art70.AttachmentMethod.PARTIAL, months, True
+                ),
+            )
+            for cumulation, months in ((True, 48), (True, 61), (None, None))
         ],
         imposed_term.RULE_KEY: [
             imposed_term.check_imposed_imprisonment(ImposedPunishment(None), [], source="s"),
