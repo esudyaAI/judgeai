@@ -49,6 +49,7 @@ def test_rule_module_key_is_a_catalog_rule(module):
 def test_catalog_lists_exactly_the_rule_modules():
     expected = [m.RULE_KEY for m in MODULES] + [
         art62.RULE_KEY_PART5,
+        art62.AGREEMENT_RULE_KEY,
         art73.SUPERVISION_RULE_KEY,
         art73.LIMITS_RULE_KEY,
         art73.OFFENCE_LIST_RULE_KEY,
@@ -102,6 +103,17 @@ def _results() -> dict[str, list[CheckResult]]:
                 imposed_months=None,
                 most_severe_max_months=None,
                 imposed_most_severe_kind=True,
+            )
+        ],
+        art62.AGREEMENT_RULE_KEY: [
+            art62.check_pretrial_agreement_term(
+                art62.PretrialAgreementFacts(*facts),
+                art62.DraftAgreementTerm(False, True, months, 120),
+            )
+            for facts, months in (
+                ((True, True, False, False), 60),
+                ((True, True, False, False), 61),
+                ((None, None, None, None), None),
             )
         ],
         art63.RULE_KEY: [

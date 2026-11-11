@@ -7,11 +7,13 @@
 # death penalty; the punishment is set within the sanction.
 # ч. 5: a case heard under гл. 40 УПК РФ — at most two thirds of the maximum of the most severe
 # punishment; in the case of ст. 226.9 УПК РФ — at most one half.
-# TODO(T13/T23): the order of ч. 1, ч. 5 and ст. 66 when they coincide is not modelled; the
-# procedure comes from the verdict; ч. 2 and ч. 4 (pre-trial agreement) are not modelled.
+# ч. 2 and ч. 4 (pre-trial cooperation agreement) — check_pretrial_agreement_term below.
+# TODO(T13/T23): the order of ч. 1, ч. 2, ч. 4, ч. 5 and ст. 66 when they coincide is not
+# modelled; the procedure and the agreement come from the verdict.
 import math
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from enum import StrEnum
 
 from legal_core.checks import CheckResult, CheckStatus
@@ -137,4 +139,157 @@ def check_procedure_term(
         CheckStatus.POSSIBLE_VIOLATION,
         f"Назначено {imposed_months} мес. — больше {share} максимума ({limit} из "
         f"{most_severe_max_months} мес.), ч. 5 ст. 62 УК РФ.",
+    )
+
+
+# ч. 2 ст. 62: a pre-trial cooperation agreement, mitigation under п. «и» ч. 1 ст. 61 and no
+# aggravating circumstances — at most one half of the maximum of the most severe punishment.
+# ч. 4 ст. 62: a pre-trial cooperation agreement and a sanction with life imprisonment or the death
+# penalty — these kinds are not applied, and the term is at most two thirds of the maximum term of
+# imprisonment in the sanction (no condition on mitigating or aggravating circumstances).
+# Text compared verbatim with the official pravo.gov.ru export in the local legal library
+# (legal_provisions, article.62, edition in force by ФЗ от 29.06.2009 N 141-ФЗ). Whether the
+# agreement counts (obligations fulfilled, case heard under гл. 40.1 УПК РФ) is decided by the
+# caller — an open question for T23 together with the order of ч. 2/4 and ч. 5, ст. 66.
+AGREEMENT_RULE_KEY = "art62.pretrial_agreement"
+AGREEMENT_NORM = "Досудебное соглашение о сотрудничестве: ч. 2 и ч. 4 ст. 62 УК РФ"
+AGREEMENT_SOURCE = (
+    "УК РФ ст. 62 ч. 2, ч. 4 (в ред. ФЗ от 29.06.2009 N 141-ФЗ) — официальная выгрузка "
+    "http://pravo.gov.ru/proxy/ips/?savertf=&nd=102041891&page=all, получена 27.10.2026, sha256 "
+    "0243481c50d996a3bddd041854f49077bd34fde17734e63735b87e16f4a34d7b (статус unreviewed)"
+)
+
+
+@dataclass(frozen=True)
+class PretrialAgreementFacts:
+    """Facts for ч. 2/4 ст. 62; ``None`` — the fact was not extracted.
+
+    ``agreement`` — a pre-trial cooperation agreement applies to the case.
+    ``item_i_mitigation`` — mitigation under п. «и» ч. 1 ст. 61 is established (ч. 2).
+    ``has_aggravating`` — any aggravating circumstance is established (ч. 2).
+    ``sanction_has_life_or_death`` — the article provides life imprisonment or death (ч. 4).
+    """
+
+    agreement: bool | None
+    item_i_mitigation: bool | None
+    has_aggravating: bool | None
+    sanction_has_life_or_death: bool | None
+
+
+@dataclass(frozen=True)
+class DraftAgreementTerm:
+    """The punishment in the draft for this offence; ``None`` — not extracted.
+
+    ``imposed_most_severe_kind`` — the imposed kind is the base of the limit: the most severe kind
+    of the sanction (ч. 2) or imprisonment (ч. 4). ``limit_base_max_months`` — its maximum.
+    """
+
+    imposed_life_or_death: bool | None
+    imposed_most_severe_kind: bool | None
+    imposed_months: int | None
+    limit_base_max_months: int | None
+
+
+def agreement_maximum(base_max_months: int, *, sanction_has_life_or_death: bool) -> int:
+    """Maximum in whole months: one half (ч. 2) or two thirds (ч. 4), rounded down."""
+    if base_max_months <= 0:
+        raise ValueError("sanction maximum must be positive")
+    if sanction_has_life_or_death:
+        return math.floor(base_max_months * 2 / 3)
+    return math.floor(base_max_months / 2)
+
+
+def check_pretrial_agreement_term(
+    facts: PretrialAgreementFacts, draft: DraftAgreementTerm
+) -> CheckResult:
+    """Candidate check of the imposed punishment against ч. 2 and ч. 4 ст. 62 УК РФ."""
+
+    def result(status: CheckStatus, why: str) -> CheckResult:
+        return CheckResult(
+            AGREEMENT_NORM,
+            status,
+            why,
+            AGREEMENT_SOURCE,
+            NEEDS_LEGAL_REVIEW,
+            AGREEMENT_RULE_KEY,
+        )
+
+    if draft.imposed_months is not None and draft.imposed_months < 0:
+        raise ValueError("imposed term must not be negative")
+    if draft.limit_base_max_months is not None and draft.limit_base_max_months <= 0:
+        raise ValueError("sanction maximum must be positive")
+    if facts.agreement is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, заключалось ли досудебное соглашение о сотрудничестве, — "
+            "ч. 2 и ч. 4 ст. 62 УК РФ не проверены.",
+        )
+    if not facts.agreement:
+        return result(
+            CheckStatus.OK,
+            "Досудебное соглашение о сотрудничестве не заключалось — ч. 2 и ч. 4 ст. 62 УК РФ "
+            "не применяются.",
+        )
+    if facts.sanction_has_life_or_death is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, предусматривает ли санкция пожизненное лишение свободы или смертную "
+            "казнь, — не определено, применяется ч. 2 или ч. 4 ст. 62 УК РФ.",
+        )
+    if facts.sanction_has_life_or_death:
+        part, share = "ч. 4 ст. 62", "двух третей"
+        if draft.imposed_life_or_death:
+            return result(
+                CheckStatus.POSSIBLE_VIOLATION,
+                "При досудебном соглашении о сотрудничестве пожизненное лишение свободы и "
+                "смертная казнь не применяются (ч. 4 ст. 62 УК РФ).",
+            )
+        if draft.imposed_life_or_death is None:
+            return result(
+                CheckStatus.INSUFFICIENT_DATA,
+                "Не установлено, назначено ли пожизненное лишение свободы, — ч. 4 ст. 62 УК РФ "
+                "не проверена.",
+            )
+    else:
+        part, share = "ч. 2 ст. 62", "половины"
+        if facts.item_i_mitigation is False or facts.has_aggravating is True:
+            return result(
+                CheckStatus.OK,
+                "Нет смягчающего обстоятельства п. «и» ч. 1 ст. 61 или есть отягчающие — "
+                "ч. 2 ст. 62 УК РФ не применяется.",
+            )
+        if facts.item_i_mitigation is None or facts.has_aggravating is None:
+            return result(
+                CheckStatus.INSUFFICIENT_DATA,
+                "Не установлены смягчающее обстоятельство п. «и» ч. 1 ст. 61 или отсутствие "
+                "отягчающих — ч. 2 ст. 62 УК РФ не проверена.",
+            )
+    if draft.imposed_most_severe_kind is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            f"Вид назначенного наказания не установлен — предел {part} УК РФ не проверен.",
+        )
+    if not draft.imposed_most_severe_kind:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA,
+            f"Назначен менее строгий вид наказания — предел {part} УК РФ для него не проверяется.",
+        )
+    if draft.imposed_months is None or draft.limit_base_max_months is None:
+        return result(
+            CheckStatus.INSUFFICIENT_DATA, "Срок наказания или максимум санкции не определены."
+        )
+    limit = agreement_maximum(
+        draft.limit_base_max_months, sanction_has_life_or_death=facts.sanction_has_life_or_death
+    )
+    numbers = f"{limit} из {draft.limit_base_max_months} мес."
+    if draft.imposed_months <= limit:
+        return result(
+            CheckStatus.OK,
+            f"Назначено {draft.imposed_months} мес. — не более {share} максимума ({numbers}, "
+            f"{part} УК РФ).",
+        )
+    return result(
+        CheckStatus.POSSIBLE_VIOLATION,
+        f"Назначено {draft.imposed_months} мес. — больше {share} максимума ({numbers}), "
+        f"{part} УК РФ.",
     )
