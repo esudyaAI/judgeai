@@ -19,6 +19,7 @@ from legal_core.rules import (
     art63,
     art66,
     art68,
+    art70,
     art73,
     art86,
     imposed_term,
@@ -212,6 +213,17 @@ RULES: tuple[RuleDescriptor, ...] = (
             "N 420-ФЗ), возраст потерпевшего для п. «а» — факт дела."
         ),
         needs_legal_review=art73.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art70.RULE_KEY,
+        title=art70.NORM,
+        norms=_uk("70", "56"),
+        not_modelled=(
+            "Отнесение преступления к перечню ч. 5 ст. 56 УК РФ, сроки по последнему приговору "
+            "и неотбытую часть (с пересчётом по ст. 71) передаёт вызывающий; ч. 1, ч. 2 (менее "
+            "строгие виды) и ч. 5 ст. 70 УК РФ не смоделированы."
+        ),
+        needs_legal_review=art70.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
         key=art86.RULE_KEY,

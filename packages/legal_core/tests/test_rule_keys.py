@@ -20,6 +20,7 @@ from legal_core.rules import (
     art63,
     art66,
     art68,
+    art70,
     art73,
     art86,
     imposed_term,
@@ -35,6 +36,7 @@ MODULES = [
     art63,
     art66,
     art68,
+    art70,
     art73,
     art86,
     imposed_term,
@@ -184,6 +186,17 @@ def _results() -> dict[str, list[CheckResult]]:
             art58_prison.check_new_offence_in_prison(
                 art58_prison.PrisonNewOffenceFacts(None, None, False),
                 art58_prison.DraftCumulativePrison(None, None, None),
+            )
+        ],
+        art70.RULE_KEY: [
+            art70.check_cumulative_sentences(
+                art70.SentencesCumulationFacts(36, 24, part5),
+                art70.DraftCumulativeSentence(cumulation, months),
+            )
+            for part5, cumulation, months in (
+                (False, True, 48),
+                (False, True, 30),
+                (None, None, None),
             )
         ],
         imposed_term.RULE_KEY: [
