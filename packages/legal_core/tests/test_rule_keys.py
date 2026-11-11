@@ -62,6 +62,7 @@ def test_catalog_lists_exactly_the_rule_modules():
         art58_prison.NEW_OFFENCE_RULE_KEY,
         art63.INTOXICATION_RULE_KEY,
         art70.ATTACHMENT_RULE_KEY,
+        art69.ADDITIONAL_RULE_KEY,
     ]
     assert sorted(item.key for item in catalog.RULES) == sorted(expected)
 
@@ -203,6 +204,17 @@ def _results() -> dict[str, list[CheckResult]]:
                 ((_MEDIUM_DONE,), True, art69.CumulationMethod.FULL_ADDITION, 100),
                 ((), None, None, None),
             )
+        ],
+        art69.ADDITIONAL_RULE_KEY: [
+            art69.check_additional_punishments(
+                art69.DraftAdditionalCumulation(
+                    cumulation,
+                    art69.CumulationBasis.SENTENCES,
+                    None,
+                    (art69.AdditionalPunishment("штраф", amount, 5_000_000),),
+                )
+            )
+            for cumulation, amount in ((True, 100_000), (True, 6_000_000), (None, None))
         ],
         art70.RULE_KEY: [
             art70.check_cumulative_sentences(

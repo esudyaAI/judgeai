@@ -10,9 +10,10 @@
 # применимо) передаёт вызывающий. Сроки — в месяцах одного вида наказания.
 # Известное нарушение выдаётся, даже если другие факты не установлены; иначе неизвестный
 # значимый факт → «недостаточно данных». Толкование сверяется в T23.
-# TODO(T4/T23): ч. 1 (наказание за каждое преступление отдельно), ч. 4 (дополнительные
-# наказания — максимумы Общей части), ч. 5 (зачёт отбытого по первому приговору) и предел ч. 3
-# для видов, кроме лишения свободы, не смоделированы.
+# Ч. 4 (дополнительные наказания, применяется и к ст. 70 через её ч. 5) — отдельное правило
+# ниже, ADDITIONAL_RULE_KEY.
+# TODO(T4/T23): ч. 1 (наказание за каждое преступление отдельно), ч. 5 (зачёт отбытого по
+# первому приговору) и предел ч. 3 для видов, кроме лишения свободы, не смоделированы.
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -197,3 +198,135 @@ def check_offences_cumulation(
         return _result(CheckStatus.INSUFFICIENT_DATA, " ".join(unknown))
     where = f"ч. {part} ст. 69" if part else "ст. 69"
     return _result(CheckStatus.OK, f"Окончательное наказание соответствует {where} УК РФ.")
+
+
+# --- ч. 4 ст. 69 и ч. 5 ст. 70 УК РФ: дополнительные наказания при совокупности ---
+# «К основным видам наказаний могут быть присоединены дополнительные виды наказаний» — право
+# суда, поэтому отсутствие дополнительного наказания не замечание. «Окончательное дополнительное
+# наказание при частичном или полном сложении наказаний не может превышать максимального срока
+# или размера, предусмотренного для данного вида наказания Общей частью» (ч. 4 ст. 69); по
+# совокупности приговоров — по тем же правилам (ч. 5 ст. 70), там наказания всегда
+# присоединяются, способ не важен. Максимум каждого вида по Общей части (ст. 46, 47, 48, 53 и
+# т. д. в нужной редакции) — данные, передаёт вызывающий в тех же единицах, что и размер.
+
+ADDITIONAL_RULE_KEY = "art69.additional_punishments"
+ADDITIONAL_NORM = "Дополнительные наказания при совокупности: ч. 4 ст. 69 и ч. 5 ст. 70 УК РФ"
+ADDITIONAL_SOURCE = (
+    "УК РФ ст. 69, ч. 4 и ст. 70, ч. 5 — официальная выгрузка http://pravo.gov.ru/proxy/ips/"
+    "?savertf=&nd=102041891&page=all, получена 27.10.2026, sha256 0243481c50d996a3bddd041854f4"
+    "9077bd34fde17734e63735b87e16f4a34d7b (статус unreviewed, периоды действия сверить в T23)"
+)
+
+
+class CumulationBasis(StrEnum):
+    """Which cumulation: of offences (ст. 69) or of sentences (ст. 70)."""
+
+    OFFENCES = "offences"
+    SENTENCES = "sentences"
+
+
+@dataclass(frozen=True)
+class AdditionalPunishment:
+    """Final additional punishment of one kind; None — not established.
+
+    final_amount and general_part_maximum are in the same units (months, roubles, …)."""
+
+    kind: str
+    final_amount: int | None
+    general_part_maximum: int | None
+
+
+@dataclass(frozen=True)
+class DraftAdditionalCumulation:
+    """What the draft imposes; basis/method None — not established."""
+
+    by_cumulation: bool | None
+    basis: CumulationBasis | None
+    method: CumulationMethod | None
+    additional: tuple[AdditionalPunishment, ...]
+
+
+def _additional_result(status: CheckStatus, why: str) -> CheckResult:
+    return CheckResult(
+        ADDITIONAL_NORM, status, why, ADDITIONAL_SOURCE, NEEDS_LEGAL_REVIEW, ADDITIONAL_RULE_KEY
+    )
+
+
+def _reject_invalid_additional(additional: tuple[AdditionalPunishment, ...]) -> None:
+    for punishment in additional:
+        if not punishment.kind.strip():
+            raise ValueError("Не указан вид дополнительного наказания.")
+        if punishment.final_amount is not None and punishment.final_amount < 0:
+            raise ValueError("Размер наказания не может быть отрицательным.")
+        if punishment.general_part_maximum is not None and punishment.general_part_maximum <= 0:
+            raise ValueError("Максимум по Общей части должен быть положительным.")
+
+
+def _limit_applies(draft: DraftAdditionalCumulation) -> bool | None:
+    """True — limit of ч. 4 ст. 69 applies, False — absorption, None — method unknown."""
+    if draft.basis is CumulationBasis.SENTENCES:
+        return True
+    if draft.method is CumulationMethod.ABSORPTION:
+        return False
+    if draft.method is None:
+        return None
+    return True
+
+
+def _where(basis: CumulationBasis | None) -> str:
+    if basis is CumulationBasis.SENTENCES:
+        return "ч. 5 ст. 70 и ч. 4 ст. 69 УК РФ"
+    return "ч. 4 ст. 69 УК РФ"
+
+
+def check_additional_punishments(draft: DraftAdditionalCumulation) -> CheckResult:
+    _reject_invalid_additional(draft.additional)
+    if draft.by_cumulation is False:
+        return _additional_result(CheckStatus.OK, "Наказание по совокупности не назначается.")
+    if draft.by_cumulation is None:
+        return _additional_result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, назначается ли наказание по совокупности преступлений или приговоров.",
+        )
+    if not draft.additional:
+        return _additional_result(
+            CheckStatus.OK,
+            "Дополнительные наказания не назначены: их присоединение — право суда "
+            "(ч. 4 ст. 69 УК РФ).",
+        )
+    applies = _limit_applies(draft)
+    if applies is False:
+        return _additional_result(
+            CheckStatus.OK,
+            "Наказания назначены путём поглощения: предел ч. 4 ст. 69 УК РФ установлен для "
+            "частичного или полного сложения.",
+        )
+    where = _where(draft.basis)
+    violations: list[str] = []
+    unknown: list[str] = []
+    for punishment in draft.additional:
+        amount, maximum = punishment.final_amount, punishment.general_part_maximum
+        if amount is None:
+            unknown.append(f"Не установлен размер дополнительного наказания «{punishment.kind}».")
+        elif maximum is None:
+            unknown.append(
+                f"Не установлен максимум по Общей части для наказания «{punishment.kind}»."
+            )
+        elif amount > maximum and applies is None:
+            unknown.append(
+                f"Наказание «{punishment.kind}» ({amount}) больше максимума по Общей части "
+                f"({maximum}), но не установлен способ назначения окончательного наказания "
+                "(сложение или поглощение)."
+            )
+        elif amount > maximum:
+            violations.append(
+                f"Окончательное дополнительное наказание «{punishment.kind}» ({amount}) превышает "
+                f"максимум, предусмотренный для этого вида Общей частью УК РФ ({maximum}; {where})."
+            )
+    if violations:
+        return _additional_result(CheckStatus.POSSIBLE_VIOLATION, " ".join(violations))
+    if unknown:
+        return _additional_result(CheckStatus.INSUFFICIENT_DATA, " ".join(unknown))
+    return _additional_result(
+        CheckStatus.OK, f"Дополнительные наказания не превышают максимумов Общей части ({where})."
+    )
