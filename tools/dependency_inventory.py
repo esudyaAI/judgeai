@@ -27,6 +27,9 @@ INPUTS = (
     "Dockerfile.preview",
     "docker-compose.yml",
 )
+# Read for one value that the inventory records itself, so the file hash would
+# report drift on every unrelated setting (src/config.py: EMBEDDING_MODEL only).
+UNHASHED_INPUTS = frozenset({"src/config.py"})
 
 
 def public_query_allowed(host: str, key: str, value: str) -> bool:
@@ -378,6 +381,7 @@ def build_inventory(root: Path) -> tuple[dict, str]:
                         hashlib.sha256((root / path).read_bytes()).hexdigest(),
                     )
                     for path in INPUTS
+                    if path not in UNHASHED_INPUTS
                 ],
             ],
         },

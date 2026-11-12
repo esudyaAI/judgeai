@@ -3,9 +3,15 @@ import importlib
 from pathlib import Path
 
 from src.application.document_reading import ReadDocument
-from src.domain.documents import MAX_TEXT_CHARACTERS, ExtractedDocument, classify_pages
+from src.domain.documents import (
+    MAX_TEXT_CHARACTERS,
+    ExtractedDocument,
+    classify_pages,
+    with_unread_content,
+)
 from src.domain.uploads import UploadRejected
 from src.infrastructure.document_readers import read_text
+from src.infrastructure.pdf_features import unread_pdf_content
 from src.infrastructure.word_reader import read_word
 
 
@@ -27,14 +33,18 @@ def _read_pdf_file(path: Path) -> ExtractedDocument:
             except Exception:
                 unreadable.append(number)
                 pages.append("")
+        unread = unread_pdf_content(pdf.doc.catalog, (page.page_obj.annots for page in pdf.pages))
     missing = tuple(number for number, text in enumerate(pages, 1) if not text.strip())
     issues = []
     if len(missing) > len(unreadable):
         issues.append("no_text_layer")
     if unreadable:
         issues.append("unreadable_pages")
-    return ExtractedDocument(
-        "\n".join(pages), len(pages), classify_pages(pages), tuple(issues), missing
+    return with_unread_content(
+        ExtractedDocument(
+            "\n".join(pages), len(pages), classify_pages(pages), tuple(issues), missing
+        ),
+        unread,
     )
 
 

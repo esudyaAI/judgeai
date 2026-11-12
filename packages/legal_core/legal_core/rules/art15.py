@@ -10,6 +10,7 @@ SOURCE = (
     "https://www.consultant.ru/document/cons_doc_LAW_10699/a0182fc43a8bbf8974658cda72c860ddfb210c52/"
 )
 _NORM_PART6 = "ч. 6 ст. 15 УК РФ"
+RULE_KEY = "art15.category"
 _YEAR = 12
 
 # Upper imprisonment bound (months, inclusive) per category and form of guilt, ч. 2–4.
@@ -59,7 +60,9 @@ def check_category_change(
     """Is the court's change of category under ч. 6 consistent with its conditions?"""
 
     def violation(why: str) -> CheckResult:
-        return CheckResult(_NORM_PART6, CheckStatus.POSSIBLE_VIOLATION, why, SOURCE)
+        return CheckResult(
+            _NORM_PART6, CheckStatus.POSSIBLE_VIOLATION, why, SOURCE, rule_key=RULE_KEY
+        )
 
     if claimed.value >= original.value:
         return violation("Категория может быть изменена только на менее тяжкую.")
@@ -77,5 +80,9 @@ def check_category_change(
             f"для изменения категории этого преступления."
         )
     return CheckResult(
-        _NORM_PART6, CheckStatus.OK, "Условия изменения категории соблюдены.", SOURCE
+        _NORM_PART6,
+        CheckStatus.OK,
+        "Условия изменения категории соблюдены.",
+        SOURCE,
+        rule_key=RULE_KEY,
     )

@@ -23,6 +23,7 @@ from src.db.auth import User
 from src.db.models import Attachment, Chat, Message
 from src.domain.documents import UnreadableInput, reading_warnings
 from src.domain.privacy import PrivacyRejected
+from src.domain.reference_conflict import ReferenceDataConflict
 from src.infrastructure.analysis_revisions import SqlAnalysisRevisionStore
 from src.infrastructure.bounded_embedder import BoundedQueryEmbedder
 from src.infrastructure.calculation_inputs import capture_inputs, replay_inputs
@@ -42,6 +43,7 @@ from src.services.criminal_sanction_lookup import find_article_sanctions
 from src.services.defendant_blocks import scoped_verdicts
 from src.services.document_parser import extract_document
 from src.services.knowledge_service import create_knowledge_verdict_from_text
+from src.services.legal_rule_catalog import reference_versions
 from src.services.llm_client import LLMError, get_llm_client, llm_provenance, prepare_llm_materials
 from src.services.punishment_window_resolver import resolve_windows
 from src.services.qualification_reference import parse_qualification_reference
@@ -290,13 +292,25 @@ async def run_analysis(
             if c.reference is not None
         }
         count_statutes = {}
+        conflicted: list[str] = []
+        reference_now = None
         async with db_session.async_session_factory() as db:
             for count_reference in count_references:
-                reading = await find_article_sanctions(
-                    db, count_reference.article, count_reference.part
-                )
+                try:
+                    reading = await find_article_sanctions(
+                        db, count_reference.article, count_reference.part
+                    )
+                except ReferenceDataConflict:
+                    conflicted.append(str(count_reference))
+                    continue
                 if reading is not None:
                     count_statutes[count_reference] = reading
+            try:
+                reference_now = await reference_versions(db)
+            except ReferenceDataConflict:
+                warnings.append(
+                    "Версия справки не зафиксирована: конфликт данных о редакциях УК РФ."
+                )
         checking_sec = time.monotonic() - t_stage
         logger.info(
             "[ANALYSIS:%s] [checking] Completed in %.2fs (counts=%d, statutes=%d)",
@@ -395,10 +409,21 @@ async def run_analysis(
                 ),
                 None,
             )
-            if statute is None:
+            if statute is None and str(reference) not in conflicted:
                 async with db_session.async_session_factory() as db:
-                    statute = await find_article_sanctions(db, reference.article, reference.part)
-        if reference is not None and statute is None:
+                    # T15.16: a data conflict leaves that article unchecked, not the case.
+                    try:
+                        statute = await find_article_sanctions(
+                            db, reference.article, reference.part
+                        )
+                    except ReferenceDataConflict:
+                        conflicted.append(str(reference))
+        for article in dict.fromkeys(conflicted):
+            warnings.append(
+                f"Санкция {article} не проверена: конфликт данных о редакциях УК РФ "
+                "(противоречащие редакции или разборы), ни одна из них не выбрана."
+            )
+        if reference is not None and statute is None and str(reference) not in conflicted:
             warnings.append(f"Санкция {reference} не найдена в импортированном тексте УК РФ.")
         calculation_inputs = capture_inputs(
             facts,
@@ -416,6 +441,7 @@ async def run_analysis(
             practice=practice,
             precedent_source=precedent_source,
             defendant_practice=defendant_practice,
+            reference=reference_now,
         )
 
         analysis = replay_inputs(calculation_inputs)

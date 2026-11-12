@@ -27,6 +27,7 @@ from src.services.case_analyzer import (
     prepare_assembly_sentencing_inputs,
 )
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
+from src.services.legal_rule_catalog import ReferenceVersions
 
 
 class _StrictModel(BaseModel):
@@ -56,6 +57,9 @@ class _Arguments(_StrictModel):
     defendant_practice: dict[int, PracticeReport] | None = None
     prepared_legal_inputs: dict[int, PreparedLegalInputs] | None = None
     prepared_sentencing_inputs: dict[int, PreparedSentencingInputs] | None = None
+    # T15.5/T15.11/T15.12: reference and sanction versions read when the analysis was made;
+    # None — not recorded (snapshots stored before the port of T15).
+    reference: ReferenceVersions | None = None
 
 
 class _Snapshot(_StrictModel):

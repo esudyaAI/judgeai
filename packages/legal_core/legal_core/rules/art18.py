@@ -17,6 +17,9 @@ SOURCE = (
 )
 
 
+RULE_KEY = "art18.recidivism"
+
+
 class Recidivism(StrEnum):
     UNKNOWN = "unknown"
     NONE = "none"

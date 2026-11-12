@@ -107,6 +107,31 @@ class InventoryTests(unittest.TestCase):
                 self.assertFalse(generate(root, check=True))
             self.assertEqual(output.read_text(), "stale artifact\n")
 
+    def _copy_inputs(self, root):
+        from tools.dependency_inventory import INPUTS
+
+        for relative in INPUTS:
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes((ROOT / relative).read_bytes())
+
+    def test_unrelated_setting_does_not_drift_the_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._copy_inputs(root)
+            self.assertTrue(generate(root))
+            config = root / "src/config.py"
+            config.write_text(config.read_text(encoding="utf-8") + "\n# unrelated setting\n")
+            self.assertTrue(generate(root, check=True))
+
+    def test_configured_model_stays_visible_without_a_config_file_hash(self):
+        from tools.dependency_inventory import configured_model
+
+        bom, _ = build_inventory(ROOT)
+        self.assertIn("model:" + configured_model(ROOT), {c["bom-ref"] for c in bom["components"]})
+        names = {item["name"] for item in bom["metadata"]["properties"]}
+        self.assertNotIn("judgeai:input-sha256:src/config.py", names)
+
     def test_manifest_drift_and_missing_license_evidence_are_not_silent(self):
         from tools.dependency_inventory import validate_lock_manifest
 

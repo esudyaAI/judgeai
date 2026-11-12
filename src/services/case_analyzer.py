@@ -47,6 +47,7 @@ from src.domain.analysis_segments import MODEL_DOCUMENT_CHARS
 from src.domain.analysis_version import ANALYSIS_VERSION
 from src.domain.prepared_legal import PreparedFact, PreparedLegalInputs
 from src.domain.prepared_sentencing import PreparedCircumstance, PreparedSentencingInputs
+from src.domain.sanction_coverage import article_sort_key
 from src.infrastructure.circumstance_extractor import extract_circumstances
 from src.schemas.analysis import (
     AnalysisStats,
@@ -69,6 +70,7 @@ from src.schemas.analysis import (
 from src.services.criminal_sanction_lookup import StatuteSanctionReading
 from src.services.defendant_blocks import scoped_verdicts
 from src.services.legal_checks import build_legal_checks, guilt_from_text, prepare_legal_inputs
+from src.services.legal_rule_catalog import ReferenceVersions
 from src.services.llm_client import LLMClient, LLMError
 from src.services.punishment_extractor import (
     extract_imposed_sentence,
@@ -496,10 +498,12 @@ def assemble_analysis(
     defendant_practice: dict[int, PracticeReport] | None = None,
     prepared_legal_inputs: dict[int, PreparedLegalInputs] | None = None,
     prepared_sentencing_inputs: dict[int, PreparedSentencingInputs] | None = None,
+    reference: ReferenceVersions | None = None,
 ) -> CaseAnalysis:
     """sentence/count_statutes come from the operative part read by regex; when present, the
     imposed punishment is checked per count instead of the single model-cited term.
-    practice holds the precedent cards found for the draft and the T28 comparison."""
+    practice holds the precedent cards found for the draft and the T28 comparison.
+    reference holds the rule reference versions (T15.5) stamped on the result and the checks."""
     warnings = list(extra_warnings)
     full_text = "\n\n".join(document_texts or [])
     people = [person for text in (document_texts or []) for person in scoped_verdicts(text)]
@@ -638,7 +642,12 @@ def assemble_analysis(
     source_text, source_warnings = _analysis_source(prompt, document_texts, model_texts, extraction)
     warnings.extend(source_warnings)
     art62_limit = (
-        art62_part1_limit(sanction_max_months, facts.mitigating, facts.aggravating)
+        art62_part1_limit(
+            sanction_max_months,
+            facts.mitigating,
+            facts.aggravating,
+            sanction_has_life_or_death=ceiling is not None and ceiling.harsher_than_imprisonment,
+        )
         if sanction_max_months and sentencing.no_aggravating.value is True
         else None
     )
@@ -735,7 +744,7 @@ def assemble_analysis(
     return CaseAnalysis(
         extraction=extraction,
         engine_version=ANALYSIS_VERSION,
-        legal_checks=legal_checks,
+        legal_checks=_with_basis_versions(legal_checks, reference),
         imposed_sentence=_sentence_read(sentence, sentencing.unknown_fields),
         stats=AnalysisStats(documents=documents, pages=pages, seconds=seconds),
         prompt=prompt,
@@ -757,7 +766,46 @@ def assemble_analysis(
         else None,
         practice_episodes=[_practice_read(r) for r in practice.episodes] if practice else [],
         warnings=warnings,
+        reference_version=reference.catalog if reference is not None else None,
+        sanctions_version=reference.sanctions if reference is not None else None,
+        sanction_article_versions=_read_article_versions(statute, count_statutes, reference),
     )
+
+
+def _read_article_versions(
+    statute: StatuteSanctionReading | None,
+    count_statutes: dict[ArticleReference, StatuteSanctionReading] | None,
+    reference: ReferenceVersions | None,
+) -> dict[str, str] | None:
+    """T15.12: the versions of the articles whose sanctions this analysis read.
+
+    None when the per-article versions were not read, or when a read article has none — a
+    partial record would later report the missing article as unchanged.
+    """
+    if reference is None or reference.sanction_articles is None:
+        return None
+    readings = [statute, *(count_statutes or {}).values()]
+    articles = sorted(
+        {reading.sanctions[0].article for reading in readings if reading and reading.sanctions},
+        key=article_sort_key,
+    )
+    if any(article not in reference.sanction_articles for article in articles):
+        return None
+    return {article: reference.sanction_articles[article] for article in articles}
+
+
+def _with_basis_versions(
+    checks: list[LegalCheck], reference: ReferenceVersions | None
+) -> list[LegalCheck]:
+    """Each finding of a catalog rule records that rule's basis version; others stay None."""
+    if reference is None:
+        return checks
+    return [
+        check.model_copy(update={"basis_version": reference.rules.get(check.rule_key)})
+        if check.rule_key is not None
+        else check
+        for check in checks
+    ]
 
 
 _VARIANT_KEYS = {
@@ -948,11 +996,15 @@ def _count_checks(
         if count.reference not in seen_sanctions:
             seen_sanctions.add(count.reference)
             checks.append(_statute_sanction_check(reading))
+        ceiling = _statutory_ceiling(reading)
         top = most_severe_alternative(reading.sanctions)
         exact_limit = None
         if (
             top
             and top.max_value
+            # ч. 3 ст. 62 (T4.8): the limit of ч. 1 does not apply when the sanction provides
+            # life imprisonment or the death penalty.
+            and not (ceiling is not None and ceiling.harsher_than_imprisonment)
             and (
                 prepared.no_aggravating.value is True
                 if prepared is not None
@@ -982,6 +1034,7 @@ def _count_checks(
                 explanation=result.explanation,
                 source=result.source,
                 value=describe_term(count.main),
+                rule_key=result.rule_key,
                 evidence=[count.quote] if count.quote else [],
             )
         )
@@ -1405,6 +1458,7 @@ def _imposed_term_check(
         status=result.status.value,
         explanation=result.explanation,
         source=result.source,
+        rule_key=result.rule_key,
         value=f"{imposed} мес." if imposed is not None else None,
         evidence=evidence,
     )

@@ -29,6 +29,7 @@ from enum import StrEnum
 from legal_core.entities import Category
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art86.expungement"
 
 # Day ФЗ от 23.07.2013 N 218-ФЗ (8 and 10 years) took effect; earlier offences keep 6 and 8 years.
 TERMS_RAISED_ON = date(2013, 8, 3)
