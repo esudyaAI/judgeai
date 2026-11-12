@@ -1,5 +1,6 @@
 """ст. 68 per count and ст. 73 are added to the analysis from the read operative part (T13)."""
 
+from legal_core import catalog
 from legal_core.entities import (
     ArticleReference,
     CountSentence,
@@ -206,3 +207,36 @@ def test_no_regime_check_when_no_institution_is_named_or_sentence_is_conditional
         guilt="intentional",
     )
     assert not [c for c in conditional if c.norm.startswith("Вид исправительного")]
+
+
+def test_sentence_checks_name_their_catalog_rule():
+    """T15.18: ст. 68 and ст. 73 findings of the analysis open their basis by rule key."""
+    sentence = _sentence(months=19, conditional=True, probation=24)
+    checks = build_sentence_checks(sentence, {REF: _reading()}, _recidivism(), [])
+    assert [c.rule_key for c in checks] == ["art68.recidivism_term", "art73.conditional_sentence"]
+    assert all(catalog.find(c.rule_key) is not None for c in checks)
+
+
+def test_regime_check_names_its_catalog_rule():
+    """T15.18: the ч. 1 ст. 58 finding of the analysis opens its basis by rule key."""
+    checks = build_sentence_checks(
+        _sentence(months=24),
+        {},
+        [_art15("grave"), *_recidivism("none")],
+        [],
+        document_text=REAL_TEXT,
+        guilt="intentional",
+    )
+    [regime] = [c for c in checks if c.norm.startswith("Вид исправительного")]
+    assert regime.rule_key == "art58.regime"
+    assert catalog.find(regime.rule_key) is not None
+
+
+def test_check_built_without_a_rule_keeps_no_key():
+    """T15.18: a gap the analysis states itself is not attributed to a rule."""
+    sentence = _sentence(months=19)
+    [check] = build_sentence_checks(
+        sentence, {REF: _reading(extra_kind=PunishmentKind.LIFE_IMPRISONMENT)}, _recidivism(), []
+    )
+    assert check.status == "insufficient_data"
+    assert check.rule_key is None
