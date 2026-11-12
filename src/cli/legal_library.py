@@ -1,4 +1,4 @@
-"""Prepare and import a locally archived official legal document.
+"""Prepare and import a locally archived official legal document; link check rules to it.
 
 Run --help for arguments. This command never certifies the legal edition or dates.
 """
@@ -12,6 +12,7 @@ from pathlib import Path
 
 from src.schemas.legal_library import ActImport, ProvisionImport, SnapshotImport
 from src.services.legal_library import MAX_SOURCE_BYTES, import_snapshot
+from src.services.legal_rule_catalog import link_rule
 from src.services.legal_source_parser import (
     PARSER_VERSION,
     extract_html,
@@ -95,6 +96,25 @@ async def run_import(args):
     )
 
 
+async def run_link_rule(args):
+    from sqlalchemy import select
+
+    from src.db.models import LegalEdition
+    from src.db.session import async_session_factory
+
+    async with async_session_factory() as db, db.begin():
+        _, created = await link_rule(
+            db, args.rule, args.act, args.edition, args.locator, args.rationale
+        )
+        status = await db.scalar(
+            select(LegalEdition.verification_status).where(LegalEdition.id == args.edition)
+        )
+    print(
+        f"Rule {args.rule} -> {args.act} {args.locator} (edition {args.edition}): "
+        f"{'linked' if created else 'already linked'}; status={status}"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -113,9 +133,17 @@ def main():
     imp = sub.add_parser("import")
     imp.add_argument("--source", type=Path, required=True)
     imp.add_argument("--manifest", type=Path, required=True)
+    link = sub.add_parser("link-rule", help="link a legal_core rule to a stored provision")
+    link.add_argument("--rule", required=True)
+    link.add_argument("--act", required=True)
+    link.add_argument("--edition", type=int, required=True)
+    link.add_argument("--locator", required=True)
+    link.add_argument("--rationale", required=True)
     args = parser.parse_args()
     if args.command == "prepare":
         prepare(args)
+    elif args.command == "link-rule":
+        asyncio.run(run_link_rule(args))
     else:
         asyncio.run(run_import(args))
 

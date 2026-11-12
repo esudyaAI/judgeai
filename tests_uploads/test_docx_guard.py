@@ -220,8 +220,19 @@ class DocxGuardTests(unittest.TestCase):
         # Inner layers may use pure standard-library modules and the legal_core domain package,
         # never frameworks, storage, HTTP or the outer src layers. datetime (domain) and
         # threading/concurrent.futures (application) stay pure stdlib: computation and
-        # in-process orchestration only, no I/O.
-        pure = {"dataclasses", "datetime", "enum", "hashlib", "json", "re", "typing", "legal_core"}
+        # in-process orchestration only, no I/O. `collections` (abstract types such as
+        # collections.abc.Iterable) is pure: T15.10 domain code uses it.
+        pure = {
+            "collections",
+            "dataclasses",
+            "datetime",
+            "enum",
+            "hashlib",
+            "json",
+            "re",
+            "typing",
+            "legal_core",
+        }
         for layer, allowed in [
             # Domain modules can reuse one another; every module is still scanned.
             ("domain", pure | {"src.domain"}),

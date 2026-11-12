@@ -37,3 +37,8 @@ def test_not_applied_with_aggravating_or_without_items():
     assert art62_part1_limit(60, [c("п. «и» ч. 1 ст. 61")], [c("п. «а» ч. 1 ст. 63")]) is None
     assert art62_part1_limit(60, [c("ч. 2 ст. 61")], []) is None
     assert art62_part1_limit(0, [c("п. «и» ч. 1 ст. 61")], []) is None
+
+
+def test_life_or_death_in_sanction_excludes_part1():
+    limit = art62_part1_limit(240, [c("п. «и» ч. 1 ст. 61")], [], sanction_has_life_or_death=True)
+    assert limit is None

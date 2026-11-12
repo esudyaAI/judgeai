@@ -231,6 +231,15 @@ class CaseAnalysis(ApiModel):
     precedents: list[PrecedentMatchRead] = []
     practice: PracticeComparisonRead | None = None
     practice_episodes: list[PracticeComparisonRead] = Field(default_factory=list)
+    # T15.5: catalog_version of the rule reference the checks were made with; None — not
+    # recorded (results stored before T15.5, or an analysis assembled without the reference).
+    reference_version: str | None = None
+    # T15.11: version of the sanction data the checks read (GET /api/legal/rules/coverage,
+    # sanctions.version); None — not recorded (results stored before T15.11).
+    sanctions_version: str | None = None
+    # T15.12: per article whose sanctions the checks read, the version of that article's
+    # reading (article -> fingerprint); {} — no sanctions were read; None — not recorded.
+    sanction_article_versions: dict[str, str] | None = None
     # Human-readable caveats the UI must show (e.g. unverified sanction, partial OCR).
     warnings: list[str] = []
 
@@ -280,6 +289,12 @@ class LegalCheck(BaseModel):
     value: str | None = None
     evidence: list[str] = Field(default_factory=list)
     needs_legal_review: bool = True
+    # legal_core.catalog key of the rule behind the finding; its basis: GET /api/legal/rules/{key}.
+    # None — a plain reading of the text or a step no rule checks yet.
+    rule_key: str | None = None
+    # T15.5: basis_version of that rule at analysis time (GET /api/legal/rules); None — no rule,
+    # or a result stored before versions were recorded.
+    basis_version: str | None = None
 
 
 # Resolve references declared below the backwards-compatible result classes.

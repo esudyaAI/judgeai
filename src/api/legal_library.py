@@ -9,6 +9,8 @@ from sqlalchemy.orm import defer
 from src.api.deps import DbSession
 from src.db.models import LegalAct, LegalEdition, LegalProvision, LegalRuleReference
 from src.schemas.legal_library import ActRead
+from src.schemas.reference_coverage import ReferenceCoverageRead
+from src.services.legal_rule_catalog import rule_basis, rule_catalog, rule_coverage
 
 router = APIRouter()
 
@@ -172,3 +174,38 @@ async def lookup_provision(
         **provision_read(provision),
         **{k: v for k, v in edition_meta(edition).items() if k != "id"},
     }
+
+
+@router.get("/rules")
+async def list_rules(db: DbSession, on_date: date | None = Query(None, alias="on")):
+    """Каталог правил проверки с основаниями из БД; правило без основания не скрывается.
+
+    С `on` статус основания считается на эту дату по периодам действия норм в БД (T15.3).
+    `version` — версия справки (T15.4), от `on` не зависит.
+    """
+    items = await rule_catalog(db, on_date)
+    return {
+        "version": items[0]["catalog_version"],
+        "items": items,
+        "references": sum(len(item["references"]) for item in items),
+    }
+
+
+@router.get("/rules/coverage", response_model=ReferenceCoverageRead)
+async def rules_coverage(db: DbSession, on_date: date | None = Query(None, alias="on")):
+    """Область поддержки справки (T15.8): какие правила опираются на подтверждённую норму.
+
+    Каждое правило каталога — ровно под одним статусом основания; правило без основания
+    попадает в `unconfirmed`, а не исчезает. С `on` статусы считаются на эту дату (T15.3).
+    `sanctions` — охват санкций по статьям УК из БД (T15.9) по тем же правилам.
+    `sanctions.version` — отпечаток данных санкций (T15.10), от `on` не зависит.
+    """
+    return await rule_coverage(db, on_date)
+
+
+@router.get("/rules/{key}")
+async def get_rule(key: str, db: DbSession, on_date: date | None = Query(None, alias="on")):
+    basis = await rule_basis(db, key, on_date)
+    if basis is None:
+        raise HTTPException(404, "Правило не найдено")
+    return basis

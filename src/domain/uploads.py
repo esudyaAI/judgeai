@@ -1,5 +1,6 @@
 """Pure admission policies for supported, bounded document subsets."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, fields
 
 
@@ -15,6 +16,30 @@ def _check_positive_limits(instance, label):
         for item in fields(instance)
     ):
         raise ValueError(f"{label} limits must be positive integers")
+
+
+@dataclass(frozen=True)
+class UploadBatchLimits:
+    max_files: int = 20
+    max_total_bytes: int = 200 * 1024 * 1024
+
+    def __post_init__(self):
+        _check_positive_limits(self, "Upload batch")
+
+
+def check_upload_batch(sizes: Sequence[int], limits: UploadBatchLimits) -> None:
+    """Refuse a whole request by file count, then by the total size of its files."""
+    if len(sizes) > limits.max_files:
+        raise UploadRejected(
+            "batch_files",
+            f"За один запрос можно загрузить не больше {limits.max_files} файлов.",
+        )
+    if sum(sizes) > limits.max_total_bytes:
+        megabytes = limits.max_total_bytes // (1024 * 1024)
+        raise UploadRejected(
+            "batch_size",
+            f"Общий размер файлов в одном запросе не должен превышать {megabytes} МБ.",
+        )
 
 
 @dataclass(frozen=True)

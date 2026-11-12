@@ -6,8 +6,8 @@
 # Пленум ВС РФ № 58 от 22.12.2015: п. 47 — a milder kind than the most severe one only under
 # ст. 64; п. 48 — not below the minimum of the sanction (checked by imposed_term, not here);
 # п. 49 — for an unfinished offence one third is taken of the maximum reduced under ст. 66.
-# TODO(T4/T23): ст. 66 (unfinished offence) is not modelled — the caller passes the maximum it
-# applies; ч. 1 (circumstances the court must weigh) is not machine-checkable.
+# The caller passes the maximum reduced by `art66.unfinished_maximum` for an unfinished offence.
+# TODO(T4/T23): ч. 1 (circumstances the court must weigh) is not machine-checkable.
 
 import math
 
@@ -15,6 +15,7 @@ from legal_core.checks import CheckResult, CheckStatus
 from legal_core.rules.art18 import Recidivism
 
 NEEDS_LEGAL_REVIEW = True
+RULE_KEY = "art68.recidivism_term"
 NORM = "Срок наказания при рецидиве: ч. 2, 3 ст. 68 УК РФ"
 SOURCE = (
     "УК РФ ст. 68 (ред. Федерального закона от 08.12.2003 N 162-ФЗ), текст по "
@@ -47,7 +48,7 @@ def check_recidivism_term(
     """Candidate check of the imposed term against ч. 2–3 ст. 68 УК РФ."""
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(NORM, status, why, SOURCE, NEEDS_LEGAL_REVIEW, RULE_KEY)
 
     if recidivism is Recidivism.NONE:
         return result(CheckStatus.OK, "Рецидива нет — ст. 68 УК РФ не применяется.")
