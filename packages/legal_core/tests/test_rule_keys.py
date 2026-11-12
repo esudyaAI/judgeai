@@ -6,6 +6,7 @@ from legal_core import catalog
 from legal_core.checks import CheckResult, CheckStatus
 from legal_core.entities import (
     Category,
+    Guilt,
     ImposedPunishment,
     MeasureUnit,
     PunishmentKind,
@@ -64,6 +65,8 @@ def test_catalog_lists_exactly_the_rule_modules():
         art70.ATTACHMENT_RULE_KEY,
         art69.ADDITIONAL_RULE_KEY,
         art69.PRIOR_RULE_KEY,
+        art58.REGIME_RULE_KEY,
+        art73.SENTENCE_RULE_KEY,
     ]
     assert sorted(item.key for item in catalog.RULES) == sorted(expected)
 
@@ -139,6 +142,48 @@ def _results() -> dict[str, list[CheckResult]]:
                 art61_mitigating_established=False,
                 art64_applied=False,
             )
+        ]
+        + [
+            # T15.18: the exact-boundary variant the case analysis runs (sentence_checks)
+            art68.check_recidivism_amount(
+                recidivism=recidivism,
+                amount=amount,
+                maximum=60,
+                most_severe_kind=True,
+                mitigating=False,
+                art64=False,
+                unit_name="мес.",
+            )
+            for recidivism, amount in (
+                (Recidivism.UNKNOWN, 10),
+                (Recidivism.NONE, 10),
+                (Recidivism.SIMPLE, 10),
+                (Recidivism.SIMPLE, 30),
+                (Recidivism.SIMPLE, None),
+            )
+        ],
+        # T15.18: ч. 1 ст. 58 as checked by the case analysis (prepared_sentencing)
+        art58.REGIME_RULE_KEY: [
+            art58.check_regime(
+                imposed=imposed,
+                guilt=Guilt.INTENTIONAL,
+                category=Category.GRAVE,
+                male=True,
+                recidivism=none,
+                served_imprisonment_before=False,
+            )
+            for imposed in (art58.Regime.GENERAL, art58.Regime.STRICT, None)
+        ],
+        # T15.18: summary ч. 1, 3 ст. 73 check the case analysis runs (sentence_checks)
+        art73.SENTENCE_RULE_KEY: [
+            art73.check_conditional_sentence(
+                conditional=conditional,
+                kind=art73.ConditionalKind.IMPRISONMENT,
+                imprisonment_months=24,
+                probation_months=probation,
+                recidivism=none,
+            )
+            for conditional, probation in ((False, None), (True, 24), (True, 70), (True, None))
         ],
         art66.RULE_KEY: [
             art66.check_unfinished_offence_term(
