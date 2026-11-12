@@ -27,6 +27,13 @@ _WORD = re.compile(r"[а-яё]{4,}", re.IGNORECASE)
 MAX_QUERY_WORDS = 40
 
 
+def _has_article(article: str):
+    """Any count of the card has this article (not only the main one)."""
+    return func.array_to_string(PrecedentCardRow.qualification_keys, " ").op("~")(
+        rf"(^| ){re.escape(article)}(/| |$)"
+    )
+
+
 def _term_json(term: PunishmentTerm | None) -> dict | None:
     if term is None:
         return None
@@ -321,11 +328,7 @@ class SqlPrecedentStore:
         )
         if article is not None:
             # The prefilter matches any episode with this article, not only the main one.
-            stmt = stmt.where(
-                func.array_to_string(PrecedentCardRow.qualification_keys, " ").op("~")(
-                    rf"(^| ){re.escape(article)}(/| |$)"
-                )
-            )
+            stmt = stmt.where(_has_article(article))
         rows = await self.db.execute(stmt)
         return [(card_id, round(1.0 - float(dist), 6)) for card_id, dist in rows.all()]
 
@@ -365,6 +368,22 @@ class SqlPrecedentStore:
         rows = await self.db.scalars(select(PrecedentCardRow).where(PrecedentCardRow.id.in_(ids)))
         stored = await self._with_fine_credits(list(rows))
         return {item.id: item for item in stored}
+
+    async def cards_with_article(self, article: str) -> list[StoredCard]:
+        """Every shared practice card with the article in any count (T45.1), no limit:
+        statistics over a truncated list would silently describe a different set."""
+        shared = select(KnowledgeVerdict.id).where(
+            KnowledgeVerdict.source_type.not_in(PRIVATE_SOURCE_TYPES)
+        )
+        rows = await self.db.scalars(
+            select(PrecedentCardRow)
+            .where(
+                _has_article(article),
+                PrecedentCardRow.knowledge_verdict_id.in_(shared),
+            )
+            .order_by(PrecedentCardRow.id)
+        )
+        return await self._with_fine_credits(list(rows))
 
     async def has_cards(self) -> bool:
         return await self.db.scalar(select(PrecedentCardRow.id).limit(1)) is not None

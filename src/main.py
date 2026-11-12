@@ -18,6 +18,7 @@ from src.api import (
     document_previews,
     knowledge,
     legal_library,
+    practice_facts,
     precedents,
     reports,
 )
@@ -80,6 +81,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(chats.router, prefix="/api/chats", tags=["chats"])
 app.include_router(analysis_revisions.router, prefix="/api/chats", tags=["analysis revisions"])
 app.include_router(precedents.router, prefix="/api/chats", tags=["precedents"])
+app.include_router(practice_facts.router, prefix="/api/practice", tags=["practice facts"])
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["knowledge"])
 app.include_router(legal_library.router, prefix="/api/legal", tags=["legal library"])
 app.include_router(
