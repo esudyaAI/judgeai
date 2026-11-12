@@ -12,8 +12,9 @@
 # значимый факт → «недостаточно данных». Толкование сверяется в T23.
 # Ч. 4 (дополнительные наказания, применяется и к ст. 70 через её ч. 5) — отдельное правило
 # ниже, ADDITIONAL_RULE_KEY.
-# TODO(T4/T23): ч. 1 (наказание за каждое преступление отдельно), ч. 5 (зачёт отбытого по
-# первому приговору) и предел ч. 3 для видов, кроме лишения свободы, не смоделированы.
+# Ч. 5 (преступление до вынесения первого приговора, зачёт отбытого) — правило PRIOR_RULE_KEY.
+# TODO(T4/T23): ч. 1 (наказание за каждое преступление отдельно), предел ч. 3 для видов, кроме
+# лишения свободы, и размер зачёта по ч. 5 (ст. 72) не смоделированы.
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -329,4 +330,128 @@ def check_additional_punishments(draft: DraftAdditionalCumulation) -> CheckResul
         return _additional_result(CheckStatus.INSUFFICIENT_DATA, " ".join(unknown))
     return _additional_result(
         CheckStatus.OK, f"Дополнительные наказания не превышают максимумов Общей части ({where})."
+    )
+
+
+# --- ч. 5 ст. 69 УК РФ: преступление, совершённое до вынесения первого приговора ---
+# «По тем же правилам назначается наказание, если после вынесения судом приговора по делу будет
+# установлено, что осужденный виновен еще и в другом преступлении, совершенном им до вынесения
+# приговора суда по первому делу. В этом случае в окончательное наказание засчитывается
+# наказание, отбытое по первому приговору суда.» ППВС № 58 п. 52: значение имеет время
+# вынесения первого приговора, а не вступления в силу; п. 53: к условно осуждённому ч. 5 не
+# применяется — приговоры исполняются самостоятельно (если условное осуждение не отменено по
+# ст. 74 УК РФ); п. 57: отбытое полностью или частично по первому приговору засчитывается.
+# Преступление после вынесения первого приговора — совокупность приговоров (ст. 70).
+# Сколько отбыто и пересчёт по ст. 72 — на вызывающем; здесь проверяется, что зачёт сделан.
+
+PRIOR_RULE_KEY = "art69.prior_sentence"
+PRIOR_NORM = "Преступление до вынесения первого приговора: ч. 5 ст. 69 УК РФ"
+PRIOR_SOURCE = (
+    "УК РФ ст. 69, ч. 5 — официальная выгрузка http://pravo.gov.ru/proxy/ips/?savertf=&nd="
+    "102041891&page=all, получена 27.10.2026, sha256 0243481c50d996a3bddd041854f49077bd34fde1"
+    "7734e63735b87e16f4a34d7b; постановление Пленума ВС РФ от 22.12.2015 № 58, пп. 52, 53, 57 "
+    "(статус unreviewed, периоды действия сверить в T23)"
+)
+
+
+@dataclass(frozen=True)
+class PriorSentenceFacts:
+    """Facts of the case; None — not established.
+
+    offence_before_first_sentence — an offence of this case was committed before the first
+    sentence was pronounced; first_conditional_in_force — the first sentence is conditional
+    (ст. 73) and was not revoked under ст. 74; served_under_first — some punishment was served
+    under the first sentence."""
+
+    offence_before_first_sentence: bool | None
+    first_conditional_in_force: bool | None
+    served_under_first: bool | None
+
+
+@dataclass(frozen=True)
+class DraftPriorSentence:
+    """What the draft does; None — not extracted."""
+
+    applies_part5: bool | None
+    credits_served: bool | None
+
+
+def _prior_result(status: CheckStatus, why: str) -> CheckResult:
+    return CheckResult(PRIOR_NORM, status, why, PRIOR_SOURCE, NEEDS_LEGAL_REVIEW, PRIOR_RULE_KEY)
+
+
+_AFTER_FIRST = (
+    "Ч. 5 ст. 69 УК РФ применяется к преступлению, совершённому до вынесения первого "
+    "приговора; за преступление после его вынесения наказание назначается по совокупности "
+    "приговоров (ст. 70 УК РФ)."
+)
+_CONDITIONAL = (
+    "По первому приговору осуждение условное и не отменено: ч. 5 ст. 69 УК РФ не применяется, "
+    "приговоры исполняются самостоятельно (п. 53 ППВС № 58)."
+)
+_NOT_CREDITED = (
+    "В окончательное наказание по ч. 5 ст. 69 УК РФ засчитывается наказание, отбытое по "
+    "первому приговору, — в проекте зачёт не указан (п. 57 ППВС № 58)."
+)
+
+
+def _grounds_findings(facts: PriorSentenceFacts) -> tuple[list[str], list[str]]:
+    """(reasons ч. 5 does not apply, unknown grounds)."""
+    reasons: list[str] = []
+    unknown: list[str] = []
+    if facts.offence_before_first_sentence is False:
+        reasons.append(_AFTER_FIRST)
+    elif facts.offence_before_first_sentence is None:
+        unknown.append("Не установлено, совершено ли преступление до вынесения первого приговора.")
+    if facts.first_conditional_in_force is True:
+        reasons.append(_CONDITIONAL)
+    elif facts.first_conditional_in_force is None:
+        unknown.append("Не установлено, является ли осуждение по первому приговору условным.")
+    return reasons, unknown
+
+
+def _credit_finding(
+    facts: PriorSentenceFacts, draft: DraftPriorSentence
+) -> tuple[str | None, str | None]:
+    """(violation, unknown) for the credit of punishment served under the first sentence."""
+    if draft.credits_served is True or facts.served_under_first is False:
+        return None, None
+    if facts.served_under_first is None:
+        return None, "Не установлено, отбыто ли наказание по первому приговору."
+    if draft.credits_served is None:
+        return None, (
+            "В проекте не установлено, засчитано ли наказание, отбытое по первому приговору."
+        )
+    return _NOT_CREDITED, None
+
+
+def check_prior_sentence(facts: PriorSentenceFacts, draft: DraftPriorSentence) -> CheckResult:
+    reasons, unknown = _grounds_findings(facts)
+    if draft.applies_part5 is None:
+        return _prior_result(
+            CheckStatus.INSUFFICIENT_DATA,
+            "Не установлено, назначается ли наказание по правилам ч. 5 ст. 69 УК РФ.",
+        )
+    if draft.applies_part5 is False:
+        if reasons:
+            return _prior_result(CheckStatus.OK, "Ч. 5 ст. 69 УК РФ не применяется. " + reasons[0])
+        if unknown:
+            return _prior_result(CheckStatus.INSUFFICIENT_DATA, " ".join(unknown))
+        return _prior_result(
+            CheckStatus.POSSIBLE_VIOLATION,
+            "Преступление совершено до вынесения первого приговора, осуждение по нему не "
+            "условное: наказание назначается по правилам ч. 5 ст. 69 УК РФ, а в проекте они "
+            "не применены.",
+        )
+    violation, gap = _credit_finding(facts, draft)
+    violations = reasons + ([violation] if violation else [])
+    if violations:
+        return _prior_result(CheckStatus.POSSIBLE_VIOLATION, " ".join(violations))
+    gaps = unknown + ([gap] if gap else [])
+    if gaps:
+        return _prior_result(CheckStatus.INSUFFICIENT_DATA, " ".join(gaps))
+    return _prior_result(
+        CheckStatus.OK,
+        "Наказание назначено по правилам ч. 5 ст. 69 УК РФ; зачёт отбытого по первому приговору "
+        "не нарушен.",
     )

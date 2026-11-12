@@ -27,6 +27,7 @@ def test_rule_keys_are_unique_and_stable():
         "art68.recidivism_term",
         "art69.additional_punishments",
         "art69.offences_cumulation",
+        "art69.prior_sentence",
         "art70.attachment",
         "art70.cumulative_sentences",
         "art73.conditional_ban",

@@ -63,6 +63,7 @@ def test_catalog_lists_exactly_the_rule_modules():
         art63.INTOXICATION_RULE_KEY,
         art70.ATTACHMENT_RULE_KEY,
         art69.ADDITIONAL_RULE_KEY,
+        art69.PRIOR_RULE_KEY,
     ]
     assert sorted(item.key for item in catalog.RULES) == sorted(expected)
 
@@ -215,6 +216,13 @@ def _results() -> dict[str, list[CheckResult]]:
                 )
             )
             for cumulation, amount in ((True, 100_000), (True, 6_000_000), (None, None))
+        ],
+        art69.PRIOR_RULE_KEY: [
+            art69.check_prior_sentence(
+                art69.PriorSentenceFacts(before, False, True),
+                art69.DraftPriorSentence(applies, True),
+            )
+            for before, applies in ((True, True), (False, True), (None, None))
         ],
         art70.RULE_KEY: [
             art70.check_cumulative_sentences(
