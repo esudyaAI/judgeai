@@ -80,6 +80,17 @@ RULES: tuple[RuleDescriptor, ...] = (
         needs_legal_review=art58.NEEDS_LEGAL_REVIEW,
     ),
     RuleDescriptor(
+        key=art58.REGIME_RULE_KEY,
+        title=art58.REGIME_NORM,
+        norms=_uk("58", "15", "18"),
+        not_modelled=(
+            "Проверка анализа дела по прямому тексту ч. 1 ст. 58 УК РФ: случаи вне текста "
+            "(мужчина, ранее отбывавший лишение свободы, без рецидива; несовершеннолетние) и "
+            "разъяснения ППВС № 9 не проверяются — подробное правило art58.institution."
+        ),
+        needs_legal_review=art58.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
         key=art58_prison.RULE_KEY,
         title=art58_prison.NORM,
         norms=_uk("58"),
@@ -212,6 +223,18 @@ RULES: tuple[RuleDescriptor, ...] = (
             "Отнесение каждого преступления к перечням передаёт вызывающий: перечень п. «а1» "
             "зависит от редакции на дату преступления (последнее изменение — ФЗ от 17.11.2025 "
             "N 420-ФЗ), возраст потерпевшего для п. «а» — факт дела."
+        ),
+        needs_legal_review=art73.NEEDS_LEGAL_REVIEW,
+    ),
+    RuleDescriptor(
+        key=art73.SENTENCE_RULE_KEY,
+        title=art73.SENTENCE_NORM,
+        norms=_uk("73", "18"),
+        not_modelled=(
+            "Сводная проверка анализа дела: вид и срок наказания (ч. 1), п. «в» ч. 1 и "
+            "испытательный срок (ч. 3) ст. 73 УК РФ; пп. «а», «а1», «б» ч. 1 учитываются, только "
+            "если их передал вызывающий, — подробные правила art73.offence_list_bar и "
+            "art73.offence_during_supervision."
         ),
         needs_legal_review=art73.NEEDS_LEGAL_REVIEW,
     ),
