@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
+from src.application.practice_chat import AnswerPhraser, answer_practice_question
 from src.application.practice_report import compare_draft_with_practice
 from src.application.precedent_cards import query_card
 from src.config import settings
@@ -29,6 +30,7 @@ from src.infrastructure.bounded_embedder import BoundedQueryEmbedder
 from src.infrastructure.calculation_inputs import capture_inputs, replay_inputs
 from src.infrastructure.conversation import load_conversation
 from src.infrastructure.fastembed_embedder import FastembedEmbedder, with_embedding_materials
+from src.infrastructure.practice_phraser import LlmAnswerPhraser
 from src.infrastructure.precedent_store import SqlPrecedentStore
 from src.infrastructure.report_materials import upload_digest
 from src.infrastructure.verdict_reader import RegexVerdictReader
@@ -100,6 +102,43 @@ async def _search_practice(db, question: str, texts: list[str]):
         len(items),
     )
     return items, None, "text" if items else "none"
+
+
+def get_practice_phraser() -> AnswerPhraser | None:
+    """The model that may reword a practice answer (T45.2); None — the code's wording only."""
+    if settings.LLM_PROVIDER == "fake":
+        return None
+    try:
+        return LlmAnswerPhraser(get_llm_client())
+    except LLMError:
+        return None
+
+
+async def _answer_practice_question(assistant_message_id: int, question: str) -> bool:
+    """T45.2: a factual question about practice gets numbers counted by code, not a case
+    analysis. False — not such a question; the case analysis goes on as before."""
+    async with db_session.async_session_factory() as db:
+        answer = await answer_practice_question(
+            SqlPrecedentStore(db), question, get_practice_phraser()
+        )
+        if answer is None:
+            return False
+        await db.execute(
+            update(Message)
+            .where(Message.id == assistant_message_id)
+            .values(status="completed", stage=None, content=answer.text, analysis=None, error=None)
+        )
+        await db.commit()
+    logger.info(
+        "[ANALYSIS:%s] practice question answered by code (found=%d, counted=%d, "
+        "worded_by_model=%s, rejected_numbers=%d)",
+        assistant_message_id,
+        answer.facts.found,
+        len(answer.facts.counted),
+        answer.worded_by_model,
+        len(answer.rejected_numbers),
+    )
+    return True
 
 
 async def run_analysis(
@@ -250,6 +289,11 @@ async def run_analysis(
             sum(len(t) for t in texts),
         )
 
+        # T45.2: a question about practice without documents is answered from the practice
+        # base by code; a question with documents stays a case analysis.
+        if use_knowledge_base and not any(text.strip() for text in texts):
+            if await _answer_practice_question(assistant_message_id, question or ""):
+                return
         if not (question or "").strip() and not any(text.strip() for text in texts):
             raise UnreadableInput(
                 "Читаемый текст не найден. Загрузите документ с текстом или задайте вопрос."
