@@ -39,8 +39,13 @@ class PracticeTermQuestion:
     qualification: Qualification
 
 
+def asks_statistics(text: str) -> bool:
+    """The question asks for a statistic of practice (mean, median, range…)."""
+    return bool(_STATISTIC.search(text))
+
+
 def parse_practice_term_question(text: str) -> PracticeTermQuestion | None:
-    if not _STATISTIC.search(text) or not _TERM.search(text):
+    if not asks_statistics(text) or not _TERM.search(text):
         return None
     qualifications = parse_qualifications(text)
     if len(qualifications) != 1:

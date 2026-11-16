@@ -21,6 +21,7 @@ from src.api import (
     practice_facts,
     precedents,
     reports,
+    sanction_facts,
 )
 from src.config import settings
 from src.db.session import async_session_factory
@@ -82,6 +83,7 @@ app.include_router(chats.router, prefix="/api/chats", tags=["chats"])
 app.include_router(analysis_revisions.router, prefix="/api/chats", tags=["analysis revisions"])
 app.include_router(precedents.router, prefix="/api/chats", tags=["precedents"])
 app.include_router(practice_facts.router, prefix="/api/practice", tags=["practice facts"])
+app.include_router(sanction_facts.router, prefix="/api/legal/sanctions", tags=["sanction facts"])
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["knowledge"])
 app.include_router(legal_library.router, prefix="/api/legal", tags=["legal library"])
 app.include_router(

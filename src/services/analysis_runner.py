@@ -33,6 +33,7 @@ from src.infrastructure.fastembed_embedder import FastembedEmbedder, with_embedd
 from src.infrastructure.practice_phraser import LlmAnswerPhraser
 from src.infrastructure.precedent_store import SqlPrecedentStore
 from src.infrastructure.report_materials import upload_digest
+from src.infrastructure.sanction_readings import SqlSanctionReadings
 from src.infrastructure.verdict_reader import RegexVerdictReader
 from src.services.analysis_access import is_pending_reply
 from src.services.auth import UserContext
@@ -114,12 +115,18 @@ def get_practice_phraser() -> AnswerPhraser | None:
         return None
 
 
-async def _answer_practice_question(assistant_message_id: int, question: str) -> bool:
-    """T45.2: a factual question about practice gets numbers counted by code, not a case
-    analysis. False — not such a question; the case analysis goes on as before."""
+async def _answer_practice_question(
+    assistant_message_id: int, question: str, use_practice: bool = True
+) -> bool:
+    """T45.2/T45.3: a factual question gets facts read by code, not a case analysis: practice
+    numbers from the practice base (only when it is used for the message), the sanction of a
+    part from the law base. False — not such a question; the case analysis goes on as before."""
     async with db_session.async_session_factory() as db:
         answer = await answer_practice_question(
-            SqlPrecedentStore(db), question, get_practice_phraser()
+            SqlPrecedentStore(db) if use_practice else None,
+            question,
+            get_practice_phraser(),
+            SqlSanctionReadings(db),
         )
         if answer is None:
             return False
@@ -129,12 +136,14 @@ async def _answer_practice_question(assistant_message_id: int, question: str) ->
             .values(status="completed", stage=None, content=answer.text, analysis=None, error=None)
         )
         await db.commit()
+    facts = answer.facts
     logger.info(
-        "[ANALYSIS:%s] practice question answered by code (found=%d, counted=%d, "
+        "[ANALYSIS:%s] %s question answered by code (found=%s, counted=%s, "
         "worded_by_model=%s, rejected_numbers=%d)",
         assistant_message_id,
-        answer.facts.found,
-        len(answer.facts.counted),
+        answer.kind,
+        facts.found if facts else "-",
+        len(facts.counted) if facts else "-",
         answer.worded_by_model,
         len(answer.rejected_numbers),
     )
@@ -289,10 +298,13 @@ async def run_analysis(
             sum(len(t) for t in texts),
         )
 
-        # T45.2: a question about practice without documents is answered from the practice
-        # base by code; a question with documents stays a case analysis.
-        if use_knowledge_base and not any(text.strip() for text in texts):
-            if await _answer_practice_question(assistant_message_id, question or ""):
+        # T45.2/T45.3: a factual question without documents is answered by code — practice
+        # from the practice base (when it is used), sanctions from the law base; a question
+        # with documents stays a case analysis.
+        if not any(text.strip() for text in texts):
+            if await _answer_practice_question(
+                assistant_message_id, question or "", use_knowledge_base
+            ):
                 return
         if not (question or "").strip() and not any(text.strip() for text in texts):
             raise UnreadableInput(
