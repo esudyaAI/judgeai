@@ -117,7 +117,7 @@ def check_recidivism_amount(
     from fractions import Fraction
 
     def result(status, why):
-        return CheckResult(NORM, status, why, SOURCE, True)
+        return CheckResult(NORM, status, why, SOURCE, True, RULE_KEY)
 
     if recidivism is Recidivism.UNKNOWN:
         return result(CheckStatus.INSUFFICIENT_DATA, "Вид рецидива не установлен.")
