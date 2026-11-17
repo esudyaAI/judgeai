@@ -27,6 +27,7 @@ from src.db import session as db_session
 from src.db.auth import User
 from src.db.models import Attachment, Chat, Message
 from src.domain.documents import UnreadableInput, reading_warnings
+from src.domain.fact_answer_scope import case_documents_note
 from src.domain.privacy import PrivacyRejected
 from src.domain.reference_conflict import ReferenceDataConflict
 from src.infrastructure.analysis_revisions import SqlAnalysisRevisionStore
@@ -120,11 +121,16 @@ def get_practice_phraser() -> AnswerPhraser | None:
 
 
 async def _answer_practice_question(
-    assistant_message_id: int, question: str, use_practice: bool = True
+    assistant_message_id: int,
+    question: str,
+    use_practice: bool = True,
+    *,
+    has_case_documents: bool = False,
 ) -> bool:
     """T45.2/T45.3: a factual question gets facts read by code, not a case analysis: practice
     numbers from the practice base (only when it is used for the message), the sanction of a
-    part from the law base. False — not such a question; the case analysis goes on as before."""
+    part from the law base. False — not such a question; the case analysis goes on as before.
+    T45.5: in a chat with case documents the answer says that they were not part of it."""
     async with db_session.async_session_factory() as db:
         answer = await answer_practice_question(
             SqlPrecedentStore(db) if use_practice else None,
@@ -134,13 +140,15 @@ async def _answer_practice_question(
         )
         if answer is None:
             return False
+        note = case_documents_note(answer.kind, has_case_documents=has_case_documents)
+        content = f"{answer.text}\n\n{note}" if note else answer.text
         await db.execute(
             update(Message)
             .where(Message.id == assistant_message_id)
             .values(
                 status="completed",
                 stage=None,
-                content=answer.text,
+                content=content,
                 analysis=None,
                 fact_answer=fact_answer_marker(answer),
                 error=None,
@@ -150,13 +158,14 @@ async def _answer_practice_question(
     facts = answer.facts
     logger.info(
         "[ANALYSIS:%s] %s question answered by code (found=%s, counted=%s, "
-        "worded_by_model=%s, rejected_numbers=%d)",
+        "worded_by_model=%s, rejected_numbers=%d, case_documents=%s)",
         assistant_message_id,
         answer.kind,
         facts.found if facts else "-",
         len(facts.counted) if facts else "-",
         answer.worded_by_model,
         len(answer.rejected_numbers),
+        has_case_documents,
     )
     return True
 
@@ -267,6 +276,7 @@ async def run_analysis(
             question = user_message.content
             chat_id = user_message.chat_id
             documents = len(user_message.attachments)
+            own_text = any(text.strip() for text in texts)
             t_conv = time.monotonic()
             context = await load_conversation(db, user.user_id, chat_id, user_message_id, question)
             logger.info(
@@ -309,12 +319,16 @@ async def run_analysis(
             sum(len(t) for t in texts),
         )
 
-        # T45.2/T45.3: a factual question without documents is answered by code — practice
-        # from the practice base (when it is used), sanctions from the law base; a question
-        # with documents stays a case analysis.
-        if not any(text.strip() for text in texts):
+        # T45.2/T45.3: a factual question is answered by code — practice from the practice base
+        # (when it is used), sanctions from the law base. T45.5: so is one asked without files
+        # in a chat that already holds case documents, with a note that they were not used;
+        # a question that brings its own document stays a case analysis.
+        if not own_text:
             if await _answer_practice_question(
-                assistant_message_id, question or "", use_knowledge_base
+                assistant_message_id,
+                question or "",
+                use_knowledge_base,
+                has_case_documents=any(text.strip() for text in texts),
             ):
                 return
         if not (question or "").strip() and not any(text.strip() for text in texts):
