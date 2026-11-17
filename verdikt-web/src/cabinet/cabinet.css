@@ -435,3 +435,8 @@
 .report-list { list-style:none; padding:0; }
 .report-list li { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:16px 0; border-bottom:1px solid var(--border, #ddd); }
 .reports-screen { overflow-wrap:anywhere; }
+
+/* T45.4: an answer whose facts were read by code. */
+.fact-answer { flex-direction: column; gap: 8px; }
+.fact-answer-note { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.fact-answer a { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }

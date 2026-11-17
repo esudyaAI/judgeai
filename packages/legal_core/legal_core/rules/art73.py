@@ -433,6 +433,8 @@ def check_conditional_sentence_offence_bar(
 # src/services/sentence_checks): вид и срок наказания, п. «в» ч. 1 и испытательный срок ч. 3.
 # Пункты «а», «а.1», «б» ч. 1 передаёт вызывающий (other_exclusions); подробные правила каталога —
 # функции выше.
+# Ключ каталога у сводной проверки анализа дела (T15.18).
+SENTENCE_RULE_KEY = "art73.conditional_sentence"
 SENTENCE_NORM = "Условное осуждение: ч. 1, 3 ст. 73 УК РФ"
 SENTENCE_SOURCE = (
     "УК РФ ст. 73, текст по https://www.consultant.ru/document/cons_doc_LAW_10699/"
@@ -474,7 +476,9 @@ def check_conditional_sentence(
     """Кандидатная проверка условного осуждения по ч. 1 и 3 ст. 73 УК РФ."""
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(SENTENCE_NORM, status, why, SENTENCE_SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(
+            SENTENCE_NORM, status, why, SENTENCE_SOURCE, NEEDS_LEGAL_REVIEW, SENTENCE_RULE_KEY
+        )
 
     if not conditional:
         return result(CheckStatus.OK, "Наказание назначено реально — ст. 73 УК РФ не применялась.")
