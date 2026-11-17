@@ -31,6 +31,9 @@ class MessageRead(BaseModel):
     stage: str | None = None
     # Raw JSON as stored (kept for backward compatibility with pre-0.4 clients).
     analysis: dict | None
+    # T45.4: {"kind": "practice" | "sanction", "worded_by_model": bool} for an answer whose
+    # facts were read by code; None for a case analysis and any other reply.
+    fact_answer: dict | None = None
     # True when the stored analysis was computed by another engine version.
     stale: bool | None = None
     error: str | None

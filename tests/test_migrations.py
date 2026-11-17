@@ -300,3 +300,53 @@ def test_analysis_revisions_downgrade_preserves_populated_history():
     with pytest.raises(RuntimeError, match="Analysis revisions contain records"):
         command.downgrade(alembic_config(), "0015_window_provenance")
     asyncio.run(verify(revision_id))
+
+
+def test_fact_answer_downgrade_drops_only_the_marker_and_keeps_the_answer_text():
+    import asyncio
+
+    from sqlalchemy import select, text
+
+    from src.db.models import Chat, Message
+    from src.db.session import async_session_factory
+    from tests.test_auth import account
+
+    async def seed():
+        owner = await account("fact-answer-rollback")
+        async with async_session_factory() as db:
+            chat = Chat(owner_id=owner, title="synthetic")
+            db.add(chat)
+            await db.flush()
+            db.add(
+                Message(
+                    chat_id=chat.id,
+                    role="assistant",
+                    status="completed",
+                    content="Синтетический ответ программы",
+                    fact_answer={"kind": "practice", "worded_by_model": False},
+                )
+            )
+            await db.commit()
+
+    async def content_after_downgrade():
+        async with async_session_factory() as db:
+            columns = await db.scalars(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = 'messages'"
+                )
+            )
+            assert "fact_answer" not in set(columns)
+            return await db.scalar(text("SELECT content FROM messages WHERE role = 'assistant'"))
+
+    async def verify():
+        async with async_session_factory() as db:
+            message = await db.scalar(select(Message).where(Message.role == "assistant"))
+            assert message.content == "Синтетический ответ программы"
+            assert message.fact_answer is None
+
+    asyncio.run(seed())
+    command.downgrade(alembic_config(), "0016_analysis_revisions")
+    assert asyncio.run(content_after_downgrade()) == "Синтетический ответ программы"
+    command.upgrade(alembic_config(), "head")
+    asyncio.run(verify())

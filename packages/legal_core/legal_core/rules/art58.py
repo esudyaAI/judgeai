@@ -239,6 +239,8 @@ def check_correctional_institution(
 # src/services/regime_facts, fact_review). Отдаёт допустимые виды учреждения по прямому тексту ч. 1;
 # случаи вне текста (мужчина, ранее отбывавший, без рецидива; несовершеннолетние) — None.
 # Полная проверка с разъяснениями ППВС № 9 — check_correctional_institution выше.
+# Ключ каталога у проверки, которую выполняет анализ дела (T15.18): замечание открывает основание.
+REGIME_RULE_KEY = "art58.regime"
 REGIME_NORM = "Вид исправительного учреждения: ч. 1 ст. 58 УК РФ"
 REGIME_SOURCE = (
     "УК РФ ст. 58, текст по https://www.consultant.ru/document/cons_doc_LAW_10699/"
@@ -308,7 +310,9 @@ def check_regime(
     """Кандидатная проверка назначенного вида учреждения по ч. 1 ст. 58 УК РФ."""
 
     def result(status: CheckStatus, why: str) -> CheckResult:
-        return CheckResult(REGIME_NORM, status, why, REGIME_SOURCE, NEEDS_LEGAL_REVIEW)
+        return CheckResult(
+            REGIME_NORM, status, why, REGIME_SOURCE, NEEDS_LEGAL_REVIEW, REGIME_RULE_KEY
+        )
 
     missing = [
         name

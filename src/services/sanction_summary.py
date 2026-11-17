@@ -8,22 +8,9 @@ from legal_core.entities import (
     StatutorySanction,
 )
 
-_KIND_NAMES = {
-    PunishmentKind.FINE: "штраф",
-    PunishmentKind.DEPRIVATION_OF_RIGHT: (
-        "лишение права занимать должности или заниматься деятельностью"
-    ),
-    PunishmentKind.COMPULSORY_WORKS: "обязательные работы",
-    PunishmentKind.CORRECTIONAL_WORKS: "исправительные работы",
-    PunishmentKind.MILITARY_SERVICE_RESTRICTION: "ограничение по военной службе",
-    PunishmentKind.RESTRICTION_OF_FREEDOM: "ограничение свободы",
-    PunishmentKind.FORCED_LABOUR: "принудительные работы",
-    PunishmentKind.ARREST: "арест",
-    PunishmentKind.DISCIPLINARY_MILITARY_UNIT: "содержание в дисциплинарной воинской части",
-    PunishmentKind.IMPRISONMENT: "лишение свободы",
-    PunishmentKind.LIFE_IMPRISONMENT: "пожизненное лишение свободы",
-    PunishmentKind.DEATH_PENALTY: "смертная казнь",
-}
+from src.domain.punishment_names import PUNISHMENT_NAMES
+
+_KIND_NAMES = PUNISHMENT_NAMES
 
 
 def format_amount(value: float, unit: MeasureUnit) -> str:
