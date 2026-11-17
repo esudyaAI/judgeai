@@ -10,10 +10,15 @@ export type WireAnalysis = Omit<CaseAnalysis, 'scale' | 'legalChecks' | 'precede
   precedent_source?: PrecedentSource;
   practice_episodes?: import('./types').PracticeComparison[];
 };
+/** T45.4: which facts code read for the answer and whether a model only reworded them. */
+export interface FactAnswer { kind: string; worded_by_model: boolean }
+
 export interface Message {
   id: number; role: string; content: string | null; created_at?: string;
   status: 'pending' | 'running' | 'completed' | 'failed'; stage: string | null;
   error: string | null; result: WireAnalysis | null; stale?: boolean | null;
+  /** T45.4: set when the answer was built from facts read by code. */
+  fact_answer?: FactAnswer | null;
   attachments: { id: number; filename: string; page_count: number | null;
     extraction_status: CaseFile['recognition'] }[];
 }

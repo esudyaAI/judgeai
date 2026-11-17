@@ -55,6 +55,8 @@ class Message(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending")
     stage: Mapped[str | None] = mapped_column(String(32))
     analysis: Mapped[dict | None] = mapped_column(JSONB)
+    # T45.4: set only for an answer built from facts read by code (practice/sanction).
+    fact_answer: Mapped[dict | None] = mapped_column(JSONB)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

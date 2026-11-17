@@ -160,3 +160,12 @@ class SourcesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_marker_names_the_facts_read_by_code_and_who_worded_the_text():
+    from src.application.practice_chat import SANCTION, ChatPracticeAnswer, fact_answer_marker
+
+    practice = ChatPracticeAnswer("текст", None, worded_by_model=True)
+    assert fact_answer_marker(practice) == {"kind": "practice", "worded_by_model": True}
+    sanction = ChatPracticeAnswer("текст", None, worded_by_model=False, kind=SANCTION)
+    assert fact_answer_marker(sanction) == {"kind": "sanction", "worded_by_model": False}

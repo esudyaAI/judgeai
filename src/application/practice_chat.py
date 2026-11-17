@@ -53,6 +53,12 @@ async def _worded(
     return wording.strip(), True, frozenset()
 
 
+def fact_answer_marker(answer: ChatPracticeAnswer) -> dict[str, str | bool]:
+    """T45.4 — what the interface states about the answer: which facts code read and whether a
+    model reworded the text. Stored with the message; the text itself stays in its content."""
+    return {"kind": answer.kind, "worded_by_model": answer.worded_by_model}
+
+
 def _with_sources(body: str, sources: str) -> str:
     return f"{body}\n\n{sources}" if sources else body
 

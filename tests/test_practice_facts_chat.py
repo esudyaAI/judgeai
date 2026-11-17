@@ -48,6 +48,7 @@ async def test_question_is_answered_by_code_with_sources_and_no_case_analysis(cl
     assert "По ч. 2 ст. 158 УК РФ в базе практики 5 приговоров, учтено 5" in text
     assert "среднее 2 г." in text
     assert "Источники" in text
+    assert message["fact_answer"] == {"kind": "practice", "worded_by_model": False}
     assert all(f"https://example.invalid/sudact/{i}" in text for i in range(5))
     chat = (await client.get(f"/api/chats/{chat_id}")).json()
     assert chat["status"] == "ready"
@@ -61,6 +62,7 @@ async def test_model_wording_without_new_numbers_is_shown(client, monkeypatch):
     assert message["content"].startswith("По ч. 2 ст. 158 УК РФ средний срок — 2 г.")
     assert "https://example.invalid/sudact/0" in message["content"]
     assert len(phraser.calls) == 1
+    assert message["fact_answer"] == {"kind": "practice", "worded_by_model": True}
 
 
 async def test_model_wording_with_invented_number_is_replaced_by_code(client, monkeypatch):
@@ -70,6 +72,7 @@ async def test_model_wording_with_invented_number_is_replaced_by_code(client, mo
     _, message = await _ask(client, QUESTION)
     assert message["status"] == "completed"
     assert "27 месяцев" not in message["content"]
+    assert message["fact_answer"]["worded_by_model"] is False
     assert "среднее 2 г." in message["content"]
 
 
@@ -77,6 +80,7 @@ async def test_other_questions_still_get_the_case_analysis(client):
     _, message = await _ask(client, "Подготовь проект приговора")
     assert message["status"] == "completed"
     assert message["result"] is not None
+    assert message["fact_answer"] is None
 
 
 async def test_question_with_a_document_is_a_case_analysis(client):

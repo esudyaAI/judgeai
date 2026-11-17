@@ -15,7 +15,11 @@ from pathlib import Path
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
-from src.application.practice_chat import AnswerPhraser, answer_practice_question
+from src.application.practice_chat import (
+    AnswerPhraser,
+    answer_practice_question,
+    fact_answer_marker,
+)
 from src.application.practice_report import compare_draft_with_practice
 from src.application.precedent_cards import query_card
 from src.config import settings
@@ -133,7 +137,14 @@ async def _answer_practice_question(
         await db.execute(
             update(Message)
             .where(Message.id == assistant_message_id)
-            .values(status="completed", stage=None, content=answer.text, analysis=None, error=None)
+            .values(
+                status="completed",
+                stage=None,
+                content=answer.text,
+                analysis=None,
+                fact_answer=fact_answer_marker(answer),
+                error=None,
+            )
         )
         await db.commit()
     facts = answer.facts
@@ -545,6 +556,7 @@ async def run_analysis(
                     stage=None,
                     content=analysis.fabula,
                     analysis=analysis.model_dump(mode="json"),
+                    fact_answer=None,
                     error=None,
                 )
             )

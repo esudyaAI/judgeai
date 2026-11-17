@@ -69,3 +69,4 @@ async def test_sanction_question_in_the_chat_needs_no_practice_base(client, monk
             "ч. 2 ст. 158 УК РФ: основные наказания — лишение свободы до 5 г." in message["content"]
         )
         assert "https://pravo.gov.ru/test-fixture" in message["content"]
+        assert message["fact_answer"] == {"kind": "sanction", "worded_by_model": False}
