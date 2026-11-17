@@ -1,13 +1,25 @@
-import { memo } from 'react';
+import { Fragment, memo } from 'react';
 import { api, fileExt, mapAnalysis, type Message } from '../api/client';
 import type { SimilarVerdict } from '../api/types';
 import { FileChip } from '../components/FileTile';
 import { Icon } from '../components/Icon';
+import { factAnswerNote, linkSegments } from './factAnswerPresentation';
 import { fileReadingLabel } from './fileReadingPresentation';
 import { CreateReportButton } from './ReportsScreen';
 import { Result, Thinking } from './screens';
 
 export type ChatAttachment = Message['attachments'][number];
+
+/** T45.4: an answer whose facts code read — a note on what was counted, sources as links. */
+function FactAnswerText({message}: {message: Message}) {
+  const note = factAnswerNote(message.fact_answer);
+  return <div className="thread-ai fact-answer">
+    {note && <p className="fact-answer-note" role="note">{note}</p>}
+    <div className="chat-message-text">{linkSegments(message.content ?? '').map((segment, i) => segment.href
+      ? <a key={i} href={segment.href} target="_blank" rel="noopener noreferrer">{segment.text}</a>
+      : <Fragment key={i}>{segment.text}</Fragment>)}</div>
+  </div>;
+}
 
 /** Memoised: the poll skips identical fingerprints, so between stage changes the
  *  whole timeline (including the heavy Result) stays untouched while the timer ticks. */
@@ -34,7 +46,7 @@ export const ChatTimeline = memo(function ChatTimeline({messages, onOpen, onOpen
             )}
             <Result a={mapAnalysis(message.result)} onOpenVerdict={onOpenVerdict} />
             {chatId && <CreateReportButton key={`${chatId}:${message.id}`} chatId={chatId} messageId={message.id} />}
-          </div> : <div className="thread-ai chat-message-text">{message.content}</div>}
+          </div> : message.fact_answer ? <FactAnswerText message={message} /> : <div className="thread-ai chat-message-text">{message.content}</div>}
       </section>;
     })}
   </div>;

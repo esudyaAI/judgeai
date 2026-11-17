@@ -18,6 +18,7 @@ def test_rule_keys_are_unique_and_stable():
         "art58.institution",
         "art58.prison_part",
         "art58.prison_new_offence",
+        "art58.regime",
         "art62.part1_mitigation",
         "art62.part5_procedure",
         "art62.pretrial_agreement",
@@ -32,6 +33,7 @@ def test_rule_keys_are_unique_and_stable():
         "art70.cumulative_sentences",
         "art73.conditional_ban",
         "art73.conditional_limits",
+        "art73.conditional_sentence",
         "art73.offence_during_supervision",
         "art73.offence_list_bar",
         "art86.expungement",
@@ -44,6 +46,8 @@ def test_titles_reuse_the_norm_of_the_check_result():
     assert rule("art63.recidivism_aggravating").title == art63.NORM
     assert rule("art68.recidivism_term").title == art68.NORM
     assert rule("art73.conditional_ban").title == art73.NORM
+    assert rule("art58.regime").title == art58.REGIME_NORM
+    assert rule("art73.conditional_sentence").title == art73.SENTENCE_NORM
     assert rule("imposed_term.sanction_limits").title == imposed_term.NORM
 
 
