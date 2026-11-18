@@ -85,6 +85,11 @@ class ParseTest(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertIsNone(parse_category_question(text))
 
+    def test_severity_words_do_not_hide_a_category_question(self):  # T45.8
+        text = "К какой категории относится ч. 1 ст. 112 — средней тяжести?"
+        parsed = parse_category_question(text)
+        self.assertEqual(parsed, CategoryQuestion(Qualification("112", 1), None))
+
     def test_category_question_is_not_a_sanction_question(self):
         text = "Категория преступления, предусмотренного ч. 2 ст. 158"
         self.assertTrue(asks_category(text))

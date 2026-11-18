@@ -73,6 +73,20 @@ class ParseTest(unittest.TestCase):
                 self.assertIsNone(parse_sanction_question(text))
 
 
+class SeverityWordsTest(unittest.TestCase):
+    """T45.8: a severity word in a sanction question is not a word of practice statistics."""
+
+    def test_severity_words_do_not_hide_a_sanction_question(self):
+        harm = "Какое наказание предусмотрено за вред здоровью средней тяжести по ч. 1 ст. 112?"
+        self.assertEqual(parse_sanction_question(harm).qualification, Qualification("112", 1))
+        crime = "Что грозит по ч. 2 ст. 158, это ведь преступление средней тяжести?"
+        self.assertEqual(parse_sanction_question(crime).qualification, Qualification("158", 2))
+
+    def test_statistics_beside_severity_stays_a_practice_question(self):
+        text = "Какой средний срок предусмотрен по ч. 1 ст. 112 за вред средней тяжести?"
+        self.assertIsNone(parse_sanction_question(text))
+
+
 class DescribeTest(unittest.TestCase):
     def test_main_and_additional_alternatives_with_bounds_from_the_base(self):
         text = describe_sanction_facts(facts())
@@ -221,6 +235,16 @@ class ChatTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(answer.kind, "practice")
         self.assertEqual(readings.asked, [])
+
+    async def test_sanction_question_with_severity_words_is_answered_by_code(self):  # T45.8
+        store = PracticeStore()
+        text = "Что грозит по ч. 2 ст. 158 — преступление средней тяжести?"
+        answer = await answer_practice_question(
+            store, text, None, Readings((list(THEFT_2), SOURCE))
+        )
+        self.assertEqual(answer.kind, SANCTION)
+        self.assertIn("лишение свободы до 5 г.", answer.text)
+        self.assertEqual(store.asked, [])
 
     async def test_without_readings_or_store(self):
         self.assertIsNone(await answer_practice_question(PracticeStore(), QUESTION, None))

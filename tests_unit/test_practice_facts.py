@@ -9,6 +9,7 @@ from legal_core.precedents import PrecedentCard, PrecedentEpisode, Qualification
 from src.domain.practice_facts import (
     PracticeTermQuestion,
     PracticeVerdict,
+    asks_statistics,
     covers,
     describe_practice_term_facts,
     parse_practice_term_question,
@@ -85,6 +86,29 @@ class ParseQuestionTest(unittest.TestCase):
 
     def test_general_part_article_is_not_a_qualification(self):
         self.assertIsNone(parse_practice_term_question("средний срок по ч. 2 ст. 68"))
+
+
+class SeverityWordsTest(unittest.TestCase):
+    """T45.8: «средней тяжести» names a severity (ст. 15, вред ст. 112), not a statistic."""
+
+    def test_severity_is_not_a_statistics_word(self):
+        for text in (
+            "Какое наказание предусмотрено за вред здоровью средней тяжести по ч. 1 ст. 112?",
+            "Какой срок дают за преступление средней тяжести по ч. 2 ст. 158?",
+            "Санкция ч. 2 ст. 158 — преступление средней степени тяжести?",
+            "Средняя тяжесть, ч. 1 ст. 112: что грозит?",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(asks_statistics(text))
+                self.assertIsNone(parse_practice_term_question(text))
+
+    def test_statistics_word_beside_severity_is_still_statistics(self):
+        text = "Средний срок по ч. 1 ст. 112 за вред здоровью средней тяжести"
+        self.assertTrue(asks_statistics(text))
+        self.assertEqual(
+            parse_practice_term_question(text), PracticeTermQuestion(Qualification("112", 1))
+        )
+        self.assertTrue(asks_statistics("Медиана наказаний за преступления средней тяжести"))
 
 
 class CoversTest(unittest.TestCase):

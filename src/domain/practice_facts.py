@@ -27,6 +27,9 @@ _STATISTIC = re.compile(
     r"(?<![а-яё])(?:средн|медиан|типичн|обычн|разброс|диапазон|квартил|статистик)",
     re.IGNORECASE,
 )
+# T45.8: «средней (степени) тяжести» names a severity — the category of ст. 15 or the harm of
+# ст. 112 — not a statistic of practice; it is set aside before looking for a statistics word.
+_SEVERITY = re.compile(r"(?<![а-яё])средн\w*\s+(?:степен\w*\s+)?тяжест\w*", re.IGNORECASE)
 _TERM = re.compile(
     r"(?<![а-яё])(?:срок|наказани|лишени\w*\s+свобод|дают|назнача|сажа)", re.IGNORECASE
 )
@@ -41,7 +44,7 @@ class PracticeTermQuestion:
 
 def asks_statistics(text: str) -> bool:
     """The question asks for a statistic of practice (mean, median, range…)."""
-    return bool(_STATISTIC.search(text))
+    return bool(_STATISTIC.search(_SEVERITY.sub(" ", text)))
 
 
 def parse_practice_term_question(text: str) -> PracticeTermQuestion | None:
