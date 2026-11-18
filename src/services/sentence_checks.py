@@ -74,6 +74,7 @@ def _legal_check(result: CheckResult, label: str, value: str | None, evidence) -
         value=value,
         evidence=[quote for quote in evidence if quote],
         needs_legal_review=result.needs_legal_review,
+        rule_key=result.rule_key,  # T15.18: the finding opens its basis in the reference
     )
 
 

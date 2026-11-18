@@ -1,6 +1,7 @@
 """Query: structured sanctions of an article from the newest parsed edition, with provenance."""
 
 from dataclasses import dataclass
+from datetime import date
 
 from legal_core.entities import MeasureUnit, PunishmentKind, SanctionRole, StatutorySanction
 from sqlalchemy import select
@@ -16,6 +17,9 @@ from src.schemas.criminal_sanctions import SanctionProvenance
 class StatuteSanctionReading:
     sanctions: list[StatutorySanction]
     provenance: SanctionProvenance
+    # T45.9: period of force of the provision the sanctions were read from (None — not set)
+    effective_from: date | None = None
+    effective_to: date | None = None
 
 
 async def find_article_sanctions(
@@ -75,4 +79,9 @@ async def find_article_sanctions(
         provision_locator=provision.locator,
         parser_version=newest_version,
     )
-    return StatuteSanctionReading(sanctions=sanctions, provenance=provenance)
+    return StatuteSanctionReading(
+        sanctions=sanctions,
+        provenance=provenance,
+        effective_from=provision.effective_from,
+        effective_to=provision.effective_to,
+    )
