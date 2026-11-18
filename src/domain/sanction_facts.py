@@ -6,8 +6,9 @@ the newest imported edition of УК РФ in the database states them, with the e
 and whether a lawyer has reviewed it. No bound is written by code or by a model: a part the
 base has not parsed is said to be not parsed, and conflicting editions are not chosen between.
 
-A question that asks for statistics («средний срок…») is a practice question (T45.1), never
-this one. A point of a part has the sanction of its part: in УК РФ sanctions are per part.
+A question that asks for statistics («средний срок…») is a practice question (T45.1), and one
+that asks for the category («к какой категории относится…») is a category question (T45.7),
+never this one. A point of a part has the sanction of its part: in УК РФ sanctions are per part.
 """
 
 import re
@@ -24,6 +25,16 @@ _SANCTION = re.compile(
 )
 
 VERIFIED = "verified"
+# T45.7: the category of a crime (ст. 15). «Тяжесть» only with «преступление» or «степень»:
+# «вред средней тяжести» in a sanction question is the harm of ст. 112, not a category.
+_CATEGORY = re.compile(
+    r"(?<![а-яё])(?:категори|тяжест\w*\s+преступлени|степен\w*\s+тяжест)", re.IGNORECASE
+)
+
+
+def asks_category(text: str) -> bool:
+    """The question asks for the category of a crime (T45.7), not for its sanction."""
+    return bool(_CATEGORY.search(text))
 
 
 @dataclass(frozen=True)
@@ -40,7 +51,7 @@ class SanctionQuestion:
 
 
 def parse_sanction_question(text: str) -> SanctionQuestion | None:
-    if asks_statistics(text) or not _SANCTION.search(text):
+    if asks_statistics(text) or asks_category(text) or not _SANCTION.search(text):
         return None
     qualifications = parse_qualifications(text)
     if len(qualifications) != 1:

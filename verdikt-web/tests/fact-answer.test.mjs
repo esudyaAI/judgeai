@@ -18,6 +18,11 @@ test('sanction answer names the law base', () => {
     'Санкция прочитана программой из базы законов. Редакция и источник — ниже.');
 });
 
+test('category answer names the art. 15 rule and the law base', () => {
+  assert.equal(factAnswerNote({kind:'category', worded_by_model:false}),
+    'Категория определена программой по ст. 15 УК РФ из санкции в базе законов. Редакция и источник — ниже.');
+});
+
 test('no marker or an unknown kind gives no note', () => {
   assert.equal(factAnswerNote(null), null);
   assert.equal(factAnswerNote(undefined), null);

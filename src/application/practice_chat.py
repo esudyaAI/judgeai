@@ -8,11 +8,16 @@ sanction question. A language model, when one is connected, may only reword the 
 by code: its text is shown only if every number in it is a number of those facts
 (src.domain.answer_numbers); otherwise, or when the model is unavailable, the code's own answer
 is shown. The sources are always added by code.
+
+T45.7: a category question (src.application.category_facts — ст. 15 by the sanction in the
+law base) is tried before a sanction question and is never reworded by a model: its key fact
+is the word of the category, which the number check cannot verify.
 """
 
 from dataclasses import dataclass
 from typing import Protocol
 
+from src.application.category_facts import answer_category_fact
 from src.application.practice_facts import PracticeFactStore, answer_practice_fact
 from src.application.sanction_facts import SanctionReadings, answer_sanction_fact
 from src.domain.answer_numbers import unsupported_numbers
@@ -21,6 +26,7 @@ from src.domain.practice_sources import describe_practice_sources
 
 PRACTICE = "practice"
 SANCTION = "sanction"
+CATEGORY = "category"
 
 
 class AnswerPhraser(Protocol):
@@ -32,7 +38,7 @@ class AnswerPhraser(Protocol):
 @dataclass(frozen=True)
 class ChatPracticeAnswer:
     text: str
-    facts: PracticeTermFacts | None  # None for a sanction question
+    facts: PracticeTermFacts | None  # None for a sanction or category question
     worded_by_model: bool
     # Numbers the model added and that made its wording unusable (empty when accepted).
     rejected_numbers: frozenset[str] = frozenset()
@@ -83,6 +89,11 @@ async def answer_practice_question(
             return ChatPracticeAnswer(_with_sources(body, sources), answer.facts, worded, rejected)
     if sanctions is None:
         return None
+    category = await answer_category_fact(sanctions, question)
+    if category is not None:
+        return ChatPracticeAnswer(
+            _with_sources(category.text, category.source), None, False, kind=CATEGORY
+        )
     sanction = await answer_sanction_fact(sanctions, question)
     if sanction is None:
         return None

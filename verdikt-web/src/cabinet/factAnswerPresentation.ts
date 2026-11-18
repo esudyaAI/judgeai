@@ -1,5 +1,5 @@
 /**
- * T45.4 — how the chat shows an answer whose facts were read by code (T45.1–T45.3).
+ * T45.4 — how the chat shows an answer whose facts were read by code (T45.1–T45.3, T45.7).
  *
  * The backend marks such a message with `fact_answer`; the note says which facts the
  * program read and whether a language model only reworded them. Only these answers turn their
@@ -22,6 +22,10 @@ export function factAnswerNote(answer: FactAnswer | null | undefined): string | 
   if (answer.kind === 'sanction') {
     const worded = answer.worded_by_model ? ` ${WORDED}` : '';
     return `Санкция прочитана программой из базы законов.${worded} Редакция и источник — ниже.`;
+  }
+  if (answer.kind === 'category') {
+    return 'Категория определена программой по ст. 15 УК РФ из санкции в базе законов. '
+      + 'Редакция и источник — ниже.';
   }
   return null;
 }
