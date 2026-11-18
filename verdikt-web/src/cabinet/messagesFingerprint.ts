@@ -9,7 +9,7 @@ import type { Message } from '../api/client';
  */
 export function messagesFingerprint(messages: Message[]): string {
   return messages
-    .map((m) => `${m.id}:${m.status}:${m.stage ?? ''}:${m.error ?? ''}:${m.content ? m.content.length : 0}:${m.result ? 'r' : ''}`
+    .map((m) => `${m.id}:${m.status}:${m.stage ?? ''}:${m.error ?? ''}:${m.content ? m.content.length : 0}:${m.result ? 'r' : ''}${m.fact_answer ? 'f' : ''}`
       + m.attachments.map((a) => `${a.extraction_status}:${a.page_count ?? 0}`).join(','))
     .join('|');
 }
