@@ -60,6 +60,7 @@ from src.db.models import (
     LegalRuleReference,
 )
 from src.domain.edition_order import newest_edition
+from src.domain.norm_period import in_force_on
 from src.domain.parser_versions import newest_parser_version
 from src.domain.reference_coverage import RuleState, summarize_coverage
 from src.domain.reference_drift import (
@@ -103,15 +104,6 @@ def basis_status(statuses: set[str], missing: list[dict]) -> str:
     if statuses != {"verified"}:
         return "unreviewed"
     return "incomplete" if missing else "verified"
-
-
-def in_force_on(start: date | None, end: date | None, on: date) -> bool | None:
-    """Was a provision in force on `on`: start inclusive, end exclusive; unknown start -> None."""
-    if end is not None and end <= on:
-        return False
-    if start is None:
-        return None
-    return start <= on
 
 
 def basis_status_on(references: list[dict], missing: list[dict], undated: list[dict]) -> str:
