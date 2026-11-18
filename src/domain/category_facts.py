@@ -7,10 +7,18 @@ rule of legal_core: no category is stored as data or written by a model. The for
 never inferred from the article number: when the question does not name it and the two forms
 give different categories, both are stated. A part the base has not parsed is said to be not
 parsed, and conflicting editions are not chosen between.
+
+T45.10 — a category question that names a date («к какой категории относилась ч. 2 ст. 158 на
+01.03.2020») is still answered from the newest edition only, so, as for a sanction (T45.9), the
+date is compared with the period of force of the provision in the base: not in force on it — no
+category is given; otherwise the category comes with a code-written note on what the code did
+not check — the period (unknown, or not one exact date), the applicability of the edition to the
+offence (ст. 9–10 УК РФ) and the edition of ст. 15 itself, which the rule is written by.
 """
 
 import re
 from dataclasses import dataclass
+from datetime import date
 
 from legal_core.entities import Category, Guilt, PunishmentKind, SanctionRole, StatutorySanction
 from legal_core.precedents import Qualification, parse_qualifications
@@ -18,12 +26,15 @@ from legal_core.rules.art15 import SOURCE as ART15_SOURCE
 from legal_core.rules.art15 import categorize
 from legal_core.rules.sanction_ceiling import sanction_ceiling_for_part
 
+from src.domain.norm_period import describe_period, in_force_on
 from src.domain.practice_facts import asks_statistics, format_months
 from src.domain.punishment_names import PUNISHMENT_NAMES
 from src.domain.sanction_facts import (
+    AskedDate,
     SanctionFacts,
     SanctionQuestion,
     SanctionSource,
+    asked_date,
     asks_category,
     describe_sanction_source,
 )
@@ -48,6 +59,7 @@ class CategoryQuestion:
 
     qualification: Qualification
     guilt: Guilt | None = None
+    asked: AskedDate | None = None  # T45.10: the date the question names, if any
 
     @property
     def target(self) -> Qualification:
@@ -69,7 +81,7 @@ def parse_category_question(text: str) -> CategoryQuestion | None:
     qualifications = parse_qualifications(text)
     if len(qualifications) != 1:
         return None
-    return CategoryQuestion(qualifications[0], _named_guilt(text))
+    return CategoryQuestion(qualifications[0], _named_guilt(text), asked_date(text))
 
 
 @dataclass(frozen=True)
@@ -78,6 +90,18 @@ class CategoryFacts:
     sanctions: tuple[StatutorySanction, ...]  # empty — the part is not parsed in the base
     source: SanctionSource | None
     conflict: bool = False  # editions of the article contradict each other: none is chosen
+
+    @property
+    def on(self) -> date | None:
+        asked = self.question.asked
+        return asked.on if asked is not None else None
+
+    @property
+    def in_force(self) -> bool | None:
+        """The provision read was in force on the asked date; None — no date or not known."""
+        if self.on is None or self.source is None or not self.sanctions or self.conflict:
+            return None
+        return in_force_on(self.source.effective_from, self.source.effective_to, self.on)
 
 
 @dataclass(frozen=True)
@@ -163,6 +187,15 @@ def describe_category_facts(facts: CategoryFacts) -> str:
         )
     if not facts.sanctions:
         return f"В базе законов санкция {target} не разобрана: категорию определить нельзя."
+    if facts.in_force is False:
+        source = facts.source
+        period = describe_period(source.effective_from, source.effective_to)
+        return (
+            f"На {facts.on:%d.%m.%Y} положение {source.provision_locator} новейшей редакции "
+            f"в базе законов, из которого прочитана санкция {target}, не действовало (период "
+            f"действия в базе: {period}). Редакцию на эту дату программа не выбирает — "
+            "категорию определить нельзя."
+        )
     guilt_asked = facts.question.guilt is not None
     items = part_categories(facts)
     lines = [
@@ -186,6 +219,42 @@ def describe_category_facts(facts: CategoryFacts) -> str:
     if asked.point is not None:
         lines.append(f"Для п. «{asked.point}» действует санкция всей части.")
     return "\n".join(lines)
+
+
+_ART15_EDITION = (
+    "Правило ст. 15 программа применяет в одной редакции (текст указан в источнике); "
+    "действовала ли эта редакция ст. 15 на нужную дату, программа не проверяла."
+)
+
+
+def describe_category_date_note(facts: CategoryFacts) -> str:
+    """T45.10 — what the code did not check about the date of the question; written by code.
+
+    Empty without a date, when no category was given, or when the refusal already says it.
+    """
+    asked = facts.question.asked
+    if asked is None or facts.conflict or not facts.sanctions or facts.in_force is False:
+        return ""
+    if asked.unclear:
+        head = (
+            "В вопросе не одна точная дата (год, несколько дат или несуществующая дата): "
+            "категория определена по санкции новейшей редакции в базе законов, действовала "
+            "ли она на нужную дату, программа не проверяла."
+        )
+    elif facts.in_force is None:
+        head = (
+            "Период действия положения в базе законов не задан: действовала ли санкция, по "
+            f"которой определена категория, на {asked.on:%d.%m.%Y}, программа не подтверждает."
+        )
+    else:
+        source = facts.source
+        period = describe_period(source.effective_from, source.effective_to)
+        head = (
+            f"По периоду действия в базе законов ({period}) положение с санкцией действовало "
+            f"на {asked.on:%d.%m.%Y}; применима ли эта редакция к деянию (ст. 9–10 УК РФ), "
+            "программа не оценивала."
+        )
+    return f"{head}\n{_ART15_EDITION}"
 
 
 def describe_category_source(facts: CategoryFacts) -> str:

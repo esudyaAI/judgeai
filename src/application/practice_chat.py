@@ -91,9 +91,9 @@ async def answer_practice_question(
         return None
     category = await answer_category_fact(sanctions, question)
     if category is not None:
-        return ChatPracticeAnswer(
-            _with_sources(category.text, category.source), None, False, kind=CATEGORY
-        )
+        # T45.10: the note on the asked date goes between the answer and its source.
+        body = _with_sources(category.text, category.date_note)
+        return ChatPracticeAnswer(_with_sources(body, category.source), None, False, kind=CATEGORY)
     sanction = await answer_sanction_fact(sanctions, question)
     if sanction is None:
         return None

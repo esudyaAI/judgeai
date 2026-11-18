@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from src.application.sanction_facts import SanctionReadings
 from src.domain.category_facts import (
     CategoryFacts,
+    describe_category_date_note,
     describe_category_facts,
     describe_category_source,
     parse_category_question,
@@ -23,6 +24,7 @@ class CategoryFactAnswer:
     facts: CategoryFacts
     text: str
     source: str  # written by code under the answer; empty when nothing was read
+    date_note: str = ""  # T45.10: written by code after the answer; empty without a date
 
 
 async def answer_category_fact(
@@ -40,5 +42,8 @@ async def answer_category_fact(
         sanctions, source = reading if reading is not None else ([], None)
         facts = CategoryFacts(parsed, tuple(sanctions), source)
     return CategoryFactAnswer(
-        facts, describe_category_facts(facts), describe_category_source(facts)
+        facts,
+        describe_category_facts(facts),
+        describe_category_source(facts),
+        describe_category_date_note(facts),
     )

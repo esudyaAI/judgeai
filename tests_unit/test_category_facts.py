@@ -1,6 +1,7 @@
 """T45.7 — the category of a crime (ст. 15 УК РФ) by code from the sanction in the law base."""
 
 import unittest
+from datetime import date
 
 from legal_core.entities import (
     Category,
@@ -17,6 +18,7 @@ from src.application.practice_chat import CATEGORY, SANCTION, answer_practice_qu
 from src.domain.category_facts import (
     CategoryFacts,
     CategoryQuestion,
+    describe_category_date_note,
     describe_category_facts,
     describe_category_source,
     parse_category_question,
@@ -24,7 +26,12 @@ from src.domain.category_facts import (
 )
 from src.domain.fact_answer_scope import case_documents_note
 from src.domain.reference_conflict import ReferenceDataConflict
-from src.domain.sanction_facts import SanctionSource, asks_category, parse_sanction_question
+from src.domain.sanction_facts import (
+    SanctionSource,
+    asked_date,
+    asks_category,
+    parse_sanction_question,
+)
 
 MAIN, ADDITIONAL = SanctionRole.MAIN, SanctionRole.ADDITIONAL
 MONTHS = MeasureUnit.MONTHS
@@ -267,6 +274,107 @@ class ChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("форма вины", note)
         self.assertIn("дата преступления", note)
         self.assertIsNone(case_documents_note(CATEGORY, has_case_documents=False))
+
+
+PRISON_5 = (prison(60),)
+
+
+def dated(on_text, start=None, end=None, sanctions=PRISON_5, **kw):
+    source = SanctionSource(
+        "Синтетическая редакция",
+        "https://example.invalid/uk",
+        "article.158",
+        "unreviewed",
+        effective_from=date.fromisoformat(start) if start else None,
+        effective_to=date.fromisoformat(end) if end else None,
+    )
+    question = CategoryQuestion(PART_2, None, asked_date(on_text))
+    return CategoryFacts(question, tuple(sanctions), source, **kw)
+
+
+class DatedCategoryTest(unittest.TestCase):  # T45.10
+    def test_the_date_of_the_question_is_read(self):
+        for text in (
+            "К какой категории относилась ч. 2 ст. 158 на 01.03.2020?",
+            "Категория преступления по ч. 2 ст. 158 по состоянию на 1 марта 2020 г.",
+        ):
+            with self.subTest(text=text):
+                parsed = parse_category_question(text)
+                self.assertEqual(parsed.qualification, PART_2)
+                self.assertEqual(parsed.asked.on, date(2020, 3, 1))
+        self.assertIsNone(parse_category_question(QUESTION).asked)
+        self.assertTrue(parse_category_question("Категория ч. 2 ст. 158 в 2019 году").asked.unclear)
+
+    def test_in_force_on_the_date_gives_the_category_and_says_what_was_not_checked(self):
+        item = dated("на 01.03.2020", start="2019-01-01")
+        text = describe_category_facts(item)
+        self.assertIn("преступление средней тяжести при любой форме вины", text)
+        note = describe_category_date_note(item)
+        self.assertTrue(note.startswith("По периоду действия в базе законов (с 01.01.2019)"))
+        self.assertIn("действовало на 01.03.2020", note)
+        self.assertIn("ст. 9–10 УК РФ", note)
+        self.assertIn("редакция ст. 15", note)  # the art. 15 rule itself is not dated
+
+    def test_not_in_force_on_the_date_gives_no_category(self):
+        for start, end in (("2021-01-01", None), ("2019-01-01", "2020-03-01")):
+            with self.subTest(start=start, end=end):
+                item = dated("на 01.03.2020", start=start, end=end)
+                text = describe_category_facts(item)
+                self.assertTrue(text.startswith("На 01.03.2020 положение article.158"))
+                self.assertIn("не действовало", text)
+                self.assertIn("категорию определить нельзя", text)
+                self.assertNotIn("тяжести", text)
+                self.assertEqual(describe_category_date_note(item), "")
+
+    def test_unknown_period_and_unclear_date_are_said(self):
+        unknown = describe_category_date_note(dated("на 01.03.2020"))
+        self.assertTrue(unknown.startswith("Период действия положения в базе законов не задан"))
+        self.assertIn("на 01.03.2020", unknown)
+        unclear = describe_category_date_note(dated("в 2019 году", start="2019-01-01"))
+        self.assertTrue(unclear.startswith("В вопросе не одна точная дата"))
+        self.assertIn("редакция ст. 15", unclear)
+
+    def test_no_note_without_a_date_or_without_an_answer(self):
+        self.assertEqual(describe_category_date_note(facts([prison(60)])), "")
+        self.assertEqual(describe_category_date_note(dated("на 01.03.2020", sanctions=())), "")
+        conflict = dated("на 01.03.2020", start="2019-01-01", sanctions=(), conflict=True)
+        self.assertEqual(describe_category_date_note(conflict), "")
+
+
+class DatedCategoryChatTest(unittest.IsolatedAsyncioTestCase):  # T45.10
+    async def test_the_note_is_written_by_code_between_the_answer_and_the_source(self):
+        dated_source = SanctionSource(
+            "Синтетическая редакция",
+            "https://example.invalid/uk",
+            "article.158",
+            "unreviewed",
+            effective_from=date(2019, 1, 1),
+        )
+        readings = Readings(([prison(60)], dated_source))
+        question = "К какой категории относилась ч. 2 ст. 158 на 01.03.2020?"
+        answer = await answer_category_fact(readings, question)
+        self.assertTrue(answer.date_note.startswith("По периоду действия"))
+        chat = await answer_practice_question(None, question, Phraser(), readings)
+        self.assertEqual(chat.kind, CATEGORY)
+        body = chat.text.index("преступление средней тяжести")
+        note = chat.text.index(answer.date_note)
+        source = chat.text.index("Источник:")
+        self.assertLess(body, note)
+        self.assertLess(note, source)
+
+    async def test_not_in_force_in_the_chat_names_no_category(self):
+        refused = SanctionSource(
+            "Синтетическая редакция",
+            "https://example.invalid/uk",
+            "article.158",
+            "unreviewed",
+            effective_from=date(2021, 1, 1),
+        )
+        question = "Какой тяжести преступление по ч. 2 ст. 158 на 01.03.2020?"
+        readings = Readings(([prison(60)], refused))
+        chat = await answer_practice_question(None, question, None, readings)
+        self.assertIn("категорию определить нельзя", chat.text)
+        self.assertNotIn("средней тяжести", chat.text)
 
 
 if __name__ == "__main__":
