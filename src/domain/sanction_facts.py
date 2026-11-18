@@ -9,19 +9,27 @@ base has not parsed is said to be not parsed, and conflicting editions are not c
 A question that asks for statistics («средний срок…») is a practice question (T45.1), and one
 that asks for the category («к какой категории относится…») is a category question (T45.7),
 never this one. A point of a part has the sanction of its part: in УК РФ sanctions are per part.
+
+T45.9 — a question that names a date («какая санкция по ч. 2 ст. 158 на 01.03.2020») is still
+answered from the newest edition only, so the code compares the date with the period of force
+of the provision in the base: not in force on it — no sanction is given; period unknown, or a
+year / several dates instead of one date — the sanction is given with a note that the date was
+not confirmed. Whether that edition applies to the offence (ст. 9–10 УК РФ) is not judged here.
 """
 
 import re
 from dataclasses import dataclass
+from datetime import date
 
 from legal_core.entities import MeasureUnit, SanctionRole, StatutorySanction
 from legal_core.precedents import Qualification, parse_qualifications
 
+from src.domain.norm_period import describe_period, in_force_on
 from src.domain.practice_facts import asks_statistics, format_months
 from src.domain.punishment_names import PUNISHMENT_NAMES
 
 _SANCTION = re.compile(
-    r"(?<![а-яё])(?:санкци|предусм|грозит|наказываетс|по\s+закону)", re.IGNORECASE
+    r"(?<![а-яё])(?:санкци|предусм|грози[тл]|наказываетс|по\s+закону)", re.IGNORECASE
 )
 
 VERIFIED = "verified"
@@ -37,11 +45,70 @@ def asks_category(text: str) -> bool:
     return bool(_CATEGORY.search(text))
 
 
+_MONTHS = {
+    name: number
+    for number, name in enumerate(
+        (
+            "января",
+            "февраля",
+            "марта",
+            "апреля",
+            "мая",
+            "июня",
+            "июля",
+            "августа",
+            "сентября",
+            "октября",
+            "ноября",
+            "декабря",
+        ),
+        start=1,
+    )
+}
+_NUMERIC_DATE = re.compile(r"(?<![\d.])(\d{1,2})\.(\d{1,2})\.(\d{4})(?![\d.])")
+_WORDED_DATE = re.compile(
+    r"(?<!\d)(\d{1,2})\s+(" + "|".join(_MONTHS) + r")\s+(\d{4})(?!\d)", re.IGNORECASE
+)
+_YEAR = re.compile(r"(?<![\d.])(?:1[89]|20)\d{2}(?![\d.])\s*(?:г\.|год)", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class AskedDate:
+    """The date a question names: `on` — exactly one real date; otherwise it is unclear."""
+
+    on: date | None
+
+    @property
+    def unclear(self) -> bool:
+        return self.on is None
+
+
+def asked_date(text: str) -> AskedDate | None:
+    """None — no date in the question; AskedDate(None) — a year, several dates or a non-date."""
+    found: set[date] = set()
+    impossible = False
+    numeric = [(d, m, y) for d, m, y in _NUMERIC_DATE.findall(text)]
+    worded = [(d, _MONTHS[m.lower()], y) for d, m, y in _WORDED_DATE.findall(text)]
+    for day, month, year in numeric + worded:
+        try:
+            found.add(date(int(year), int(month), int(day)))
+        except ValueError:
+            impossible = True
+    rest = _WORDED_DATE.sub(" ", _NUMERIC_DATE.sub(" ", text))
+    year_only = bool(_YEAR.search(rest))
+    if len(found) == 1 and not impossible and not year_only:
+        return AskedDate(next(iter(found)))
+    if found or impossible or year_only:
+        return AskedDate(None)
+    return None
+
+
 @dataclass(frozen=True)
 class SanctionQuestion:
     """«Which punishments does the statute provide for this qualification?»"""
 
     qualification: Qualification
+    asked: AskedDate | None = None  # T45.9: the date the question names, if any
 
     @property
     def target(self) -> Qualification:
@@ -56,7 +123,7 @@ def parse_sanction_question(text: str) -> SanctionQuestion | None:
     qualifications = parse_qualifications(text)
     if len(qualifications) != 1:
         return None
-    return SanctionQuestion(qualifications[0])
+    return SanctionQuestion(qualifications[0], asked_date(text))
 
 
 @dataclass(frozen=True)
@@ -67,6 +134,8 @@ class SanctionSource:
     source_url: str
     provision_locator: str
     verification_status: str
+    effective_from: date | None = None  # T45.9: period of force of the provision in the base
+    effective_to: date | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +144,18 @@ class SanctionFacts:
     sanctions: tuple[StatutorySanction, ...]  # empty — the part is not parsed in the base
     source: SanctionSource | None
     conflict: bool = False  # editions of the article contradict each other: none is chosen
+
+    @property
+    def on(self) -> date | None:
+        asked = self.question.asked
+        return asked.on if asked is not None else None
+
+    @property
+    def in_force(self) -> bool | None:
+        """The provision read was in force on the asked date; None — no date or not known."""
+        if self.on is None or self.source is None or not self.sanctions or self.conflict:
+            return None
+        return in_force_on(self.source.effective_from, self.source.effective_to, self.on)
 
 
 def _amount(value: float, unit: MeasureUnit) -> str:
@@ -127,6 +208,15 @@ def describe_sanction_facts(facts: SanctionFacts) -> str:
         )
     if not facts.sanctions:
         return f"В базе законов санкция {target} не разобрана: ответ дать нельзя."
+    if facts.in_force is False:
+        source = facts.source
+        period = describe_period(source.effective_from, source.effective_to)
+        return (
+            f"На {facts.on:%d.%m.%Y} положение {source.provision_locator} новейшей редакции "
+            f"в базе законов, из которого прочитана санкция {target}, не действовало (период "
+            f"действия в базе: {period}). Редакцию на эту дату программа не выбирает — "
+            "ответ дать нельзя."
+        )
     by_part: dict[int | None, list[StatutorySanction]] = {}
     for sanction in facts.sanctions:
         by_part.setdefault(sanction.part, []).append(sanction)
@@ -136,6 +226,34 @@ def describe_sanction_facts(facts: SanctionFacts) -> str:
     if asked.point is not None:
         lines.append(f"Для п. «{asked.point}» действует санкция всей части.")
     return "\n".join(lines)
+
+
+def describe_date_note(facts: SanctionFacts) -> str:
+    """T45.9 — what the code knows about the date of the question; written by code, not a model.
+
+    Empty without a date, when no sanction was given, or when the refusal already says it.
+    """
+    asked = facts.question.asked
+    if asked is None or facts.conflict or not facts.sanctions or facts.in_force is False:
+        return ""
+    if asked.unclear:
+        return (
+            "В вопросе не одна точная дата (год, несколько дат или несуществующая дата): "
+            "санкция дана по новейшей редакции в базе законов, действовала ли она на нужную "
+            "дату, программа не проверяла."
+        )
+    on = f"{asked.on:%d.%m.%Y}"
+    if facts.in_force is None:
+        return (
+            "Период действия положения в базе законов не задан: действовала ли эта санкция "
+            f"на {on}, программа не подтверждает."
+        )
+    source = facts.source
+    period = describe_period(source.effective_from, source.effective_to)
+    return (
+        f"По периоду действия в базе законов ({period}) положение действовало на {on}; "
+        "применима ли эта редакция к деянию (ст. 9–10 УК РФ), программа не оценивала."
+    )
 
 
 def describe_sanction_source(facts: SanctionFacts) -> str:

@@ -70,3 +70,38 @@ async def test_sanction_question_in_the_chat_needs_no_practice_base(client, monk
         )
         assert "https://pravo.gov.ru/test-fixture" in message["content"]
         assert message["fact_answer"] == {"kind": "sanction", "worded_by_model": False}
+
+
+async def test_dated_question_is_compared_with_the_period_in_the_base(client):  # T45.9
+    from datetime import date
+
+    from sqlalchemy import update
+
+    from src.db.models import LegalProvision
+
+    await _law_base()
+    params = {"q": "Какая санкция по ч. 2 ст. 158 на 01.03.2020?"}
+    unknown = (await client.get("/api/legal/sanctions/facts", params=params)).json()
+    assert (unknown["on"], unknown["in_force_on"]) == ("2020-03-01", None)
+    assert len(unknown["sanctions"]) == 2
+    assert "лишение свободы до 5 г." in unknown["text"]
+    assert "Период действия положения в базе законов не задан" in unknown["text"]
+
+    async with async_session_factory() as db:
+        await db.execute(
+            update(LegalProvision)
+            .where(LegalProvision.locator == "article.158")
+            .values(effective_from=date(2021, 1, 1))
+        )
+        await db.commit()
+    later = (await client.get("/api/legal/sanctions/facts", params=params)).json()
+    assert (later["in_force_on"], later["sanctions"], later["parsed"]) == (False, [], True)
+    assert later["source"]["effective_from"] == "2021-01-01"
+    assert "не действовало (период действия в базе: с 01.01.2021)" in later["text"]
+    assert "лишение свободы" not in later["text"]
+
+    plain = (
+        await client.get("/api/legal/sanctions/facts", params={"q": QUESTION})
+    ).json()  # without a date the newest edition answers as before
+    assert (plain["on"], plain["in_force_on"]) == (None, None)
+    assert "лишение свободы до 5 г." in plain["text"]

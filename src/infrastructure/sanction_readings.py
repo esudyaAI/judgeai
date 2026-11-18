@@ -23,5 +23,7 @@ class SqlSanctionReadings:
             source_url=provenance.source_url,
             provision_locator=provenance.provision_locator,
             verification_status=provenance.verification_status,
+            effective_from=reading.effective_from,
+            effective_to=reading.effective_to,
         )
         return reading.sanctions, source

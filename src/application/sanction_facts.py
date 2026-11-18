@@ -15,6 +15,7 @@ from src.domain.reference_conflict import ReferenceDataConflict
 from src.domain.sanction_facts import (
     SanctionFacts,
     SanctionSource,
+    describe_date_note,
     describe_sanction_facts,
     describe_sanction_source,
     parse_sanction_question,
@@ -34,6 +35,7 @@ class SanctionFactAnswer:
     facts: SanctionFacts
     text: str
     source: str  # written by code under the answer; empty when nothing was read
+    date_note: str = ""  # T45.9: written by code after the answer; empty without a date
 
 
 async def answer_sanction_fact(
@@ -51,5 +53,8 @@ async def answer_sanction_fact(
         sanctions, source = reading if reading is not None else ([], None)
         facts = SanctionFacts(parsed, tuple(sanctions), source)
     return SanctionFactAnswer(
-        facts, describe_sanction_facts(facts), describe_sanction_source(facts)
+        facts,
+        describe_sanction_facts(facts),
+        describe_sanction_source(facts),
+        describe_date_note(facts),
     )

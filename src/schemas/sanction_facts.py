@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 
@@ -15,6 +17,8 @@ class SanctionFactSourceRead(BaseModel):
     source_url: str
     provision_locator: str
     verification_status: str
+    effective_from: date | None = None  # T45.9: period of force of the provision in the base
+    effective_to: date | None = None
 
 
 class SanctionFactRead(BaseModel):
@@ -27,3 +31,5 @@ class SanctionFactRead(BaseModel):
     conflict: bool = False
     sanctions: list[SanctionFactItemRead] = []
     source: SanctionFactSourceRead | None = None
+    on: date | None = None  # T45.9: the one date the question names
+    in_force_on: bool | None = None  # the provision was in force on it; None — not known

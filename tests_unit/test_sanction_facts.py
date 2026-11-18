@@ -1,6 +1,7 @@
 """T45.3 — «what does the law provide»: the sanction of the part from the law base, by code."""
 
 import unittest
+from datetime import date
 
 from legal_core.entities import MeasureUnit, PunishmentKind, SanctionRole, StatutorySanction
 from legal_core.precedents import Qualification
@@ -12,7 +13,9 @@ from src.domain.sanction_facts import (
     SanctionFacts,
     SanctionQuestion,
     SanctionSource,
+    asked_date,
     describe_alternative,
+    describe_date_note,
     describe_sanction_facts,
     describe_sanction_source,
     parse_sanction_question,
@@ -273,6 +276,113 @@ class ChatTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(answer.worded_by_model)
         self.assertEqual(answer.rejected_numbers, {"пяти", "60"})
         self.assertIn("лишение свободы до 5 г.", answer.text)
+
+
+class AskedDateTest(unittest.TestCase):
+    """T45.9: a date in a sanction question is compared with the period of force in the base."""
+
+    def test_one_date_is_read_and_the_qualification_kept(self):
+        for text in (
+            "Какая санкция по ч. 2 ст. 158 на 01.03.2020?",
+            "Что грозило по ч. 2 ст. 158 по состоянию на 1 марта 2020 г.?",
+        ):
+            with self.subTest(text=text):
+                parsed = parse_sanction_question(text)
+                self.assertEqual(parsed.qualification, Qualification("158", 2))
+                self.assertEqual(parsed.asked.on, date(2020, 3, 1))
+                self.assertEqual(asked_date(text).on, date(2020, 3, 1))
+
+    def test_year_several_dates_or_non_date_are_unclear(self):
+        for text in (
+            "Какая санкция по ч. 2 ст. 158 была в 2019 году?",
+            "Какая санкция по ч. 2 ст. 158 на 01.03.2020 и на 01.03.2021?",
+            "Какая санкция по ч. 2 ст. 158 на 31.02.2020?",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(asked_date(text).unclear)
+        self.assertIsNone(asked_date("Какая санкция по ч. 2 ст. 158?"))
+        self.assertIsNone(parse_sanction_question(QUESTION).asked)
+
+
+def dated(on_text, start=None, end=None, sanctions=THEFT_2, **kw):
+    source = SanctionSource(
+        "Синтетическая редакция",
+        "https://example.invalid/uk",
+        "article.158",
+        "unreviewed",
+        effective_from=date.fromisoformat(start) if start else None,
+        effective_to=date.fromisoformat(end) if end else None,
+    )
+    question = SanctionQuestion(THEFT_2_PART, asked_date(on_text))
+    return SanctionFacts(question, tuple(sanctions), source, **kw)
+
+
+class DateNoteTest(unittest.TestCase):
+    def test_in_force_on_the_date_gives_the_sanction_and_says_so(self):
+        item = dated("на 01.03.2020", start="2019-01-01")
+        self.assertTrue(item.in_force)
+        self.assertIn("лишение свободы до 5 г.", describe_sanction_facts(item))
+        self.assertEqual(
+            describe_date_note(item),
+            "По периоду действия в базе законов (с 01.01.2019) положение действовало на "
+            "01.03.2020; применима ли эта редакция к деянию (ст. 9–10 УК РФ), программа не "
+            "оценивала.",
+        )
+
+    def test_not_in_force_on_the_date_gives_no_sanction(self):
+        for start, end in (("2021-01-01", None), ("2015-01-01", "2020-03-01")):
+            with self.subTest(start=start, end=end):
+                item = dated("на 01.03.2020", start=start, end=end)
+                self.assertIs(item.in_force, False)
+                text = describe_sanction_facts(item)
+                self.assertTrue(text.startswith("На 01.03.2020 положение article.158"))
+                self.assertIn("не действовало", text)
+                self.assertIn("ответ дать нельзя", text)
+                self.assertNotIn("лишение свободы", text)
+                self.assertEqual(describe_date_note(item), "")
+        self.assertIn("(период действия в базе: с 01.01.2015 до 01.03.2020)", text)
+
+    def test_unknown_period_and_unclear_date_are_said(self):
+        unknown = dated("на 01.03.2020")
+        self.assertIsNone(unknown.in_force)
+        self.assertIn("лишение свободы до 5 г.", describe_sanction_facts(unknown))
+        self.assertEqual(
+            describe_date_note(unknown),
+            "Период действия положения в базе законов не задан: действовала ли эта санкция на "
+            "01.03.2020, программа не подтверждает.",
+        )
+        unclear = describe_date_note(dated("в 2019 году", start="2019-01-01"))
+        self.assertTrue(unclear.startswith("В вопросе не одна точная дата"))
+
+    def test_no_note_without_a_date_or_without_an_answer(self):
+        self.assertEqual(describe_date_note(facts()), "")
+        self.assertEqual(describe_date_note(dated("на 01.03.2020", sanctions=())), "")
+        conflict = dated("на 01.03.2020", sanctions=(), conflict=True)
+        self.assertEqual(describe_date_note(conflict), "")
+        self.assertIsNone(conflict.in_force)
+
+
+class DatedUseCaseTest(unittest.IsolatedAsyncioTestCase):
+    async def test_the_note_is_written_by_code_even_when_a_model_rewords(self):
+        source = SanctionSource(
+            "Синтетическая редакция",
+            "https://example.invalid/uk",
+            "article.158",
+            "unreviewed",
+            effective_from=date(2019, 1, 1),
+        )
+        question = "Какая санкция по ч. 2 ст. 158 на 01.03.2020?"
+        answer = await answer_sanction_fact(Readings((list(THEFT_2), source)), question)
+        self.assertTrue(answer.date_note.startswith("По периоду действия"))
+        phraser = Phraser("По ч. 2 ст. 158 — до 5 г. лишения свободы.")
+        chat = await answer_practice_question(
+            None, question, phraser, Readings((list(THEFT_2), source))
+        )
+        self.assertTrue(chat.worded_by_model)
+        self.assertTrue(chat.text.startswith("По ч. 2 ст. 158 — до 5 г."))
+        self.assertIn("положение действовало на 01.03.2020", chat.text)
+        self.assertTrue(chat.text.endswith("(статус: unreviewed)."))
+        self.assertNotIn("действовало", phraser.calls[0][1])  # the model is not given the note
 
 
 if __name__ == "__main__":

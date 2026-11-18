@@ -35,7 +35,7 @@ async def sanction_fact(
     source = facts.source
     return SanctionFactRead(
         answered=True,
-        text="\n\n".join(t for t in (answer.text, answer.source) if t),
+        text="\n\n".join(t for t in (answer.text, answer.date_note, answer.source) if t),
         qualification=str(facts.question.qualification),
         parsed=bool(facts.sanctions),
         conflict=facts.conflict,
@@ -49,6 +49,9 @@ async def sanction_fact(
                 unit=s.unit.value if s.unit else None,
             )
             for s in facts.sanctions
+            if facts.in_force is not False  # T45.9: not in force on the date — not given
         ],
         source=SanctionFactSourceRead(**asdict(source)) if source and facts.sanctions else None,
+        on=facts.on,
+        in_force_on=facts.in_force,
     )

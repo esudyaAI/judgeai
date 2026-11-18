@@ -99,6 +99,8 @@ async def answer_practice_question(
         return None
     qualification = str(sanction.facts.question.qualification)
     body, worded, rejected = await _worded(phraser, qualification, sanction.text)
+    # T45.9: the note on the asked date is code's own text — a model wording cannot drop it.
+    body = _with_sources(body, sanction.date_note)
     return ChatPracticeAnswer(
         _with_sources(body, sanction.source), None, worded, rejected, kind=SANCTION
     )
